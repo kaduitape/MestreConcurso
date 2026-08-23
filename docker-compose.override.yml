@@ -1,0 +1,26 @@
+# Ajustes de desenvolvimento: código montado do host e recarga automática.
+# Carregado automaticamente pelo `docker compose up`.
+services:
+  api:
+    volumes:
+      - ./backend:/app
+    environment:
+      DB_ECHO: ${DB_ECHO:-false}
+      LOG_FORMAT: console
+
+  worker:
+    volumes:
+      - ./backend:/app
+    environment:
+      LOG_FORMAT: console
+
+  beat:
+    volumes:
+      - ./backend:/app
+    environment:
+      LOG_FORMAT: console
+
+  frontend:
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules

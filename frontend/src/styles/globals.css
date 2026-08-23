@@ -1,0 +1,211 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   Design System — Concurso Mestre IA
+   Um único lugar define cor, raio, sombra e tipografia. Componentes usam
+   apenas tokens semânticos (bg-surface, text-muted…), nunca cores soltas.
+   ========================================================================== */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Superfícies */
+  --background: oklch(0.985 0.003 250);
+  --surface: oklch(1 0 0);
+  --surface-muted: oklch(0.972 0.005 250);
+  --surface-elevated: oklch(1 0 0);
+  --border: oklch(0.9 0.008 250);
+  --border-strong: oklch(0.84 0.012 250);
+
+  /* Texto */
+  --foreground: oklch(0.22 0.02 260);
+  --foreground-muted: oklch(0.52 0.02 260);
+  --foreground-subtle: oklch(0.62 0.015 260);
+
+  /* Marca */
+  --primary: oklch(0.53 0.19 262);
+  --primary-hover: oklch(0.47 0.19 262);
+  --primary-foreground: oklch(0.99 0 0);
+  --primary-soft: oklch(0.95 0.03 262);
+
+  --secondary: oklch(0.55 0.21 292);
+  --secondary-foreground: oklch(0.99 0 0);
+  --secondary-soft: oklch(0.955 0.03 292);
+
+  /* Estados */
+  --success: oklch(0.62 0.16 152);
+  --success-soft: oklch(0.95 0.04 152);
+  --warning: oklch(0.75 0.16 78);
+  --warning-soft: oklch(0.96 0.05 78);
+  --danger: oklch(0.58 0.21 25);
+  --danger-soft: oklch(0.95 0.04 25);
+  --info: oklch(0.62 0.14 232);
+  --info-soft: oklch(0.95 0.03 232);
+
+  /* Disciplinas — a cor de cada matéria é estável em todas as telas */
+  --subject-portugues: oklch(0.6 0.17 25);
+  --subject-direito: oklch(0.55 0.18 262);
+  --subject-raciocinio: oklch(0.62 0.15 152);
+  --subject-informatica: oklch(0.63 0.15 232);
+  --subject-atualidades: oklch(0.7 0.15 78);
+  --subject-especifica: oklch(0.57 0.2 292);
+
+  --radius: 0.875rem;
+  --ring: oklch(0.53 0.19 262 / 0.45);
+  --shadow-soft: 0 1px 2px oklch(0.2 0.02 260 / 0.06), 0 8px 24px oklch(0.2 0.02 260 / 0.06);
+  --shadow-raised: 0 2px 4px oklch(0.2 0.02 260 / 0.08), 0 16px 40px oklch(0.2 0.02 260 / 0.1);
+}
+
+.dark {
+  --background: oklch(0.19 0.02 265);
+  --surface: oklch(0.23 0.022 265);
+  --surface-muted: oklch(0.26 0.022 265);
+  --surface-elevated: oklch(0.27 0.024 265);
+  --border: oklch(0.32 0.02 265);
+  --border-strong: oklch(0.4 0.025 265);
+
+  --foreground: oklch(0.96 0.005 250);
+  --foreground-muted: oklch(0.75 0.015 255);
+  --foreground-subtle: oklch(0.63 0.015 255);
+
+  --primary: oklch(0.65 0.17 262);
+  --primary-hover: oklch(0.7 0.17 262);
+  --primary-foreground: oklch(0.16 0.02 265);
+  --primary-soft: oklch(0.32 0.06 262);
+
+  --secondary: oklch(0.68 0.17 292);
+  --secondary-foreground: oklch(0.16 0.02 265);
+  --secondary-soft: oklch(0.32 0.06 292);
+
+  --success: oklch(0.72 0.15 152);
+  --success-soft: oklch(0.3 0.06 152);
+  --warning: oklch(0.8 0.14 78);
+  --warning-soft: oklch(0.33 0.06 78);
+  --danger: oklch(0.68 0.18 25);
+  --danger-soft: oklch(0.32 0.07 25);
+  --info: oklch(0.72 0.13 232);
+  --info-soft: oklch(0.3 0.06 232);
+
+  --ring: oklch(0.65 0.17 262 / 0.5);
+  --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px oklch(0 0 0 / 0.35);
+  --shadow-raised: 0 2px 6px oklch(0 0 0 / 0.45), 0 20px 48px oklch(0 0 0 / 0.45);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-foreground: var(--foreground);
+  --color-muted: var(--foreground-muted);
+  --color-subtle: var(--foreground-subtle);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-soft: var(--secondary-soft);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  --color-subject-portugues: var(--subject-portugues);
+  --color-subject-direito: var(--subject-direito);
+  --color-subject-raciocinio: var(--subject-raciocinio);
+  --color-subject-informatica: var(--subject-informatica);
+  --color-subject-atualidades: var(--subject-atualidades);
+  --color-subject-especifica: var(--subject-especifica);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 8px);
+
+  --shadow-soft: var(--shadow-soft);
+  --shadow-raised: var(--shadow-raised);
+
+  --font-sans:
+    'Inter var', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    min-height: 100dvh;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--primary-soft);
+    color: var(--foreground);
+  }
+}
+
+@layer components {
+  /* Fundo com brilho sutil usado nas telas de autenticação. */
+  .aurora {
+    background-image:
+      radial-gradient(60rem 30rem at 15% -10%, var(--primary-soft), transparent 60%),
+      radial-gradient(50rem 26rem at 95% 10%, var(--secondary-soft), transparent 60%);
+  }
+
+  .glass {
+    background: color-mix(in oklch, var(--surface) 80%, transparent);
+    backdrop-filter: blur(12px) saturate(140%);
+  }
+
+  .ai-gradient {
+    background-image: linear-gradient(135deg, var(--primary), var(--secondary));
+  }
+
+  .ai-text {
+    background-image: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .card-surface {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-soft);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
