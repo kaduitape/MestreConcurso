@@ -27,7 +27,12 @@ export function Th({ className, ...props }: React.ThHTMLAttributes<HTMLTableCell
 }
 
 export function Td({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn('border-b border-border/60 px-4 py-3 align-middle', className)} {...props} />
+  return (
+    <td
+      className={cn('border-b border-border/60 px-4 py-3 align-middle', className)}
+      {...props}
+    />
+  )
 }
 
 export function Tr({ className, ...props }: React.HTMLAttributes<HTMLTableRowElement>) {

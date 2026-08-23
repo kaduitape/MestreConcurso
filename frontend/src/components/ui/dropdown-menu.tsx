@@ -58,7 +58,10 @@ export function DropdownMenuLabel({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Label>) {
   return (
     <DropdownMenuPrimitive.Label
-      className={cn('px-2.5 py-2 text-xs font-medium tracking-wide text-subtle uppercase', className)}
+      className={cn(
+        'px-2.5 py-2 text-xs font-medium tracking-wide text-subtle uppercase',
+        className,
+      )}
       {...props}
     />
   )

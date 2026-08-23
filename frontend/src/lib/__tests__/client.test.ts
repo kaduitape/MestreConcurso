@@ -85,9 +85,9 @@ describe('apiRequest', () => {
       ),
     )
 
-    await expect(apiRequest('/auth/register', { method: 'POST', skipAuth: true })).rejects.toThrow(
-      ApiError,
-    )
+    await expect(
+      apiRequest('/auth/register', { method: 'POST', skipAuth: true }),
+    ).rejects.toThrow(ApiError)
 
     try {
       await apiRequest('/auth/register', { method: 'POST', skipAuth: true })

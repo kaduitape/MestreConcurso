@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from typing import Any
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -36,7 +37,19 @@ def get_engine() -> AsyncEngine:
     global _engine
     if _engine is None:
         _engine = create_async_engine(settings.sqlalchemy_url, **_engine_kwargs())
+        if _engine.dialect.name == "sqlite":
+            _enable_sqlite_foreign_keys(_engine)
     return _engine
+
+
+def _enable_sqlite_foreign_keys(engine: AsyncEngine) -> None:
+    """SQLite ignora ON DELETE CASCADE sem este PRAGMA; o MySQL já o respeita."""
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_pragma(dbapi_connection: Any, _record: Any) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 
 def get_session_factory() -> async_sessionmaker[AsyncSession]:

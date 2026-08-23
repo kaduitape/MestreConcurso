@@ -39,7 +39,11 @@ FROM base AS runtime
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=app:app . .
-RUN chmod +x docker/entrypoint.sh
+RUN chmod +x docker/entrypoint.sh \
+    # Diretório de uploads criado com dono correto: o volume nomeado herda estas
+    # permissões e o processo (uid 1000) consegue gravar.
+    && mkdir -p /var/lib/mestre/uploads \
+    && chown -R app:app /var/lib/mestre
 
 USER app
 EXPOSE 8000

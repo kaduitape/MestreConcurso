@@ -128,9 +128,12 @@ async function parseError(response: Response): Promise<ApiError> {
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, skipAuth, raw, headers, ...rest } = options
 
+  const isFormData = body instanceof FormData
+
   const send = async (token: string | null): Promise<Response> => {
     const finalHeaders = new Headers(headers)
-    if (body !== undefined && !finalHeaders.has('Content-Type')) {
+    // O navegador precisa definir o boundary do multipart sozinho.
+    if (body !== undefined && !isFormData && !finalHeaders.has('Content-Type')) {
       finalHeaders.set('Content-Type', 'application/json')
     }
     if (token && !skipAuth) finalHeaders.set('Authorization', `Bearer ${token}`)
@@ -138,7 +141,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     return fetch(`${BASE}${path}`, {
       ...rest,
       headers: finalHeaders,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
     })
   }
 

@@ -54,7 +54,9 @@ export function SecuritySection() {
       reset()
     },
     onError: (error: unknown) =>
-      toast.error(error instanceof ApiError ? error.message : 'Não foi possível alterar a senha.'),
+      toast.error(
+        error instanceof ApiError ? error.message : 'Não foi possível alterar a senha.',
+      ),
   })
 
   const logoutEverywhere = useMutation({
@@ -95,7 +97,11 @@ export function SecuritySection() {
               />
             </Field>
 
-            <Field label="Nova senha" htmlFor="new_password" error={errors.new_password?.message}>
+            <Field
+              label="Nova senha"
+              htmlFor="new_password"
+              error={errors.new_password?.message}
+            >
               <Input
                 id="new_password"
                 type="password"
@@ -106,7 +112,11 @@ export function SecuritySection() {
             </Field>
             <PasswordStrength value={watch('new_password') ?? ''} />
 
-            <Field label="Confirmar nova senha" htmlFor="confirm" error={errors.confirm?.message}>
+            <Field
+              label="Confirmar nova senha"
+              htmlFor="confirm"
+              error={errors.confirm?.message}
+            >
               <Input
                 id="confirm"
                 type="password"

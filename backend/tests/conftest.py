@@ -8,12 +8,14 @@ antes de qualquer import da aplicação, pois as configurações são carregadas
 from __future__ import annotations
 
 import os
+import shutil
 import tempfile
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
 _TMP_DB = Path(tempfile.gettempdir()) / "mestre_test.sqlite3"
+_TMP_UPLOADS = Path(tempfile.gettempdir()) / "mestre_test_uploads"
 os.environ.update(
     ENVIRONMENT="test",
     DEBUG="true",
@@ -27,6 +29,7 @@ os.environ.update(
     ARGON2_MEMORY_COST="8192",
     ARGON2_PARALLELISM="1",
     MAX_LOGIN_ATTEMPTS="3",
+    STORAGE_LOCAL_PATH=str(_TMP_UPLOADS),
 )
 
 import pytest  # noqa: E402
@@ -63,6 +66,7 @@ class CapturingDispatcher:
 @pytest.fixture
 async def app_instance() -> AsyncIterator[Any]:
     _TMP_DB.unlink(missing_ok=True)
+    shutil.rmtree(_TMP_UPLOADS, ignore_errors=True)
     engine = get_engine()
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
@@ -78,6 +82,7 @@ async def app_instance() -> AsyncIterator[Any]:
         await connection.run_sync(Base.metadata.drop_all)
     await dispose_engine()
     _TMP_DB.unlink(missing_ok=True)
+    shutil.rmtree(_TMP_UPLOADS, ignore_errors=True)
 
 
 @pytest.fixture

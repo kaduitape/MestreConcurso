@@ -4,6 +4,7 @@ services:
   api:
     volumes:
       - ./backend:/app
+      - uploads_data:/var/lib/mestre/uploads
     environment:
       DB_ECHO: ${DB_ECHO:-false}
       LOG_FORMAT: console
@@ -11,6 +12,7 @@ services:
   worker:
     volumes:
       - ./backend:/app
+      - uploads_data:/var/lib/mestre/uploads
     environment:
       LOG_FORMAT: console
 
@@ -24,3 +26,6 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+
+volumes:
+  uploads_data:

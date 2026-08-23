@@ -31,6 +31,12 @@ ROLES_READ = "roles:read"
 ROLES_WRITE = "roles:write"
 AUDIT_READ = "audit:read"
 ADMIN_DASHBOARD_READ = "admin_dashboard:read"
+CATALOG_READ = "catalog:read"
+CATALOG_WRITE = "catalog:write"
+NOTICES_READ = "notices:read"
+NOTICES_WRITE = "notices:write"
+AI_SETTINGS_READ = "ai_settings:read"
+AI_SETTINGS_WRITE = "ai_settings:write"
 
 PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec(USERS_READ, "Listar e visualizar usuários"),
@@ -40,6 +46,12 @@ PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec(ROLES_WRITE, "Criar e editar papéis"),
     PermissionSpec(AUDIT_READ, "Consultar a trilha de auditoria"),
     PermissionSpec(ADMIN_DASHBOARD_READ, "Acessar o painel administrativo"),
+    PermissionSpec(CATALOG_READ, "Consultar bancas, concursos, cargos e disciplinas"),
+    PermissionSpec(CATALOG_WRITE, "Cadastrar e editar o catálogo de concursos"),
+    PermissionSpec(NOTICES_READ, "Consultar editais e seus arquivos"),
+    PermissionSpec(NOTICES_WRITE, "Cadastrar editais e enviar arquivos"),
+    PermissionSpec(AI_SETTINGS_READ, "Ver a configuração de provedores de IA"),
+    PermissionSpec(AI_SETTINGS_WRITE, "Configurar provedores, chaves e modelos de IA"),
 )
 
 
@@ -67,7 +79,16 @@ ROLES: tuple[RoleSpec, ...] = (
         ROLE_STAFF,
         "Equipe",
         "Suporte e curadoria de conteúdo",
-        (USERS_READ, ROLES_READ, AUDIT_READ, ADMIN_DASHBOARD_READ),
+        (
+            USERS_READ,
+            ROLES_READ,
+            AUDIT_READ,
+            ADMIN_DASHBOARD_READ,
+            CATALOG_READ,
+            CATALOG_WRITE,
+            NOTICES_READ,
+            NOTICES_WRITE,
+        ),
     ),
     RoleSpec(
         ROLE_STUDENT,

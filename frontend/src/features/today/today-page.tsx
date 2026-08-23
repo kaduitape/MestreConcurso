@@ -83,9 +83,7 @@ export function TodayPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <p className="text-sm text-muted">{greeting()},</p>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          {firstName(user.full_name)}.
-        </h1>
+        <h1 className="text-3xl font-semibold tracking-tight">{firstName(user.full_name)}.</h1>
       </header>
 
       <Card>
@@ -106,9 +104,10 @@ export function TodayPage() {
               Ainda não há edital vinculado à sua conta, então não existe missão para exibir.
             </p>
             <p className="mt-1">
-              A plataforma não sugere estudo sem base: assim que o analisador de edital
-              (Fase 3) e o planejador adaptativo (Fase 4) entrarem no ar, esta área passa a
-              mostrar o que estudar hoje, por quanto tempo e por quê.
+              A plataforma não sugere estudo sem base. O catálogo de concursos já está no ar;
+              quando o analisador de edital (Fase 3) e o planejador adaptativo (Fase 4)
+              entrarem, esta área passa a mostrar o que estudar hoje, por quanto tempo e por
+              quê.
             </p>
           </div>
 
@@ -121,6 +120,15 @@ export function TodayPage() {
                 user.email_verified_at
                   ? `Confirmado em ${formatDate(user.email_verified_at)}.`
                   : 'Confirme seu e-mail para liberar todos os recursos.'
+              }
+            />
+            <SetupStep
+              title="Escolher seu concurso"
+              description="O catálogo já traz certames, cargos, disciplinas e editais oficiais."
+              action={
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/concursos">Ver concursos</Link>
+                </Button>
               }
             />
             <SetupStep
@@ -197,10 +205,10 @@ export function TodayPage() {
         <CardContent>
           <ol className="grid gap-3 sm:grid-cols-2">
             {[
-              ['Fase 2', 'Catálogo de concursos, bancas, cargos e disciplinas'],
               ['Fase 3', 'Analisador de edital com IA, RAG e Raio-X'],
               ['Fase 4', 'Planejador adaptativo, agenda e sessões de estudo'],
               ['Fase 5', 'Banco de questões e simulados'],
+              ['Fase 6', 'Priority Score, DNA da banca e caderno de erros'],
             ].map(([phase, description]) => (
               <li key={phase} className="rounded-md bg-surface-muted p-3">
                 <p className="text-xs font-semibold tracking-wide text-primary uppercase">

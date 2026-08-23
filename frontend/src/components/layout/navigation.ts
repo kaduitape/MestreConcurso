@@ -1,5 +1,6 @@
 import {
   Brain,
+  Briefcase,
   CalendarDays,
   ClipboardList,
   FileText,
@@ -32,6 +33,7 @@ export const navigation: NavGroup[] = [
     title: 'Preparação',
     items: [
       { label: 'Hoje', to: '/hoje', icon: LayoutDashboard },
+      { label: 'Concursos', to: '/concursos', icon: Briefcase },
       { label: 'Meu edital', icon: FileText, phase: 'Fase 3' },
       { label: 'Plano de estudo', icon: Target, phase: 'Fase 4' },
       { label: 'Calendário', icon: CalendarDays, phase: 'Fase 4' },
@@ -57,7 +59,12 @@ export const navigation: NavGroup[] = [
     title: 'Conta',
     items: [
       { label: 'Minha conta', to: '/conta', icon: User },
-      { label: 'Administração', to: '/admin', icon: Shield, permission: 'admin_dashboard:read' },
+      {
+        label: 'Administração',
+        to: '/admin',
+        icon: Shield,
+        permission: 'admin_dashboard:read',
+      },
     ],
   },
 ]

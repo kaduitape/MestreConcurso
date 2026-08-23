@@ -94,11 +94,20 @@ export function ProfileSection() {
           </div>
 
           <Field label="Nome completo" htmlFor="full_name" error={errors.full_name?.message}>
-            <Input id="full_name" invalid={Boolean(errors.full_name)} {...register('full_name')} />
+            <Input
+              id="full_name"
+              invalid={Boolean(errors.full_name)}
+              {...register('full_name')}
+            />
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Cidade" htmlFor="city" error={errors.city?.message} className="sm:col-span-2">
+            <Field
+              label="Cidade"
+              htmlFor="city"
+              error={errors.city?.message}
+              className="sm:col-span-2"
+            >
               <Input id="city" placeholder="Brasília" {...register('city')} />
             </Field>
             <Field label="UF" htmlFor="state" error={errors.state?.message}>

@@ -11,8 +11,7 @@ const rules = [
 /** Espelha exatamente a política validada no backend. */
 export function PasswordStrength({ value }: { value: string }) {
   const passed = rules.filter((rule) => rule.test(value)).length
-  const tone =
-    passed <= 2 ? 'bg-danger' : passed <= 4 ? 'bg-warning' : 'bg-success'
+  const tone = passed <= 2 ? 'bg-danger' : passed <= 4 ? 'bg-warning' : 'bg-success'
 
   return (
     <div className="space-y-2">
@@ -29,10 +28,7 @@ export function PasswordStrength({ value }: { value: string }) {
       </div>
       <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
         {rules.map((rule) => (
-          <li
-            key={rule.label}
-            className={rule.test(value) ? 'text-success' : 'text-subtle'}
-          >
+          <li key={rule.label} className={rule.test(value) ? 'text-success' : 'text-subtle'}>
             {rule.test(value) ? '✓' : '○'} {rule.label}
           </li>
         ))}

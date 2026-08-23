@@ -3,3 +3,6 @@ dist/
 coverage/
 .vite/
 *.local
+
+# Artefatos de build do TypeScript
+*.tsbuildinfo

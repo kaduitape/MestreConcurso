@@ -94,7 +94,9 @@ class Settings(BaseSettings):
     log_format: Literal["json", "console"] = "json"
     metrics_enabled: bool = False
 
-    # --- Uploads (fases futuras) ------------------------------------------
+    # --- Uploads / armazenamento ------------------------------------------
+    storage_backend: Literal["local", "s3"] = "local"
+    storage_local_path: str = "/var/lib/mestre/uploads"
     max_upload_size_mb: int = 30
     max_pdf_pages: int = 400
 

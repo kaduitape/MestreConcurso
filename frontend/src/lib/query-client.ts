@@ -24,4 +24,22 @@ export const queryKeys = {
   adminUsers: (params: unknown) => ['admin', 'users', params] as const,
   adminRoles: ['admin', 'roles'] as const,
   adminAudit: (params: unknown) => ['admin', 'audit', params] as const,
+  aiProviders: ['admin', 'ai', 'providers'] as const,
+  aiAvailable: ['admin', 'ai', 'available'] as const,
+  aiFeatures: ['admin', 'ai', 'features'] as const,
+  aiCache: ['admin', 'ai', 'cache'] as const,
+  adminBoards: (params: unknown) => ['admin', 'catalog', 'boards', params] as const,
+  adminOrganizations: (params: unknown) =>
+    ['admin', 'catalog', 'organizations', params] as const,
+  adminCompetitions: (params: unknown) => ['admin', 'catalog', 'competitions', params] as const,
+  adminCompetition: (publicId: string) =>
+    ['admin', 'catalog', 'competition', publicId] as const,
+  adminSubjects: (params: unknown) => ['admin', 'catalog', 'subjects', params] as const,
+  adminTopics: (subjectId: string) => ['admin', 'catalog', 'topics', subjectId] as const,
+  adminNotices: (params: unknown) => ['admin', 'notices', params] as const,
+  boardKnowledge: (publicId: string) => ['catalog', 'board-knowledge', publicId] as const,
+  competitions: (params: unknown) => ['catalog', 'competitions', params] as const,
+  competition: (publicId: string) => ['catalog', 'competition', publicId] as const,
+  competitionNotices: (publicId: string) =>
+    ['catalog', 'competition-notices', publicId] as const,
 }

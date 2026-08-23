@@ -35,6 +35,10 @@ export const adminApi = {
 
   permissions: () => api.get<Permission[]>('/admin/permissions'),
 
-  auditLogs: (params: { page: number; page_size: number; action?: string; since_days?: number }) =>
-    api.get<Page<AuditLog>>(`/admin/audit-logs${query({ ...params })}`),
+  auditLogs: (params: {
+    page: number
+    page_size: number
+    action?: string
+    since_days?: number
+  }) => api.get<Page<AuditLog>>(`/admin/audit-logs${query({ ...params })}`),
 }

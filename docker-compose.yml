@@ -21,6 +21,7 @@ x-backend-env: &backend-env
   LOG_FORMAT: ${LOG_FORMAT:-json}
   BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@mestreconcurso.com.br}
   BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-Admin@Mestre123}
+  STORAGE_LOCAL_PATH: /var/lib/mestre/uploads
 
 services:
   mysql:
@@ -68,6 +69,8 @@ services:
     environment: *backend-env
     ports:
       - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - uploads_data:/var/lib/mestre/uploads
     depends_on:
       mysql:
         condition: service_healthy
@@ -83,6 +86,8 @@ services:
     environment:
       <<: *backend-env
       RUN_SEED: "false"
+    volumes:
+      - uploads_data:/var/lib/mestre/uploads
     depends_on:
       api:
         condition: service_started
@@ -125,3 +130,4 @@ services:
 volumes:
   mysql_data:
   redis_data:
+  uploads_data:

@@ -12,8 +12,10 @@ Cada fase termina com a aplicação **executável** (`docker compose up` → log
 - Frontend: Vite + TS + Tailwind + design system, tema claro/escuro, AppShell, command palette, telas de auth, conta/dispositivos, admin básico (usuários, papéis, auditoria).
 - Testes: unitários (senha, JWT, RBAC, rate limit) e integração (fluxo completo de auth, admin).
 
-## FASE 2 — Concursos (catálogo)
-Bancas, órgãos, concursos, cargos, disciplinas, árvore de assuntos, upload de arquivos de edital (sem IA), CRUD admin com TanStack Table, importação CSV, busca e filtros. **Aceite:** admin cadastra um concurso completo e o aluno o encontra na busca.
+## FASE 2 — Concursos (catálogo)  ✅ implementada
+Bancas, órgãos, concursos, cargos, disciplinas, árvore de assuntos (4 níveis, caminho materializado), vínculo cargo×disciplina com peso, upload de arquivos de edital com verificação de conteúdo (sem IA), CRUD admin, importação CSV de assuntos, busca e filtros, catálogo público só com o que está publicado.
+Entrou junto, por decisão do produto: **configuração de provedores de IA no painel** (chave cifrada, teste de conexão real, importação de modelos, modelo por funcionalidade) e a **camada de persistência que evita gasto repetido de tokens** (cache de respostas por impressão digital + conhecimento de banca gravado com origem, amostra e validade).
+**Aceite:** ver `docs/12-criterios-aceite-fase2.md`.
 
 ## FASE 3 — Edital IA
 Pipeline PDF → extração → OCR condicional → chunking → embeddings → Qdrant → extração estruturada com evidência → tela de confirmação → Raio-X. WebSocket de progresso. **Aceite:** edital real de 80+ páginas processado com ≥ 90% dos campos com citação verificável e zero campo `OFICIAL` sem quote válida.

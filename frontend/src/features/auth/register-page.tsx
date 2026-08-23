@@ -174,8 +174,8 @@ export function RegisterPage() {
             {...register('accepted_terms')}
           />
           <span>
-            Li e aceito os Termos de Uso e a Política de Privacidade, incluindo o tratamento
-            dos meus dados conforme a LGPD.
+            Li e aceito os Termos de Uso e a Política de Privacidade, incluindo o tratamento dos
+            meus dados conforme a LGPD.
           </span>
         </label>
         {errors.accepted_terms && (

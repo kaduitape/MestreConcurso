@@ -1,7 +1,16 @@
 import * as React from 'react'
 import { Command } from 'cmdk'
 import { useNavigate } from 'react-router-dom'
-import { LayoutDashboard, LogOut, Moon, Shield, Sun, User, Monitor } from 'lucide-react'
+import {
+  Briefcase,
+  LayoutDashboard,
+  LogOut,
+  Monitor,
+  Moon,
+  Shield,
+  Sun,
+  User,
+} from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useAuth } from '@/providers/auth-provider'
 import { useTheme } from '@/providers/theme-provider'
@@ -50,6 +59,14 @@ export function CommandPalette({
       icon: LayoutDashboard,
       group: 'Navegação',
       run: () => navigate('/hoje'),
+    },
+    {
+      id: 'concursos',
+      label: 'Ver concursos',
+      hint: 'catálogo de certames',
+      icon: Briefcase,
+      group: 'Navegação',
+      run: () => navigate('/concursos'),
     },
     {
       id: 'conta',
@@ -106,11 +123,7 @@ export function CommandPalette({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="top-[15%] max-w-xl translate-y-0 p-0">
-        <Command
-          label="Paleta de comandos"
-          className="overflow-hidden rounded-lg"
-          loop
-        >
+        <Command label="Paleta de comandos" className="overflow-hidden rounded-lg" loop>
           <Command.Input
             autoFocus
             placeholder="Buscar telas e ações…"

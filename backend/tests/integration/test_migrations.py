@@ -22,6 +22,21 @@ EXPECTED_TABLES = {
     "auth_tokens",
     "audit_logs",
     "consent_logs",
+    "exam_boards",
+    "organizations",
+    "competitions",
+    "positions",
+    "subjects",
+    "topics",
+    "position_subjects",
+    "notices",
+    "notice_files",
+    "ai_providers",
+    "ai_models",
+    "ai_feature_bindings",
+    "ai_cache_entries",
+    "ai_usage",
+    "board_knowledge_entries",
 }
 
 

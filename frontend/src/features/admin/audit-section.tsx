@@ -99,7 +99,9 @@ export function AuditSection() {
                       )}
                     </Td>
                     <Td className="text-xs text-subtle">
-                      {log.resource_type ? `${log.resource_type} ${log.resource_id ?? ''}` : '—'}
+                      {log.resource_type
+                        ? `${log.resource_type} ${log.resource_id ?? ''}`
+                        : '—'}
                     </Td>
                     <Td>
                       <Badge

@@ -48,7 +48,9 @@ export function PrivacySection() {
       navigate('/entrar', { replace: true })
     },
     onError: (error: unknown) =>
-      toast.error(error instanceof ApiError ? error.message : 'Não foi possível excluir a conta.'),
+      toast.error(
+        error instanceof ApiError ? error.message : 'Não foi possível excluir a conta.',
+      ),
   })
 
   return (
@@ -67,7 +69,11 @@ export function PrivacySection() {
             O arquivo inclui cadastro, perfil, consentimentos registrados, sessões ativas e o
             histórico de atividades da conta.
           </p>
-          <Button variant="outline" onClick={() => exportData.mutate()} loading={exportData.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => exportData.mutate()}
+            loading={exportData.isPending}
+          >
             <Download /> Exportar meus dados (JSON)
           </Button>
         </CardContent>

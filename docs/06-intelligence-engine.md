@@ -39,9 +39,25 @@ class AIProvider(Protocol):
 
 `CompletionRequest` é neutro (mensagens, tools, `response_schema`, `temperature`, `max_tokens`, `metadata`). Cada adaptador traduz para o SDK do fornecedor e normaliza a resposta (inclusive `usage` e erros → taxonomia comum: `RateLimited`, `ContextOverflow`, `ProviderUnavailable`, `SafetyBlocked`, `InvalidSchema`).
 
-## 6.2 Seleção de modelo em runtime
+## 6.2 Seleção de modelo em runtime  *(implementado na Fase 2)*
 
-`ai_providers` / `ai_models` / `feature_model_bindings` no banco. O admin escolhe, por *feature* (`notice.extraction`, `chat.tutor`, `question.classify`, `embeddings.default`, `rerank.default`), qual modelo usar, com fallback ordenado. Cache em Redis (TTL 60 s) + invalidação por evento. Nenhuma referência a nome de modelo no código de negócio.
+`ai_providers` / `ai_models` / `ai_feature_bindings` no banco. O admin escolhe, por *feature* (`notice.extraction`, `board.profile`, `chat.tutor`, `question.classify`, `flashcard.generation`, `embeddings.default`, `rerank.default`), qual modelo usar. Nenhuma referência a nome de modelo no código de negócio.
+
+Fluxo do painel (`/admin` → aba **Inteligência**):
+
+```
+Conectar provedor (openai)      → linha em ai_providers, inativo
+Informar a chave                 → cifrada (Fernet + HKDF sobre SECRET_KEY)
+                                   guardamos só o texto cifrado + dica "sk-…7890"
+Testar conexão                   → GET /v1/models real; grava status, latência e amostra
+Importar modelos                 → popula ai_models com o que a chave realmente acessa
+Ativar provedor                   → só é permitido depois que existe chave
+Escolher modelo por funcionalidade → ai_feature_bindings (com TTL de cache por feature)
+```
+
+Regras de segurança: a chave nunca volta pela API (nem em log, nem em auditoria — só a dica); trocar o `SECRET_KEY` invalida os segredos gravados e exige recadastro; toda ação fica em `audit_logs`.
+
+`AISettingsService.resolve_feature(feature)` devolve provedor + modelo prontos, ou levanta `ProviderNotConfiguredError` — a plataforma avisa em vez de fingir que respondeu.
 
 ## 6.3 Prompts versionados
 
@@ -60,14 +76,28 @@ depois: registra input/output/cached tokens, custo (tabela de preço por modelo)
 
 Circuit breaker por provider (N falhas em janela → fallback), retry exponencial com jitter apenas para erros transitórios, timeout duro por feature.
 
-## 6.5 Cache
+## 6.5 Cache e reaproveitamento  *(implementado na Fase 2)*
+
+Princípio: **nada que já foi apurado é pago duas vezes.** Duas camadas persistentes, ambas em MySQL (sobrevivem a restart, deploy e limpeza de Redis):
+
+**1. `ai_cache_entries` — cache de resposta por impressão digital**
+
+```
+fingerprint = sha256(feature | model_slug | prompt_version | json_canônico(entrada))
+```
+
+`AICacheService.get()` devolve a resposta gravada e incrementa `hits`; `store()` grava resposta, tokens e custo. `stats()` reporta, a partir dos contadores reais: entradas, reaproveitamentos, **tokens economizados** (`hits × tokens`) e custo evitado. Mudou o modelo ou a versão do prompt → a impressão digital muda → resposta nova, sem servir conteúdo desatualizado.
+
+**2. `board_knowledge_entries` — o que se sabe de cada banca**
+
+Todo traço de estilo, padrão de pegadinha, foco por disciplina ou resumo de perfil é gravado com `source` (`COMPUTED` / `AI` / `EDITORIAL` / `OFFICIAL`), `confidence`, tamanho de amostra (`sample_exams`, `sample_questions`), período analisado, modelo e versão do prompt usados, tokens consumidos e validade (`expires_at`). As telas leem desta tabela; a IA só é acionada quando `get_valid()` não encontra registro. Registro vencido continua visível ao administrador (marcado como vencido, para reapurar) e some para o candidato.
 
 | Nível | Chave | TTL |
 |---|---|---|
-| Recuperação | hash(query + filtros + versão do índice) | 6 h |
-| Structured output determinístico (temp=0) | hash(prompt + schema + modelo) | 24 h |
-| Prompt caching nativo do provider | prefixo de sistema/documento | conforme provider |
-| Conteúdo didático gerado | `topic_id + nível + versão do prompt` | até invalidação |
+| Resposta de IA (implementado) | `sha256(feature+modelo+versão do prompt+entrada)` | por feature, definido no painel |
+| Conhecimento de banca (implementado) | `banca + tipo + chave` | `ttl_days` por registro; vazio = permanente |
+| Recuperação (F3) | hash(query + filtros + versão do índice) | 6 h |
+| Prompt caching nativo do provider (F3) | prefixo de sistema/documento | conforme provider |
 
 ## 6.6 Streaming e histórico
 
