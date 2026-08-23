@@ -27,6 +27,8 @@ uploads/
 data/
 *.sqlite3
 *.db
+celerybeat-schedule*
+.docker-up.*.log
 
 # Editores / SO
 .vscode/

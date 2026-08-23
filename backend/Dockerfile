@@ -39,7 +39,8 @@ FROM base AS runtime
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=app:app . .
-RUN chmod +x docker/entrypoint.sh \
+RUN sed -i 's/\r$//' docker/entrypoint.sh \
+    && install -m 755 docker/entrypoint.sh /usr/local/bin/mestre-entrypoint \
     # Diretório de uploads criado com dono correto: o volume nomeado herda estas
     # permissões e o processo (uid 1000) consegue gravar.
     && mkdir -p /var/lib/mestre/uploads \
@@ -51,7 +52,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
     CMD curl -fsS http://localhost:8000/health || exit 1
 
-ENTRYPOINT ["/usr/bin/tini", "--", "./docker/entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/mestre-entrypoint"]
 CMD ["api"]
 
 # ---------------------------------------------------------------------------

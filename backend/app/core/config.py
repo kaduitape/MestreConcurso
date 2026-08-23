@@ -7,7 +7,7 @@ from functools import lru_cache
 from typing import Annotated, Literal
 
 from pydantic import EmailStr, Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 Environment = Literal["development", "staging", "production", "test"]
 
@@ -38,8 +38,8 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     frontend_url: str = "http://localhost:5173"
     backend_url: str = "http://localhost:8000"
-    cors_origins: Annotated[list[str], Field(default_factory=lambda: ["http://localhost:5173"])]
-    allowed_hosts: Annotated[list[str], Field(default_factory=lambda: ["*"])]
+    cors_origins: Annotated[list[str], NoDecode, Field(default_factory=lambda: ["http://localhost:5173"])]
+    allowed_hosts: Annotated[list[str], NoDecode, Field(default_factory=lambda: ["*"])]
 
     # --- Segurança ---------------------------------------------------------
     secret_key: str = Field(default_factory=lambda: secrets.token_urlsafe(64))
