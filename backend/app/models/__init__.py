@@ -27,7 +27,24 @@ from app.models.catalog import (
     Subject,
     Topic,
 )
+from app.models.document import (
+    Document,
+    DocumentChunk,
+    DocumentKind,
+    DocumentStatus,
+    ExtractionMethod,
+)
 from app.models.notice import Notice, NoticeFile, NoticeFileStatus, NoticeKind, NoticeStatus
+from app.models.notice_analysis import (
+    EvidenceLevel,
+    NoticeEvent,
+    NoticeEventKind,
+    NoticeFact,
+    NoticeSection,
+    NoticeSectionKind,
+    NoticeSubject,
+    NoticeTopic,
+)
 from app.models.rbac import Permission, Role, role_permissions, user_roles
 from app.models.token import AuthToken, AuthTokenType
 from app.models.user import Profile, User, UserStatus
@@ -49,15 +66,28 @@ __all__ = [
     "Competition",
     "CompetitionStatus",
     "ConsentLog",
+    "Document",
+    "DocumentChunk",
+    "DocumentKind",
+    "DocumentStatus",
     "EducationLevel",
+    "EvidenceLevel",
     "ExamBoard",
+    "ExtractionMethod",
     "GovernmentSphere",
     "KnowledgeSource",
     "Notice",
+    "NoticeEvent",
+    "NoticeEventKind",
+    "NoticeFact",
     "NoticeFile",
     "NoticeFileStatus",
     "NoticeKind",
+    "NoticeSection",
+    "NoticeSectionKind",
     "NoticeStatus",
+    "NoticeSubject",
+    "NoticeTopic",
     "Organization",
     "Permission",
     "Position",

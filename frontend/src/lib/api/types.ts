@@ -333,3 +333,98 @@ export interface BoardKnowledgeCoverage {
   expired: number
   ai_tokens_stored: number
 }
+
+// --------------------------------------------------------------------------
+// Análise de edital (Fase 3)
+// --------------------------------------------------------------------------
+export type EvidenceLevel = 'OFFICIAL' | 'CONFIRMED' | 'INFERRED' | 'NOT_FOUND'
+
+export type StepStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'SKIPPED' | 'FAILED'
+
+export interface AnalysisStep {
+  key: string
+  label: string
+  status: StepStatus
+  detail: string | null
+  at: string | null
+}
+
+export interface AnalysisState {
+  notice_public_id: string
+  status: string
+  steps: AnalysisStep[]
+  started_at: string | null
+  finished_at: string | null
+  error: string | null
+  coverage: Record<string, number>
+}
+
+export interface AnalysisStarted {
+  notice_public_id: string
+  status: string
+  message: string
+  executed_inline: boolean
+}
+
+export interface NoticeFact {
+  id: number
+  field_path: string
+  label: string
+  value: unknown
+  evidence_level: EvidenceLevel
+  confidence: number | null
+  page_number: number | null
+  quote: string | null
+  extracted_by: string
+  model_slug: string | null
+  prompt_version: string | null
+}
+
+export interface NoticeSubjectView {
+  public_id: string
+  name: string
+  weight: number | null
+  questions_count: number | null
+  topics_count: number
+  topics: string[]
+  evidence_level: EvidenceLevel
+  page_number: number | null
+}
+
+export interface NoticeEventView {
+  kind: string
+  title: string
+  date_start: string | null
+  date_end: string | null
+  is_critical: boolean
+  days_until: number | null
+  evidence_level: EvidenceLevel
+  page_number: number | null
+}
+
+export interface AttentionPoint {
+  kind: string
+  title: string
+  detail: string
+}
+
+export interface Radiography {
+  notice_public_id: string
+  title: string
+  status: string
+  exam_date: string | null
+  days_until_exam: number | null
+  page_count: number | null
+  subjects_count: number
+  topics_count: number
+  questions_count: number | null
+  vacancies: number | null
+  salary_cents: number | null
+  facts: NoticeFact[]
+  subjects: NoticeSubjectView[]
+  events: NoticeEventView[]
+  critical_events: NoticeEventView[]
+  largest_subjects: NoticeSubjectView[]
+  attention_points: AttentionPoint[]
+  coverage: Record<string, number>
+}

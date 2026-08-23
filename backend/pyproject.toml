@@ -24,6 +24,11 @@ dependencies = [
     "jinja2>=3.1",
     "aiosmtplib>=4.0",
     "httpx>=0.28",
+    "pymupdf>=1.26",
+    "qdrant-client>=1.15",
+    # OCR opcional: só é usado quando o PDF não tem camada de texto.
+    "pytesseract>=0.3.13",
+    "pillow>=11.0",
 ]
 
 [project.optional-dependencies]

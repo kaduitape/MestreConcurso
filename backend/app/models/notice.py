@@ -27,6 +27,7 @@ from app.db.types import JsonType, MediumText, Sha256Hex
 
 if TYPE_CHECKING:
     from app.models.catalog import Competition
+    from app.models.notice_analysis import NoticeFact
 
 
 class NoticeKind(StrEnum):
@@ -82,6 +83,9 @@ class Notice(IdMixin, PublicIdMixin, TimestampMixin, Base):
     files: Mapped[list[NoticeFile]] = relationship(
         back_populates="notice", cascade="all, delete-orphan", lazy="selectin"
     )
+    facts: Mapped[list[NoticeFact]] = relationship(
+        back_populates="notice", cascade="all, delete-orphan", lazy="noload"
+    )
 
 
 class NoticeFile(IdMixin, PublicIdMixin, TimestampMixin, Base):
@@ -105,6 +109,9 @@ class NoticeFile(IdMixin, PublicIdMixin, TimestampMixin, Base):
     size_bytes: Mapped[int] = mapped_column(BigInteger)
     checksum_sha256: Mapped[str] = mapped_column(Sha256Hex, index=True)
     page_count: Mapped[int | None] = mapped_column(Integer)
+    document_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("documents.id", ondelete="SET NULL")
+    )
     status: Mapped[str] = mapped_column(String(20), default=NoticeFileStatus.STORED)
     error_message: Mapped[str | None] = mapped_column(String(500))
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

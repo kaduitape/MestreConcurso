@@ -12,6 +12,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl tini \
+    # OCR para editais digitalizados (sem camada de texto).
+    tesseract-ocr tesseract-ocr-por \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 1000 app \
     && useradd --uid 1000 --gid app --create-home app

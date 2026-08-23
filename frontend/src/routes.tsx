@@ -21,6 +21,11 @@ import { NotFoundPage } from '@/features/not-found-page'
 const AdminPage = lazy(() =>
   import('@/features/admin/admin-page').then((module) => ({ default: module.AdminPage })),
 )
+const NoticeDetailPage = lazy(() =>
+  import('@/features/admin/notices/notice-detail-page').then((module) => ({
+    default: module.NoticeDetailPage,
+  })),
+)
 const CompetitionsPage = lazy(() =>
   import('@/features/competitions/competitions-page').then((module) => ({
     default: module.CompetitionsPage,
@@ -71,7 +76,13 @@ export const router = createBrowserRouter([
           { path: '/conta', element: <AccountPage /> },
           {
             element: <RequirePermission permission="admin_dashboard:read" />,
-            children: [{ path: '/admin', element: lazyRoute(<AdminPage />) }],
+            children: [
+              { path: '/admin', element: lazyRoute(<AdminPage />) },
+              {
+                path: '/admin/editais/:publicId',
+                element: lazyRoute(<NoticeDetailPage />),
+              },
+            ],
           },
         ],
       },

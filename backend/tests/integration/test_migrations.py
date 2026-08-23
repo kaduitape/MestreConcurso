@@ -37,6 +37,13 @@ EXPECTED_TABLES = {
     "ai_cache_entries",
     "ai_usage",
     "board_knowledge_entries",
+    "documents",
+    "document_chunks",
+    "notice_facts",
+    "notice_sections",
+    "notice_subjects",
+    "notice_topics",
+    "notice_events",
 }
 
 

@@ -182,3 +182,66 @@ async def create_subject(
     )
     assert response.status_code == 201, response.text
     return response.json()
+
+
+async def configure_ai(
+    client: AsyncClient,
+    admin: RegisteredUser,
+    *,
+    features: tuple[str, ...] = ("notice.extraction",),
+) -> None:
+    """Deixa o provedor de IA pronto e vinculado às funcionalidades informadas."""
+    await client.post(
+        "/api/v1/admin/ai/providers", headers=admin.auth_header, json={"slug": "openai"}
+    )
+    await client.put(
+        "/api/v1/admin/ai/providers/openai/key",
+        headers=admin.auth_header,
+        json={"api_key": "sk-proj-chave-de-teste-1234567890"},
+    )
+    synced = await client.post(
+        "/api/v1/admin/ai/providers/openai/models/sync", headers=admin.auth_header
+    )
+    assert synced.status_code == 200, synced.text
+    activated = await client.patch(
+        "/api/v1/admin/ai/providers/openai",
+        headers=admin.auth_header,
+        json={"is_active": True},
+    )
+    assert activated.status_code == 200, activated.text
+
+    for feature in features:
+        model = "text-embedding-3-small" if feature == "embeddings.default" else "gpt-4o-mini"
+        bound = await client.put(
+            f"/api/v1/admin/ai/features/{feature}",
+            headers=admin.auth_header,
+            json={
+                "provider_slug": "openai",
+                "model_slug": model,
+                "is_enabled": True,
+            },
+        )
+        assert bound.status_code == 200, bound.text
+
+
+async def create_notice_with_pdf(
+    client: AsyncClient,
+    admin: RegisteredUser,
+    *,
+    pdf: bytes,
+    title: str = "Edital nº 1/2026 — Agente de Polícia",
+) -> str:
+    """Cadastra o edital e envia o PDF. Devolve o public_id do edital."""
+    created = await client.post(
+        "/api/v1/admin/notices", headers=admin.auth_header, json={"title": title}
+    )
+    assert created.status_code == 201, created.text
+    notice_id = created.json()["public_id"]
+
+    uploaded = await client.post(
+        f"/api/v1/admin/notices/{notice_id}/files",
+        headers=admin.auth_header,
+        files={"file": ("edital.pdf", pdf, "application/pdf")},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    return str(notice_id)

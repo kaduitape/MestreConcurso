@@ -17,8 +17,9 @@ Bancas, órgãos, concursos, cargos, disciplinas, árvore de assuntos (4 níveis
 Entrou junto, por decisão do produto: **configuração de provedores de IA no painel** (chave cifrada, teste de conexão real, importação de modelos, modelo por funcionalidade) e a **camada de persistência que evita gasto repetido de tokens** (cache de respostas por impressão digital + conhecimento de banca gravado com origem, amostra e validade).
 **Aceite:** ver `docs/12-criterios-aceite-fase2.md`.
 
-## FASE 3 — Edital IA
-Pipeline PDF → extração → OCR condicional → chunking → embeddings → Qdrant → extração estruturada com evidência → tela de confirmação → Raio-X. WebSocket de progresso. **Aceite:** edital real de 80+ páginas processado com ≥ 90% dos campos com citação verificável e zero campo `OFICIAL` sem quote válida.
+## FASE 3 — Edital IA  ✅ implementada
+Pipeline PDF → extração (PyMuPDF) → OCR condicional (Tesseract, quando o PDF não tem camada de texto) → chunking com página e deslocamento → embeddings → Qdrant → extração estruturada com prompt versionado → **validação de citação em Python** → revisão humana → confirmação → Raio-X. Progresso ao vivo por SSE, alimentado pelo estado no banco (o worker roda em outro processo).
+**Aceite:** ver `docs/13-criterios-aceite-fase3.md`. Regra que sustenta a fase: nenhum campo é `OFICIAL` sem citação conferida caractere a caractere no PDF; sem prova, é `INFERIDO` e sem página.
 
 ## FASE 4 — Estudo
 Planner determinístico, disponibilidade semanal, tarefas diárias, cronômetro/sessões, calendário 3 camadas com drag-and-drop, replanejamento ao perder dias, Modo Sprint. **Aceite:** aluno com 12h/semana recebe plano coerente até a data da prova e o replanejamento não acumula dívida infinita.

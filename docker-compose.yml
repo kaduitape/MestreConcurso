@@ -22,6 +22,8 @@ x-backend-env: &backend-env
   BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@mestreconcurso.com.br}
   BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-Admin@Mestre123}
   STORAGE_LOCAL_PATH: /var/lib/mestre/uploads
+  QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+  CELERY_TASK_ALWAYS_EAGER: ${CELERY_TASK_ALWAYS_EAGER:-false}
 
 services:
   mysql:
@@ -78,6 +80,14 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+    restart: unless-stopped
+
   worker:
     build:
       context: ./backend
@@ -86,6 +96,8 @@ services:
     environment:
       <<: *backend-env
       RUN_SEED: "false"
+      CELERY_QUEUES: default,notifications,documents
+      CELERY_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
     volumes:
       - uploads_data:/var/lib/mestre/uploads
     depends_on:
@@ -131,3 +143,4 @@ volumes:
   mysql_data:
   redis_data:
   uploads_data:
+  qdrant_data:

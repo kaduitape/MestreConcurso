@@ -30,6 +30,9 @@ os.environ.update(
     ARGON2_PARALLELISM="1",
     MAX_LOGIN_ATTEMPTS="3",
     STORAGE_LOCAL_PATH=str(_TMP_UPLOADS),
+    # A análise roda na própria requisição: os testes não sobem broker.
+    CELERY_TASK_ALWAYS_EAGER="true",
+    QDRANT_URL=":memory:",
 )
 
 import pytest  # noqa: E402

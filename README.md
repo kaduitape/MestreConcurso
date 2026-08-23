@@ -13,7 +13,7 @@ A plataforma responde continuamente a uma única pergunta:
 
 ## Estado atual
 
-**Fase 1 — Fundação** e **Fase 2 — Catálogo** entregues e executáveis:
+**Fases 1 a 3** entregues e executáveis:
 
 - **Fase 1:** arquitetura, Docker, FastAPI, MySQL, Redis, Celery, autenticação completa,
   sessões/dispositivos, RBAC, auditoria, LGPD, design system, casca da aplicação e painel
@@ -22,6 +22,11 @@ A plataforma responde continuamente a uma única pergunta:
   cargo×disciplina com peso, editais com upload verificado, catálogo público para o candidato
   — mais a **configuração de provedores de IA no painel** (chave cifrada, teste de conexão
   real, modelo por funcionalidade) e a **camada que evita pagar duas vezes pelo mesmo token**.
+- **Fase 3:** análise de edital de ponta a ponta — extração do PDF (com OCR quando não há
+  camada de texto), estruturação em trechos com página e posição, indexação vetorial no
+  Qdrant, extração de campos com prompt versionado e, acima de tudo, **conferência de cada
+  citação contra o documento**: sem citação verificada, o dado não vira fato. Acompanhamento
+  ao vivo do processamento, revisão humana campo a campo e Raio-X do edital.
 
 As demais fases estão especificadas em [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md)
 e ainda **não** foram implementadas — a interface indica explicitamente o que está por vir,
@@ -50,6 +55,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [10 — Docker](docs/10-docker.md) | imagens, ambientes e estratégia de build |
 | [11 — Critérios de aceite da Fase 1](docs/11-criterios-aceite-fase1.md) | como verificar a fundação |
 | [12 — Critérios de aceite da Fase 2](docs/12-criterios-aceite-fase2.md) | catálogo, IA configurável e cache |
+| [13 — Critérios de aceite da Fase 3](docs/13-criterios-aceite-fase3.md) | pipeline de edital, prova de origem e Raio-X |
 
 ## Como executar
 
@@ -68,6 +74,7 @@ make logs        # acompanha a inicialização
 | API (Swagger) | http://localhost:8000/docs |
 | Health / Readiness | http://localhost:8000/health · `/ready` |
 | Caixa de e-mails (dev) | http://localhost:8025 |
+| Qdrant (painel) | http://localhost:6333/dashboard |
 
 O container da API aplica as migrations e executa o seed idempotente (papéis, permissões e
 administrador inicial definido em `BOOTSTRAP_ADMIN_*`). **Troque a senha do administrador no
@@ -102,6 +109,6 @@ Backend: Python 3.13 · FastAPI · SQLAlchemy 2 (async) · Alembic · MySQL 8 ·
 Argon2 · JWT · Docker.
 Frontend: React 19 · TypeScript · Vite · Tailwind CSS 4 · Radix (padrão shadcn/ui) ·
 TanStack Query/Table · React Hook Form · Zod · Framer Motion · Lucide.
-IA: camada `Concurso Intelligence Engine` com porta `AIProvider` e adaptador OpenAI já
-implementados (configuração, teste de conexão, catálogo de modelos e cache persistente);
-RAG com Qdrant entra na Fase 3.
+IA: camada `Concurso Intelligence Engine` com porta `AIProvider`, adaptador OpenAI,
+prompts versionados, cache persistente, PyMuPDF + Tesseract para PDF/OCR e Qdrant para
+busca vetorial.
