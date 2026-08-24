@@ -43,9 +43,7 @@ export function formatSeconds(totalSeconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60)
   const rest = seconds % 60
   const pad = (value: number) => String(value).padStart(2, '0')
-  return hours > 0
-    ? `${hours}:${pad(minutes)}:${pad(rest)}`
-    : `${pad(minutes)}:${pad(rest)}`
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(rest)}` : `${pad(minutes)}:${pad(rest)}`
 }
 
 /**
@@ -60,6 +58,7 @@ export function explainTask(breakdown: Record<string, unknown>): string[] {
     extensao_do_conteudo: 'Extensão do conteúdo',
     duracao_solicitada: 'Duração pedida no sprint',
     tentativa: 'Vez em que foi remarcada',
+    prioridade_por_desempenho: 'Priority Score da disciplina',
   }
 
   const lines: string[] = []
@@ -74,10 +73,22 @@ export function explainTask(breakdown: Record<string, unknown>): string[] {
       )
       continue
     }
+    if (key === 'ajuste_de_tempo') {
+      const shift = Number(value)
+      if (!Number.isFinite(shift) || shift === 0) continue
+      lines.push(
+        `${shift > 0 ? 'Mais' : 'Menos'} tempo que a divisão só do edital ` +
+          `(${shift > 0 ? '+' : ''}${(shift * 100).toFixed(1)} p.p.)`,
+      )
+      continue
+    }
     const label = labels[key]
     if (!label) continue
     lines.push(
-      typeof value === 'number' && value <= 1 && key !== 'tentativa'
+      typeof value === 'number' &&
+        value <= 1 &&
+        key !== 'tentativa' &&
+        key !== 'prioridade_por_desempenho'
         ? `${label}: ${(value * 100).toFixed(1)}%`
         : `${label}: ${String(value)}`,
     )

@@ -31,6 +31,7 @@ from app.models.question import (
 )
 from app.models.study import StudyPlan, StudyPlanStatus
 from app.models.user import User
+from app.repositories.intelligence import UserPriorityRepository
 from app.repositories.question import (
     QuestionAttemptRepository,
     QuestionRepository,
@@ -139,6 +140,10 @@ class SimulationService:
             SimulationKind.OFFICIAL.value: (
                 "As disciplinas do seu plano ainda não têm questões suficientes no banco."
             ),
+            SimulationKind.ADAPTIVE.value: (
+                "O simulado adaptativo usa o seu Priority Score. Monte o plano de estudo "
+                "e resolva algumas questões para que ele exista."
+            ),
         }.get(kind, "Não há questões suficientes no banco para montar este simulado.")
 
     async def _select_questions(
@@ -188,6 +193,15 @@ class SimulationService:
                 ],
             }
 
+        if kind == SimulationKind.ADAPTIVE:
+            picked, quotas = await self._adaptive_selection(user, questions_count)
+            if not picked:
+                return [], {"rule": "sem Priority Score calculado"}
+            return picked, {
+                "rule": "mais tempo para as disciplinas de maior Priority Score",
+                "quotas": quotas,
+            }
+
         if kind == SimulationKind.FLASH:
             questions = list(
                 await self.questions.pick_for_simulation(limit=min(questions_count, 10))
@@ -213,6 +227,42 @@ class SimulationService:
             )
         )
         return questions, {"rule": "seleção livre do banco", "subject_id": subject_id}
+
+    async def _adaptive_selection(
+        self, user: User, total: int
+    ) -> tuple[list[Question], list[dict[str, Any]]]:
+        """Distribui as questões conforme o Priority Score já calculado.
+
+        Sem score, devolve vazio — e o candidato recebe o motivo, não um simulado
+        genérico disfarçado de adaptativo.
+        """
+        priorities = [
+            row
+            for row in await UserPriorityRepository(self.session).for_user(user.id)
+            if row.subject_id is not None and row.score > 0
+        ]
+        if not priorities:
+            return [], []
+
+        weight_total = sum(row.score for row in priorities)
+        picked: list[Question] = []
+        used: list[int] = []
+        quotas: list[dict[str, Any]] = []
+        for row in priorities:
+            quota = max(1, round(total * row.score / weight_total))
+            batch = await self.questions.pick_for_simulation(
+                limit=quota, subject_id=row.subject_id, exclude_ids=used
+            )
+            if not batch:
+                continue
+            picked.extend(batch)
+            used.extend(question.id for question in batch)
+            quotas.append(
+                {"subject": row.label, "priority_score": row.score, "questions": len(batch)}
+            )
+            if len(picked) >= total:
+                break
+        return picked[:total], quotas
 
     async def _official_quotas(self, user: User, total: int) -> list[Any]:
         """Distribuição por disciplina conforme o cargo do plano ativo."""

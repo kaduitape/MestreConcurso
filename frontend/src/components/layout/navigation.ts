@@ -8,6 +8,7 @@ import {
   Layers,
   ListChecks,
   Shield,
+  Sparkles,
   Target,
   TrendingUp,
   User,
@@ -45,12 +46,13 @@ export const navigation: NavGroup[] = [
       { label: 'Questões', to: '/questoes', icon: ListChecks },
       { label: 'Simulados', to: '/simulados', icon: ClipboardList },
       { label: 'Flashcards', icon: Layers, phase: 'Fase 8' },
-      { label: 'Meus erros', icon: TrendingUp, phase: 'Fase 6' },
+      { label: 'Meus erros', to: '/meus-erros', icon: TrendingUp },
     ],
   },
   {
     title: 'Inteligência',
     items: [
+      { label: 'Inteligência', to: '/inteligencia', icon: Sparkles },
       { label: 'Mestre IA', icon: Brain, phase: 'Fase 7' },
       { label: 'Analytics', icon: TrendingUp, phase: 'Fase 9' },
     ],

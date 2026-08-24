@@ -37,6 +37,7 @@ NOTICES_READ = "notices:read"
 NOTICES_WRITE = "notices:write"
 QUESTIONS_READ = "questions:read"
 QUESTIONS_WRITE = "questions:write"
+INTELLIGENCE_WRITE = "intelligence:write"
 AI_SETTINGS_READ = "ai_settings:read"
 AI_SETTINGS_WRITE = "ai_settings:write"
 
@@ -54,6 +55,10 @@ PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec(NOTICES_WRITE, "Cadastrar editais e enviar arquivos"),
     PermissionSpec(QUESTIONS_READ, "Consultar o banco de questões"),
     PermissionSpec(QUESTIONS_WRITE, "Cadastrar, importar e classificar questões"),
+    PermissionSpec(
+        INTELLIGENCE_WRITE,
+        "Recalcular incidência, DNA da banca e padrões de pegadinha",
+    ),
     PermissionSpec(AI_SETTINGS_READ, "Ver a configuração de provedores de IA"),
     PermissionSpec(AI_SETTINGS_WRITE, "Configurar provedores, chaves e modelos de IA"),
 )
@@ -94,6 +99,7 @@ ROLES: tuple[RoleSpec, ...] = (
             NOTICES_WRITE,
             QUESTIONS_READ,
             QUESTIONS_WRITE,
+            INTELLIGENCE_WRITE,
         ),
     ),
     RoleSpec(

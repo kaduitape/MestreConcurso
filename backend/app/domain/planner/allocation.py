@@ -28,6 +28,9 @@ class SubjectInput:
     questions_count: int | None = None
     topics_count: int = 0
     color_token: str = "subject-especifica"
+    # Disciplina canônica, quando existe: é o elo com o banco de questões e com
+    # o mapa de incidência (Fase 6).
+    subject_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +40,7 @@ class SubjectShare:
     share: float
     minutes: int
     color_token: str
+    subject_id: int | None = None
     # Contribuição de cada sinal — é o que sustenta o "por quê?" na interface.
     breakdown: dict[str, float] = field(default_factory=dict)
 
@@ -89,6 +93,7 @@ def allocate_subject_shares(subjects: list[SubjectInput], total_minutes: int) ->
                 share=round(shares[index], 6),
                 minutes=round(total_minutes * shares[index]),
                 color_token=subject.color_token,
+                subject_id=subject.subject_id,
                 breakdown=breakdowns[index],
             )
         )

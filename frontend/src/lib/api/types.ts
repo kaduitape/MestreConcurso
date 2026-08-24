@@ -705,3 +705,179 @@ export interface SimulationRun {
   /** Nulo quando o simulado não tem tempo definido. */
   remaining_seconds: number | null
 }
+
+// --------------------------------------------------------------------------- //
+// Inteligência: incidência, DNA da banca, prioridade e erros
+// --------------------------------------------------------------------------- //
+export interface IncidenceRow {
+  subject_name: string
+  topic_name: string | null
+  questions_count: number
+  exams_count: number
+  incidence_pct: number
+  /** Nulo quando a amostra não cobre dois anos — “estável” seria afirmação sem base. */
+  trend: number | null
+  confidence: number
+  board_questions_count: number
+}
+
+export interface IncidenceMap {
+  board_slug: string
+  board_name: string
+  period_start_year: number | null
+  period_end_year: number | null
+  board_questions_count: number
+  rows: IncidenceRow[]
+  computed_at: string | null
+  empty_reason: string | null
+}
+
+export interface BoardMetric {
+  metric_slug: string
+  label: string
+  value: number
+  unit: string
+  detail: Record<string, number>
+  sample_questions: number
+  sample_exams: number
+  period_start_year: number | null
+  period_end_year: number | null
+  confidence: number
+}
+
+export interface BoardDna {
+  board_slug: string
+  board_name: string
+  metrics: BoardMetric[]
+  computed_at: string | null
+  empty_reason: string | null
+}
+
+export interface RecomputeResult {
+  board_slug: string
+  questions_sampled: number
+  incidence_rows: number
+  profile_metrics: number
+  incidence_blocked: string | null
+  profile_blocked: string | null
+}
+
+export interface PriorityContribution {
+  key: string
+  label: string
+  points: number
+  max_points: number
+  detail: string
+}
+
+export interface Priority {
+  scope_key: string
+  label: string
+  color_token: string
+  score: number
+  /** As parcelas somam exatamente `score` — é o “por quê?” do número. */
+  contributions: PriorityContribution[]
+  missing_signals: string[]
+  coverage: number
+  computed_at: string | null
+}
+
+export interface PriorityList {
+  items: Priority[]
+  computed_at: string | null
+  board_slug: string | null
+  notes: string[]
+}
+
+export type ErrorCause =
+  | 'UNKNOWN_CONTENT'
+  | 'INTERPRETATION'
+  | 'CONFUSION'
+  | 'FORGETTING'
+  | 'RUSH'
+  | 'TRAP'
+  | 'ALTERNATIVE_DOUBT'
+
+export interface TrapPattern {
+  public_id: string
+  slug: string
+  name: string
+  category: string
+  description: string | null
+  detection_hint: string | null
+}
+
+export interface ErrorAnalysis {
+  public_id: string
+  cause: ErrorCause
+  cause_label: string
+  question_public_id: string
+  question_statement: string
+  subject_name: string | null
+  selected_letter: string | null
+  trap_slug: string | null
+  trap_name: string | null
+  note: string | null
+  source: 'USER' | 'AI'
+  model_slug: string | null
+  rationale: string | null
+  /** Sugestão de IA fica falsa até a pessoa confirmar; só então conta. */
+  is_confirmed: boolean
+  is_resolved: boolean
+  created_at: string
+}
+
+export interface PendingAttempt {
+  attempt_public_id: string
+  question_public_id: string
+  question_statement: string
+  subject_name: string | null
+  selected_letter: string | null
+  created_at: string
+}
+
+export interface CauseSuggestion {
+  cause: ErrorCause | null
+  cause_label: string | null
+  trap_slug: string | null
+  confidence: number | null
+  rationale: string | null
+  study_tip: string | null
+  model: string
+  prompt_version: string
+  confirmed: boolean
+}
+
+export interface CauseSummary {
+  cause: ErrorCause
+  label: string
+  count: number
+  share: number
+  action: string
+}
+
+export interface TrapSummary {
+  slug: string
+  name: string
+  count: number
+  share: number
+}
+
+export interface SubjectErrorSummary {
+  subject_name: string
+  count: number
+  dominant_cause: ErrorCause | null
+  dominant_cause_label: string | null
+}
+
+export interface ErrorNotebook {
+  total: number
+  resolved: number
+  by_cause: CauseSummary[]
+  by_subject: SubjectErrorSummary[]
+  traps: TrapSummary[]
+  insights: string[]
+  /** Por que alguma seção veio vazia. */
+  notes: string[]
+  causes_catalogue: Record<string, { label: string; action: string }>
+}

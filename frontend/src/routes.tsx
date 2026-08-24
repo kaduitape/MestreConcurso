@@ -59,6 +59,14 @@ const SimulationResultPage = lazy(() =>
     default: module.SimulationResultPage,
   })),
 )
+const BoardIntelPage = lazy(() =>
+  import('@/features/intelligence/board-intel-page').then((module) => ({
+    default: module.BoardIntelPage,
+  })),
+)
+const ErrorsPage = lazy(() =>
+  import('@/features/errors/errors-page').then((module) => ({ default: module.ErrorsPage })),
+)
 const CompetitionsPage = lazy(() =>
   import('@/features/competitions/competitions-page').then((module) => ({
     default: module.CompetitionsPage,
@@ -114,6 +122,8 @@ export const router = createBrowserRouter([
             element: lazyRoute(<SimulationResultPage />),
           },
           { path: '/simulados/:attemptId', element: lazyRoute(<SimulationRunPage />) },
+          { path: '/inteligencia', element: lazyRoute(<BoardIntelPage />) },
+          { path: '/meus-erros', element: lazyRoute(<ErrorsPage />) },
           { path: '/concursos', element: lazyRoute(<CompetitionsPage />) },
           { path: '/concursos/:publicId', element: lazyRoute(<CompetitionDetailPage />) },
           { path: '/conta', element: <AccountPage /> },

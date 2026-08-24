@@ -60,5 +60,5 @@
 ## Ressalvas honestas desta entrega
 - O aceite do backlog fala em "simulado oficial de 120 questões executado". O fluxo está implementado e testado ponta a ponta, mas com o banco de questões do ambiente de teste; **executar 120 questões oficiais de verdade depende de carregar uma prova real no banco** — a plataforma não gera questão oficial, e não vai inventar uma.
 - **Cadernos de questões** (agrupar questões em coleções do candidato) ficaram fora desta entrega; entram junto com o Caderno de Erros da Fase 6, que compartilha a mesma estrutura.
-- O simulado **adaptativo** tem a regra de dificuldade implementada e testada no domínio (`adaptive_difficulty`), mas ainda não é oferecido na interface: ele depende do Priority Score da Fase 6 para escolher *o que* perguntar, não só *quão difícil*.
+- O simulado **adaptativo** tem a regra de dificuldade implementada e testada no domínio (`adaptive_difficulty`), mas ainda não é oferecido na interface: ele depende do Priority Score da Fase 6 para escolher *o que* perguntar, não só *quão difícil*. **Resolvido na Fase 6**: o adaptativo passou a distribuir as questões pelo Priority Score.
 - As migrações foram geradas e conferidas contra SQLite (o ambiente não tem daemon Docker); a revisão para MySQL foi manual, como nas fases anteriores.

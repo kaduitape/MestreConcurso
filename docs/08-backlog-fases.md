@@ -29,10 +29,12 @@ Ainda não entra aqui: drag-and-drop no calendário e as camadas de edital/IA so
 ## FASE 5 — Questões  ✅ implementada
 Provas, questões, alternativas, comentários, importação em lote com relatório de erros, classificação assistida por IA **com revisão humana obrigatória**, filtros, resolução com correção comentada, simulados por tipo (oficial, banca, erros, relâmpago, personalizado) com cronômetro, autosave e correção completa por disciplina e dificuldade.
 **Aceite:** ver `docs/15-criterios-aceite-fase5.md`. Regra que sustenta a fase: **nenhum percentual sem amostra** — abaixo de 20 respostas a taxa de acerto não é exibida, e quando falta dado para o simulado pedido a plataforma diz o motivo em vez de montar outro no lugar.
-Ainda não entra aqui: cadernos de questões e o simulado adaptativo na interface (dependem do Priority Score da Fase 6).
+Ainda não entra aqui: cadernos de questões (entram com o Caderno de Erros). O simulado adaptativo foi fechado na Fase 6, quando o Priority Score passou a existir.
 
-## FASE 6 — Inteligência
-Mapa de incidência, DNA da Banca, Priority Score com breakdown, Caderno de Erros com classificação de causa, Radar de Pegadinhas. **Aceite:** todo score exibido abre o "POR QUÊ?" com contribuições que somam o valor mostrado; nenhuma estatística sem amostra registrada.
+## FASE 6 — Inteligência  ✅ implementada
+Mapa de incidência por banca, DNA da Banca calculado sobre o banco de questões, Priority Score com breakdown que soma o número exibido, Caderno de Erros com taxonomia fechada de causas (sugestão de IA só conta depois de confirmada), Radar de Pegadinhas e o simulado adaptativo guiado pelo score.
+**Aceite:** ver `docs/16-criterios-aceite-fase6.md`. Regra que sustenta a fase: **nenhuma estatística sem amostra** — abaixo do mínimo o número não é publicado, e o motivo aparece no lugar dele.
+Ainda não entra aqui: incidência e Priority Score por assunto (dependem de questões classificadas nesse nível) e o Mestre Score 0–1000 (Fase 9).
 
 ## FASE 7 — Mestre IA
 Tutor contextual com RAG, streaming, ferramentas, citações, Modo Professor, vocabulário inteligente, integração de vídeos verificada. **Aceite:** 100% das respostas factuais com citação resolvível; recusa explícita quando não há base.

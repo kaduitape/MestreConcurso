@@ -57,6 +57,11 @@ EXPECTED_TABLES = {
     "simulations",
     "simulation_questions",
     "simulation_attempts",
+    "topic_incidence",
+    "board_profile_metrics",
+    "trap_patterns",
+    "error_analyses",
+    "user_priorities",
 }
 
 

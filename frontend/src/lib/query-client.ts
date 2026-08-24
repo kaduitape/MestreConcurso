@@ -54,4 +54,11 @@ export const queryKeys = {
   simulationHistory: ['simulations', 'history'] as const,
   simulationCurrent: ['simulations', 'current'] as const,
   simulationAttempt: (publicId: string) => ['simulations', 'attempt', publicId] as const,
+  incidence: (boardSlug: string) => ['intelligence', 'incidence', boardSlug] as const,
+  boardDna: (boardSlug: string) => ['intelligence', 'board-dna', boardSlug] as const,
+  priority: ['intelligence', 'priority'] as const,
+  errorNotebook: ['errors', 'notebook'] as const,
+  errorPending: ['errors', 'pending'] as const,
+  errorTraps: ['errors', 'traps'] as const,
+  errorList: (params: unknown) => ['errors', 'list', params] as const,
 }

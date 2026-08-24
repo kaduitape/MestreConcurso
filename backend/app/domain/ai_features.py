@@ -37,6 +37,13 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         "Fase 5",
     ),
     FeatureSpec(
+        AIFeature.ERROR_CLASSIFY,
+        "Causa do erro",
+        "Sugere por que a questão foi errada. A sugestão só entra nas estatísticas "
+        "depois que o próprio candidato confirma.",
+        "Fase 6",
+    ),
+    FeatureSpec(
         AIFeature.CHAT_TUTOR,
         "Mestre IA (tutor)",
         "Responde com base no edital, na banca e no desempenho do candidato.",

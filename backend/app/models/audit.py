@@ -51,6 +51,7 @@ class AuditAction(StrEnum):
     QUESTION_CLASSIFIED = "question.classified"
     SIMULATION_CREATED = "simulation.created"
     SIMULATION_FINISHED = "simulation.finished"
+    INTELLIGENCE_RECOMPUTED = "intelligence.recomputed"
     STUDY_PLAN_CREATED = "study.plan_created"
     STUDY_PLAN_REGENERATED = "study.plan_regenerated"
     STUDY_PLAN_REBALANCED = "study.plan_rebalanced"

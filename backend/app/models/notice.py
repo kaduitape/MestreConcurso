@@ -93,7 +93,9 @@ class NoticeFile(IdMixin, PublicIdMixin, TimestampMixin, Base):
 
     __tablename__ = "notice_files"
     __table_args__ = (
-        UniqueConstraint("notice_id", "checksum_sha256", name="uq_notice_files_notice_checksum"),
+        UniqueConstraint(
+            "notice_id", "checksum_sha256", name="uq_notice_files_notice_id_checksum_sha256"
+        ),
         Index("ix_notice_files_status", "status"),
     )
 

@@ -50,6 +50,24 @@ describe('explainTask', () => {
     expect(lines).toContain('Vez em que foi remarcada: 2')
   })
 
+  it('mostra o Priority Score em pontos, não como percentual', () => {
+    const lines = explainTask({ prioridade_por_desempenho: 71 })
+    expect(lines).toContain('Priority Score da disciplina: 71')
+  })
+
+  it('descreve o quanto o desempenho moveu o tempo da disciplina', () => {
+    expect(explainTask({ ajuste_de_tempo: 0.043 })[0]).toBe(
+      'Mais tempo que a divisão só do edital (+4.3 p.p.)',
+    )
+    expect(explainTask({ ajuste_de_tempo: -0.02 })[0]).toBe(
+      'Menos tempo que a divisão só do edital (-2.0 p.p.)',
+    )
+  })
+
+  it('não cita ajuste quando o desempenho não mudou nada', () => {
+    expect(explainTask({ ajuste_de_tempo: 0 })).toEqual([])
+  })
+
   it('ignora chaves desconhecidas em vez de inventar texto', () => {
     expect(explainTask({ chave_estranha: 1 })).toEqual([])
   })

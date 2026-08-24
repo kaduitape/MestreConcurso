@@ -38,6 +38,12 @@ A plataforma responde continuamente a uma única pergunta:
   com cronômetro, autosave e correção completa. Sem amostra suficiente, a taxa de acerto
   não é exibida; sem dados para o simulado pedido, a plataforma explica o que falta.
 
+- **Fase 6:** mapa de incidência e DNA da banca calculados sobre o banco de questões,
+  Priority Score cujas parcelas **somam exatamente** o número exibido (e que declara os
+  sinais que ainda não existem, em vez de inflar o score), Caderno de Erros com causa
+  declarada pelo candidato — a sugestão da IA só conta depois de confirmada — e Radar de
+  Pegadinhas. O plano de estudo passa a se inclinar até 20% na direção do score.
+
 As demais fases estão especificadas em [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md)
 e ainda **não** foram implementadas — a interface indica explicitamente o que está por vir,
 sem telas ilustrativas nem dados fictícios.
@@ -68,6 +74,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [13 — Critérios de aceite da Fase 3](docs/13-criterios-aceite-fase3.md) | pipeline de edital, prova de origem e Raio-X |
 | [14 — Critérios de aceite da Fase 4](docs/14-criterios-aceite-fase4.md) | planejador, agenda, sessões e sprint |
 | [15 — Critérios de aceite da Fase 5](docs/15-criterios-aceite-fase5.md) | banco de questões, prática e simulados |
+| [16 — Critérios de aceite da Fase 6](docs/16-criterios-aceite-fase6.md) | incidência, DNA da banca, Priority Score e erros |
 
 ## Como executar
 

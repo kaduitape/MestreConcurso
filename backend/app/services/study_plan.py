@@ -18,8 +18,10 @@ from sqlalchemy.orm import selectinload
 
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
+from app.domain.intelligence import adjust_shares_by_priority
 from app.domain.planner import (
     SubjectInput,
+    SubjectShare,
     WeeklyAvailability,
     allocate_subject_shares,
     build_calendar,
@@ -43,6 +45,7 @@ from app.models.study import (
     UserSubjectProgress,
 )
 from app.models.user import User
+from app.repositories.intelligence import UserPriorityRepository
 from app.repositories.study import (
     StudyPlanRepository,
     StudyTaskRepository,
@@ -118,6 +121,7 @@ class StudyPlanService:
                     weight=row.weight,
                     questions_count=row.questions_count,
                     topics_count=len(row.topics),
+                    subject_id=row.subject_id,
                 )
                 for row in rows
             ],
@@ -160,6 +164,7 @@ class StudyPlanService:
                     questions_count=link.questions_count,
                     topics_count=topic_counts.get(link.subject_id, 0),
                     color_token=link.subject.color_token,
+                    subject_id=link.subject_id,
                 )
                 for link in links
             ],
@@ -304,7 +309,9 @@ class StudyPlanService:
         exam: date | None,
     ) -> int:
         calendar = build_calendar(availability, start=start, end=end)
-        shares = allocate_subject_shares(subjects, total_available_minutes(calendar))
+        total_minutes = total_available_minutes(calendar)
+        shares = allocate_subject_shares(subjects, total_minutes)
+        shares = await self._apply_priority(plan.user_id, shares, total_minutes)
         schedule = build_schedule(calendar=calendar, shares=shares, exam_date=exam)
 
         colors = {subject.key: subject.color_token for subject in subjects}
@@ -353,6 +360,41 @@ class StudyPlanService:
         )
         return len(schedule.tasks)
 
+    async def _apply_priority(
+        self, user_id: int, shares: list[SubjectShare], total_minutes: int
+    ) -> list[SubjectShare]:
+        """Inclina a divisão do tempo na direção do Priority Score, quando ele existe.
+
+        Sem score calculado, nada muda: a linha de base do edital continua valendo,
+        e a interface diz que a personalização por desempenho ainda não entrou.
+        """
+        scores = await UserPriorityRepository(self.session).scores_by_scope(user_id)
+        if not scores:
+            return shares
+
+        baseline = {share.key: share.share for share in shares}
+        adjusted = adjust_shares_by_priority(baseline, scores)
+        result: list[SubjectShare] = []
+        for share in shares:
+            new_share = adjusted.get(share.key, share.share)
+            breakdown = dict(share.breakdown)
+            score = scores.get(share.key)
+            if score is not None:
+                breakdown["prioridade_por_desempenho"] = score
+                breakdown["ajuste_de_tempo"] = round(new_share - share.share, 6)
+            result.append(
+                SubjectShare(
+                    key=share.key,
+                    name=share.name,
+                    share=round(new_share, 6),
+                    minutes=round(total_minutes * new_share),
+                    color_token=share.color_token,
+                    subject_id=share.subject_id,
+                    breakdown=breakdown,
+                )
+            )
+        return result
+
     async def _sync_progress_rows(self, plan: StudyPlan, shares: list[Any]) -> None:
         existing = {row.subject_key: row for row in await self.progress.list_for_user(plan.user_id)}
         for share in shares:
@@ -364,6 +406,7 @@ class StudyPlanService:
                     user_id=plan.user_id,
                     subject_key=share.key,
                     subject_label=share.name,
+                    subject_id=share.subject_id,
                     color_token=share.color_token,
                     planned_minutes=0,
                     studied_minutes=0,
@@ -373,6 +416,7 @@ class StudyPlanService:
                 )
                 self.session.add(row)
             row.subject_label = share.name
+            row.subject_id = share.subject_id
             row.planned_minutes = share.minutes
             row.completion = (
                 Decimal(str(round(min(1.0, row.studied_minutes / share.minutes), 4)))

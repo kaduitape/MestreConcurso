@@ -126,13 +126,30 @@ question_stats(question_id PK→questions, attempts, correct_attempts, total_tim
       last_attempt_at, updated_at)
   A taxa de acerto e o tempo médio são derivados na leitura, não guardados: um percentual
   gravado envelhece; abaixo de 20 respostas ele nem é exibido (`accuracy = NULL`).
-trap_patterns(id, slug UNIQUE, name, category, description, detection_hint, example)
-topic_incidence(id, exam_board_id, subject_id, topic_id, position_scope,
-      period_start_year, period_end_year, exams_count, questions_count,
-      incidence_pct DECIMAL(5,4), trend DECIMAL(6,3), confidence DECIMAL(4,3), computed_at)
-  UNIQUE (exam_board_id, subject_id, topic_id, position_scope, period_start_year, period_end_year)
-board_profile_metrics(id, exam_board_id, subject_id NULL, metric_slug, value DECIMAL(6,3),
-      sample_exams, sample_questions, period_start_year, period_end_year, confidence, computed_at)
+trap_patterns(id, public_id, slug UNIQUE, name, category, description, detection_hint,
+      example, is_active)
+  Categorias de técnica de prova, curadas por pessoas. **Não** são afirmações sobre uma
+  banca: quantas vezes alguém caiu em cada padrão é conta sobre os erros da própria pessoa.
+topic_incidence(id, scope_key UNIQUE, exam_board_id, subject_id, topic_id NULL,
+      subject_name, topic_name, period_start_year, period_end_year, exams_count,
+      questions_count, board_questions_count, incidence_pct DECIMAL(5,4),
+      trend DECIMAL(6,4) NULL, confidence DECIMAL(4,3), computed_at)
+  IDX (exam_board_id, subject_id)
+  `scope_key` ("banca:12|disciplina:3|assunto:0|2019-2024") dá identidade estável ao
+  recorte, evitando o UNIQUE composto com colunas anuláveis — no MySQL, NULL não colide.
+  `trend` é nulo quando a amostra não cobre dois anos: gravar zero seria dizer "estável".
+  Recorte sem amostra mínima **não é gravado**.
+board_profile_metrics(id, scope_key UNIQUE, exam_board_id, subject_id NULL, metric_slug,
+      label, value DECIMAL(6,3), unit, detail JSON, sample_exams, sample_questions,
+      period_start_year, period_end_year, confidence DECIMAL(4,3), computed_at)
+  IDX (exam_board_id, metric_slug)
+user_priorities(id, user_id, study_plan_id NULL, scope_key, subject_id NULL, topic_id NULL,
+      label, color_token, score SMALLINT /* 0..100 */, contributions JSON,
+      coverage DECIMAL(4,3), missing_signals JSON, computed_at)
+  UNIQUE (user_id, scope_key) · IDX (user_id, score)
+  `contributions` guarda as parcelas que **somam exatamente** `score`; `missing_signals`
+  nomeia os sinais que ainda não existem e valeram zero. É o "POR QUÊ?" da interface,
+  gravado junto com o número — não um texto montado depois.
 ```
 
 > `topic_incidence` e `board_profile_metrics` são **sempre** calculadas por Python a partir de `questions`; guardam tamanho da amostra e período — sem amostra, o front exibe "dados insuficientes", nunca um número.
@@ -149,17 +166,22 @@ study_tasks(id, study_plan_id, user_id, scheduled_for DATE, kind[THEORY|QUESTION
   IDX (user_id, scheduled_for, status)
 study_sessions(id, user_id, study_task_id NULL, subject_id, topic_id, started_at, ended_at,
       focus_seconds, pause_seconds, device, notes)
-user_subject_progress(user_id, subject_id) PK composta + coverage_pct, mastery, accuracy,
-      questions_answered, minutes_studied, last_studied_at, updated_at
-user_topic_progress(user_id, topic_id) PK composta + mastery, retention, accuracy,
-      attempts, last_reviewed_at, next_review_at, priority_score, score_breakdown JSON
-  IDX (user_id, next_review_at), (user_id, priority_score DESC)
-question_attempts(id, user_id, question_id, simulation_attempt_id NULL, study_task_id NULL,
-      selected_alternative_id, is_correct, time_seconds, confidence[GUESS|LOW|MEDIUM|HIGH], created_at)
-  IDX (user_id, created_at), (user_id, question_id), (question_id)
-error_analyses(id, question_attempt_id UNIQUE, user_id, cause[UNKNOWN_CONTENT|INTERPRETATION|
-      CONFUSION|FORGETTING|RUSH|TRAP|ALTERNATIVE_DOUBT], trap_pattern_id NULL,
-      explanation MEDIUMTEXT, source[USER|AI], model_version, created_at)
+user_subject_progress(id, user_id, subject_key, subject_label, subject_id NULL,
+      color_token, planned_minutes, studied_minutes, tasks_done, tasks_skipped,
+      completion DECIMAL(5,4), is_weak_point, last_studied_at)
+  UNIQUE (user_id, subject_key) · IDX (user_id, last_studied_at)
+  A chave é o `subject_key` do plano (`sub:<slug>` ou `ns:<edital>`), porque o plano pode
+  nascer de um edital analisado cuja disciplina ainda não existe no catálogo canônico.
+  O Priority Score por disciplina vive em `user_priorities` (seção 4.5).
+error_analyses(id, public_id, question_attempt_id UNIQUE, user_id, question_id,
+      subject_id NULL, cause[UNKNOWN_CONTENT|INTERPRETATION|CONFUSION|FORGETTING|RUSH|
+      TRAP|ALTERNATIVE_DOUBT], trap_pattern_id NULL, note MEDIUMTEXT, source[USER|AI],
+      model_slug, prompt_version, rationale MEDIUMTEXT, confirmed_at NULL,
+      resolved_at NULL, created_at)
+  IDX (user_id, cause), (user_id, created_at)
+  Sugestão de IA entra com `source=AI` e `confirmed_at` nulo: aparece como sugestão e
+  **não entra em estatística alguma** até que a pessoa confirme. Todo agregado do Caderno
+  de Erros filtra por `confirmed_at IS NOT NULL`.
 flashcards(id, user_id NULL /* NULL = global */, subject_id, topic_id, front, back,
       extra JSON, origin[AI|USER|QUESTION|NOTICE|LESSON], source_ref, is_active)
 flashcard_reviews(id, flashcard_id, user_id, rating[AGAIN|HARD|GOOD|EASY], reviewed_at,
