@@ -40,6 +40,7 @@ from app.ai.vector_store import (
 from app.core.config import settings
 from app.core.errors import AppError, ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
+from app.domain.evidence import ChunkRef, coverage_summary, verify_quote
 from app.models.ai import AIFeature
 from app.models.audit import AuditAction
 from app.models.document import Document, DocumentChunk, DocumentKind, DocumentStatus
@@ -59,7 +60,6 @@ from app.services.analysis_progress import AnalysisProgress, StepStatus
 from app.services.audit import AuditService
 from app.services.auth import RequestContext
 from app.services.chunking import Chunk, chunk_pages, estimate_tokens
-from app.services.evidence import ChunkRef, coverage_summary, verify_quote
 from app.services.pdf_extractor import extract_pdf, ocr_available
 from app.services.storage import LocalFileStorage, get_storage
 

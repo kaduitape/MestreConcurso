@@ -36,8 +36,10 @@ Mapa de incidência por banca, DNA da Banca calculado sobre o banco de questões
 **Aceite:** ver `docs/16-criterios-aceite-fase6.md`. Regra que sustenta a fase: **nenhuma estatística sem amostra** — abaixo do mínimo o número não é publicado, e o motivo aparece no lugar dele.
 Ainda não entra aqui: incidência e Priority Score por assunto (dependem de questões classificadas nesse nível) e o Mestre Score 0–1000 (Fase 9).
 
-## FASE 7 — Mestre IA
-Tutor contextual com RAG, streaming, ferramentas, citações, Modo Professor, vocabulário inteligente, integração de vídeos verificada. **Aceite:** 100% das respostas factuais com citação resolvível; recusa explícita quando não há base.
+## FASE 7 — Mestre IA  ✅ implementada
+Tutor com RAG sobre o edital analisado, transmissão do processamento por etapa, citação conferida em cada afirmação factual, Modo Professor, vocabulário inteligente com origem e catálogo de vídeos conferidos por pessoas.
+**Aceite:** ver `docs/17-criterios-aceite-fase7.md`. Regra que sustenta a fase: **afirmação factual sem citação conferida não passa** — ela é marcada, e uma resposta inteiramente insustentada vira recusa.
+Ainda não entra aqui: rerank cross-encoder, coleções além de `notices` e *function calling* aberto (as ferramentas são roteadas por regra).
 
 ## FASE 8 — Memorização
 Flashcards (geração a partir de conteúdo/erro/questão/seleção), motor de repetição espaçada adaptativo, fila de revisão, revisão relâmpago. **Aceite:** intervalos reagem a acerto/erro/velocidade e a fila nunca "explode" após ausência.

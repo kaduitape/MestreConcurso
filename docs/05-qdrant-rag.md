@@ -24,7 +24,7 @@ Todo ponto carrega `tenant`. Nenhuma busca é emitida sem `Filter(must=[FieldCon
 4. **Metadados** obrigatórios: `page_number`, `char_start`, `char_end`, `heading_path`, `section_kind`. Sem isso o chunk não é indexado — proveniência é pré-requisito.
 5. **Reaproveitamento**: o documento é identificado por SHA-256. Reenviar ou reanalisar o mesmo PDF não repete extração, chunking nem embeddings.
 
-## 5.4 Pipeline de recuperação
+## 5.4 Pipeline de recuperação  *(implementado na Fase 7)*
 
 ```
 query
@@ -37,6 +37,20 @@ query
 ```
 
 - **Sem contexto suficiente** (score do melhor documento abaixo do limiar) → o engine responde "não localizei isso no seu edital/base" e oferece busca ampla. Nunca completa por conta própria.
+
+O que a Fase 7 entregou deste pipeline, e o que ficou pendente:
+
+| Etapa | Situação |
+|---|---|
+| normalização + expansão de siglas | ✅ dicionário determinístico, sem LLM |
+| busca densa (Qdrant) | ✅ top 40, com filtro de tenant montado dentro do `VectorStore` |
+| busca esparsa/BM25 | ⚠️ **parcial** — busca léxica local sobre os candidatos densos, não um índice invertido |
+| fusão RRF (k=60) | ✅ |
+| rerank cross-encoder | ❌ **não integrado** — a funcionalidade existe no painel, nenhum modelo foi ligado a ela |
+| orçamento de contexto | ✅ nunca corta um trecho pela metade, para não quebrar a conferência literal |
+| citações obrigatórias | ✅ cada afirmação factual é conferida contra o trecho recuperado |
+
+Coleções alimentadas hoje: **`notices`**. As demais (`legislation`, `didactic`, `questions`, `user_notes`) estão desenhadas acima e ainda não recebem conteúdo — o Mestre responde sobre o edital analisado e diz quando a pergunta sai dessa base.
 - **Cache**: `sha256(query_normalizada + filtros + versão_do_índice)` em Redis (TTL 6 h) para resultados de recuperação; cache separado para respostas finais quando determinísticas.
 - **Reindexação**: mudança de `embedding_model` gera nova coleção com sufixo de versão e alias atômico (`notices` → `notices_v2`), sem downtime.
 

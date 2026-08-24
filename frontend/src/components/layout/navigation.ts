@@ -1,4 +1,5 @@
 import {
+  BookMarked,
   Brain,
   Briefcase,
   CalendarDays,
@@ -53,7 +54,8 @@ export const navigation: NavGroup[] = [
     title: 'Inteligência',
     items: [
       { label: 'Inteligência', to: '/inteligencia', icon: Sparkles },
-      { label: 'Mestre IA', icon: Brain, phase: 'Fase 7' },
+      { label: 'Mestre IA', to: '/mestre-ia', icon: Brain },
+      { label: 'Vocabulário', to: '/vocabulario', icon: BookMarked },
       { label: 'Analytics', icon: TrendingUp, phase: 'Fase 9' },
     ],
   },

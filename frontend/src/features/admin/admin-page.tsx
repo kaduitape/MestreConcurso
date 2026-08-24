@@ -7,6 +7,7 @@ import { CatalogSection } from './catalog/catalog-section'
 import { AiSection } from './ai/ai-section'
 import { QuestionsSection } from './questions/questions-section'
 import { IntelligenceSection } from './intelligence-section'
+import { VideosSection } from './videos-section'
 import { useAuth } from '@/providers/auth-provider'
 
 export function AdminPage() {
@@ -45,6 +46,7 @@ export function AdminPage() {
           <div className="space-y-6">
             <QuestionsSection />
             {hasPermission('intelligence:write') && <IntelligenceSection />}
+            {hasPermission('catalog:write') && <VideosSection />}
           </div>
         </TabsContent>
         <TabsContent value="inteligencia">

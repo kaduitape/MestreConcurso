@@ -62,6 +62,10 @@ EXPECTED_TABLES = {
     "trap_patterns",
     "error_analyses",
     "user_priorities",
+    "chat_conversations",
+    "chat_messages",
+    "vocabulary_terms",
+    "video_resources",
 }
 
 

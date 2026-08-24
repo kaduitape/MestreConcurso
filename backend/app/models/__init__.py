@@ -85,6 +85,14 @@ from app.models.study import (
     UserSubjectProgress,
 )
 from app.models.token import AuthToken, AuthTokenType
+from app.models.tutor import (
+    ChatMode,
+    Conversation,
+    Message,
+    MessageRole,
+    VideoResource,
+    VocabularyTerm,
+)
 from app.models.user import Profile, User, UserStatus
 from app.models.user_session import UserSession
 
@@ -104,9 +112,11 @@ __all__ = [
     "BoardKnowledgeEntry",
     "BoardKnowledgeKind",
     "BoardProfileMetric",
+    "ChatMode",
     "Competition",
     "CompetitionStatus",
     "ConsentLog",
+    "Conversation",
     "Document",
     "DocumentChunk",
     "DocumentKind",
@@ -120,6 +130,8 @@ __all__ = [
     "ExtractionMethod",
     "GovernmentSphere",
     "KnowledgeSource",
+    "Message",
+    "MessageRole",
     "Notice",
     "NoticeEvent",
     "NoticeEventKind",
@@ -169,6 +181,8 @@ __all__ = [
     "UserSession",
     "UserStatus",
     "UserSubjectProgress",
+    "VideoResource",
+    "VocabularyTerm",
     "role_permissions",
     "user_roles",
 ]

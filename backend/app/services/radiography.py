@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.errors import ConflictError
+from app.domain.evidence import coverage_summary
 from app.models.document import Document
 from app.models.notice import Notice, NoticeStatus
 from app.models.notice_analysis import (
@@ -24,7 +25,6 @@ from app.models.notice_analysis import (
     NoticeFact,
     NoticeSubject,
 )
-from app.services.evidence import coverage_summary
 
 
 @dataclass(frozen=True, slots=True)

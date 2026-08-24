@@ -44,6 +44,11 @@ A plataforma responde continuamente a uma única pergunta:
   declarada pelo candidato — a sugestão da IA só conta depois de confirmada — e Radar de
   Pegadinhas. O plano de estudo passa a se inclinar até 20% na direção do score.
 
+- **Fase 7:** o **Mestre IA** responde a partir do edital analisado e dos seus números,
+  com **citação conferida** em cada afirmação factual — o que não se sustenta no material
+  aparece marcado como sem origem, e uma resposta inteiramente insustentada vira recusa
+  explícita. Inclui Modo Professor, vocabulário com origem e vídeos conferidos por pessoas.
+
 As demais fases estão especificadas em [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md)
 e ainda **não** foram implementadas — a interface indica explicitamente o que está por vir,
 sem telas ilustrativas nem dados fictícios.
@@ -75,6 +80,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [14 — Critérios de aceite da Fase 4](docs/14-criterios-aceite-fase4.md) | planejador, agenda, sessões e sprint |
 | [15 — Critérios de aceite da Fase 5](docs/15-criterios-aceite-fase5.md) | banco de questões, prática e simulados |
 | [16 — Critérios de aceite da Fase 6](docs/16-criterios-aceite-fase6.md) | incidência, DNA da banca, Priority Score e erros |
+| [17 — Critérios de aceite da Fase 7](docs/17-criterios-aceite-fase7.md) | Mestre IA, citações conferidas e vocabulário |
 
 ## Como executar
 

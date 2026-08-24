@@ -51,10 +51,16 @@ backend/
 │   ├── services/                 (F1 parcial)
 │   │   ├── auth.py, user.py, admin.py, audit.py, email.py (F1)
 │   │   └── notice_analysis.py, planner.py, simulation.py, chat.py
-│   ├── domain/
+│   ├── domain/                   # Python puro: sem I/O, sem IA, sem SQLAlchemy
 │   │   ├── permissions.py        (F1)  # catálogo de permissões
 │   │   ├── entitlements.py       (F1)  # avaliador de feature flags
-│   │   └── scoring/, planner/, srs/
+│   │   ├── evidence.py           (F3)  # conferência literal de citação
+│   │   ├── ai_features.py        (F2)  # catálogo de funcionalidades de IA
+│   │   ├── trap_catalogue.py     (F6)  # padrões de pegadinha (editorial)
+│   │   ├── planner/              (F4)  # alocação, agenda, sprint, replanejamento
+│   │   ├── questions/            (F5)  # correção e seleção de questões
+│   │   ├── intelligence/         (F6)  # incidência, Priority Score, perfil, erros
+│   │   └── tutor/                (F7)  # preparo da pergunta, fusão, conferência
 │   ├── api/
 │   │   ├── deps.py               (F1)  # get_db, current_user, require_perm
 │   │   └── v1/

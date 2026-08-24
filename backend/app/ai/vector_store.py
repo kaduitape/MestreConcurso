@@ -112,6 +112,10 @@ class QdrantVectorStore:
     ) -> list[SearchHit]:
         from qdrant_client import models
 
+        # Base ainda sem nada indexado não é falha: é ausência de material.
+        if not await self.client.collection_exists(collection):
+            return []
+
         conditions: list[models.FieldCondition] = [
             models.FieldCondition(key="tenant", match=models.MatchAny(any=[tenant, GLOBAL_TENANT]))
         ]

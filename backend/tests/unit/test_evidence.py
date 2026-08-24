@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from app.domain.evidence import ChunkRef, coverage_summary, normalize_for_match, verify_quote
 from app.models.notice_analysis import EvidenceLevel
-from app.services.evidence import ChunkRef, coverage_summary, normalize_for_match, verify_quote
 
 CHUNKS = [
     ChunkRef(

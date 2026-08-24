@@ -881,3 +881,103 @@ export interface ErrorNotebook {
   notes: string[]
   causes_catalogue: Record<string, { label: string; action: string }>
 }
+
+// --------------------------------------------------------------------------- //
+// Mestre IA
+// --------------------------------------------------------------------------- //
+export type ChatMode = 'TUTOR' | 'TEACHER'
+export type ClaimStatus = 'CITED' | 'COMPUTED' | 'UNSOURCED'
+export type ClaimKind = 'FACT' | 'GUIDANCE' | 'STATISTIC'
+
+export interface Conversation {
+  public_id: string
+  title: string
+  mode: ChatMode
+  message_count: number
+  last_message_at: string | null
+  created_at: string
+}
+
+export interface Claim {
+  text: string
+  kind: ClaimKind
+  status: ClaimStatus
+  quote: string | null
+  chunk_id: number | null
+  page_number: number | null
+  document_title: string | null
+  /** Por que a afirmação ficou sem origem conferida. */
+  note: string | null
+}
+
+export interface ChatSource {
+  chunk_id: number
+  document_title: string
+  page_number: number
+  score: number
+  excerpt: string
+}
+
+export interface ChatMessage {
+  public_id: string
+  role: 'USER' | 'ASSISTANT'
+  content: string
+  claims: Claim[]
+  sources: ChatSource[]
+  computed_context: Record<string, unknown>
+  is_refusal: boolean
+  refusal_reason: string | null
+  /** Fração das afirmações factuais com origem conferida. */
+  grounding_ratio: number | null
+  model_slug: string | null
+  input_tokens: number
+  output_tokens: number
+  created_at: string
+}
+
+export interface ConversationDetail extends Conversation {
+  messages: ChatMessage[]
+}
+
+export interface TutorVideo {
+  public_id: string
+  title: string
+  url: string
+  provider: string
+  channel: string | null
+  duration_seconds: number | null
+  summary: string | null
+  verified_at: string | null
+}
+
+export interface AskResult {
+  message: ChatMessage
+  videos: TutorVideo[]
+  suggested_terms: { term: string; definition: string }[]
+}
+
+export interface TutorStage {
+  key: string
+  label: string
+  detail: string | null
+}
+
+export interface VocabularyTerm {
+  public_id: string
+  term: string
+  definition: string
+  subject_name: string | null
+  /** CITED quando herdou uma citação conferida; GENERATED quando é redação do modelo. */
+  origin: 'CITED' | 'GENERATED'
+  source_quote: string | null
+  source_page: number | null
+  source_document: string | null
+  times_reviewed: number
+  created_at: string
+}
+
+export interface VideoAdmin extends TutorVideo {
+  subject_name: string | null
+  is_active: boolean
+  is_verified: boolean
+}

@@ -61,4 +61,8 @@ export const queryKeys = {
   errorPending: ['errors', 'pending'] as const,
   errorTraps: ['errors', 'traps'] as const,
   errorList: (params: unknown) => ['errors', 'list', params] as const,
+  conversations: ['tutor', 'conversations'] as const,
+  conversation: (publicId: string) => ['tutor', 'conversation', publicId] as const,
+  vocabulary: (params: unknown) => ['vocabulary', params] as const,
+  adminVideos: (params: unknown) => ['admin', 'videos', params] as const,
 }

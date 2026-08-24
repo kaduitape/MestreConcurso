@@ -216,18 +216,35 @@ ai_models(id, provider_id, slug, display_name, context_window, input_cost_per_1k
       output_cost_per_1k, supports_tools, supports_json, is_active)
 ai_prompts(id, slug, version, role, template MEDIUMTEXT, variables JSON,
       model_hint, is_active, created_by, created_at) UNIQUE (slug, version)
-ai_conversations(id, public_id, user_id, context_type, context_id, title, created_at, archived_at)
-ai_messages(id, conversation_id, role[SYSTEM|USER|ASSISTANT|TOOL], content MEDIUMTEXT,
-      tool_calls JSON, citations JSON, model_id, prompt_version, created_at)
+chat_conversations(id, public_id, user_id, title, mode[TUTOR|TEACHER], notice_id NULL,
+      subject_id NULL, is_archived, last_message_at, message_count)
+  IDX (user_id, last_message_at)
+chat_messages(id, public_id, conversation_id, user_id, role[USER|ASSISTANT],
+      content MEDIUMTEXT, claims JSON, sources JSON, computed_context JSON,
+      is_refusal, refusal_reason MEDIUMTEXT, grounding_ratio DECIMAL(5,4),
+      model_slug, prompt_version, input_tokens, output_tokens, latency_ms)
+  IDX (conversation_id, id)
+  `claims` guarda cada afirmação com sua situação de origem (CITED/COMPUTED/UNSOURCED),
+  a citação, o trecho e a página. `sources` guarda os trechos que entraram no contexto.
+  Assim qualquer resposta pode ser auditada depois — e a interface mostra de onde cada
+  frase veio, ou diz que ficou sem origem. `grounding_ratio` é a fração de afirmações
+  factuais conferidas: número, não impressão.
 ai_usage(id, user_id NULL, conversation_id NULL, feature_slug, provider_id, model_id,
       input_tokens, output_tokens, cached_tokens, cost_cents DECIMAL(10,4),
       latency_ms, status, error_code, created_at)
   IDX (user_id, created_at), (feature_slug, created_at)
-videos(id, provider[YOUTUBE], external_id UNIQUE, title, channel, duration_seconds,
-      published_at, thumbnail_url, lang, transcript_available)
-video_topics(video_id, topic_id, relevance DECIMAL(4,3), verified_by[AI|ADMIN], verified_at) PK composta
-vocabulary_terms(id, subject_id, topic_id NULL, term, simple_definition, technical_definition,
-      example, exam_usage, related_trap_id, flashcard_id NULL)
+video_resources(id, public_id, title, url UNIQUE, provider, channel, duration_seconds,
+      subject_id NULL, topic_id NULL, summary MEDIUMTEXT, is_active,
+      verified_by_user_id NULL, verified_at NULL)
+  IDX (subject_id, is_active)
+  A plataforma não descobre vídeos sozinha nem inventa links: o catálogo é cadastrado por
+  pessoas, e **só o item com `verified_at` preenchido é sugerido pelo Mestre**.
+vocabulary_terms(id, public_id, user_id, term, term_key, definition MEDIUMTEXT,
+      subject_id NULL, message_id NULL, source_quote MEDIUMTEXT, source_page,
+      source_document, origin[CITED|GENERATED], times_reviewed, last_reviewed_at)
+  UNIQUE (user_id, term_key) · IDX (user_id, created_at)
+  `origin` separa o que veio de trecho citado do que é redação do modelo. A interface não
+  apresenta uma definição gerada como se fosse texto do edital.
 notifications(id, user_id, kind, title, body, action_url, data JSON, read_at, created_at)
   IDX (user_id, read_at, created_at)
 ```
