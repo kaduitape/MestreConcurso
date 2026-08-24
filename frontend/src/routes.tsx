@@ -39,6 +39,26 @@ const StudyCalendarPage = lazy(() =>
     default: module.StudyCalendarPage,
   })),
 )
+const QuestionsPage = lazy(() =>
+  import('@/features/questions/questions-page').then((module) => ({
+    default: module.QuestionsPage,
+  })),
+)
+const SimulationsPage = lazy(() =>
+  import('@/features/simulations/simulations-page').then((module) => ({
+    default: module.SimulationsPage,
+  })),
+)
+const SimulationRunPage = lazy(() =>
+  import('@/features/simulations/simulation-run-page').then((module) => ({
+    default: module.SimulationRunPage,
+  })),
+)
+const SimulationResultPage = lazy(() =>
+  import('@/features/simulations/simulation-result-page').then((module) => ({
+    default: module.SimulationResultPage,
+  })),
+)
 const CompetitionsPage = lazy(() =>
   import('@/features/competitions/competitions-page').then((module) => ({
     default: module.CompetitionsPage,
@@ -87,6 +107,13 @@ export const router = createBrowserRouter([
           { path: '/plano', element: lazyRoute(<PlanPage />) },
           { path: '/plano/novo', element: lazyRoute(<PlanSetupPage />) },
           { path: '/calendario', element: lazyRoute(<StudyCalendarPage />) },
+          { path: '/questoes', element: lazyRoute(<QuestionsPage />) },
+          { path: '/simulados', element: lazyRoute(<SimulationsPage />) },
+          {
+            path: '/simulados/resultado/:attemptId',
+            element: lazyRoute(<SimulationResultPage />),
+          },
+          { path: '/simulados/:attemptId', element: lazyRoute(<SimulationRunPage />) },
           { path: '/concursos', element: lazyRoute(<CompetitionsPage />) },
           { path: '/concursos/:publicId', element: lazyRoute(<CompetitionDetailPage />) },
           { path: '/conta', element: <AccountPage /> },

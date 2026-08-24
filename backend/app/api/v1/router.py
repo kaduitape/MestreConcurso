@@ -12,6 +12,7 @@ from app.api.v1.routers import (
     auth,
     catalog,
     notice_analysis,
+    questions,
     study,
     users,
 )
@@ -21,6 +22,7 @@ api_router.include_router(auth.router)
 api_router.include_router(users.router)
 api_router.include_router(catalog.router)
 api_router.include_router(study.router)
+api_router.include_router(questions.router)
 api_router.include_router(admin.router)
 api_router.include_router(admin_ai.router)
 api_router.include_router(admin_catalog.router)

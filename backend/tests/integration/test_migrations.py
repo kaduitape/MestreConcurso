@@ -49,6 +49,14 @@ EXPECTED_TABLES = {
     "study_tasks",
     "study_sessions",
     "user_subject_progress",
+    "exams",
+    "questions",
+    "alternatives",
+    "question_stats",
+    "question_attempts",
+    "simulations",
+    "simulation_questions",
+    "simulation_attempts",
 }
 
 

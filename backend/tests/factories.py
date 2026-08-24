@@ -297,3 +297,47 @@ async def create_position_with_subjects(
 
 
 WEEKDAY_AVAILABILITY = {"0": 120, "1": 120, "2": 120, "3": 120, "4": 120, "5": 240}
+
+
+def question_payload(
+    *,
+    statement: str,
+    correct: str = "A",
+    letters: tuple[str, ...] = ("A", "B", "C", "D"),
+    difficulty: str = "MEDIUM",
+    **extra: Any,
+) -> dict[str, Any]:
+    """Monta o corpo de uma questão de múltipla escolha com um gabarito só."""
+    payload: dict[str, Any] = {
+        "statement": statement,
+        "difficulty": difficulty,
+        "alternatives": [
+            {
+                "letter": letter,
+                "content": f"Alternativa {letter} de: {statement[:40]}",
+                "is_correct": letter == correct,
+                "feedback": f"Comentário da alternativa {letter}.",
+            }
+            for letter in letters
+        ],
+    }
+    payload.update(extra)
+    return payload
+
+
+async def create_question(
+    client: AsyncClient,
+    admin: RegisteredUser,
+    *,
+    statement: str,
+    correct: str = "A",
+    difficulty: str = "MEDIUM",
+    **extra: Any,
+) -> dict[str, Any]:
+    response = await client.post(
+        "/api/v1/admin/questions",
+        headers=admin.auth_header,
+        json=question_payload(statement=statement, correct=correct, difficulty=difficulty, **extra),
+    )
+    assert response.status_code == 201, response.text
+    return response.json()

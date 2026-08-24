@@ -5,6 +5,7 @@ import { UsersSection } from './users-section'
 import { AuditSection } from './audit-section'
 import { CatalogSection } from './catalog/catalog-section'
 import { AiSection } from './ai/ai-section'
+import { QuestionsSection } from './questions/questions-section'
 import { useAuth } from '@/providers/auth-provider'
 
 export function AdminPage() {
@@ -22,6 +23,9 @@ export function AdminPage() {
           {hasPermission('catalog:read') && (
             <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
           )}
+          {hasPermission('questions:read') && (
+            <TabsTrigger value="questoes">Questões</TabsTrigger>
+          )}
           {hasPermission('ai_settings:read') && (
             <TabsTrigger value="inteligencia">Inteligência</TabsTrigger>
           )}
@@ -35,6 +39,9 @@ export function AdminPage() {
         </TabsContent>
         <TabsContent value="catalogo">
           <CatalogSection />
+        </TabsContent>
+        <TabsContent value="questoes">
+          <QuestionsSection />
         </TabsContent>
         <TabsContent value="inteligencia">
           <AiSection />

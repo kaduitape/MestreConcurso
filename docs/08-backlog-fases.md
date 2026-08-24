@@ -26,8 +26,10 @@ Planejador determinístico (alocação por peso/questões/extensão, agenda por 
 **Aceite:** ver `docs/14-criterios-aceite-fase4.md`. Regra que sustenta a fase: o plano **nunca** vira pilha de atrasos — o que não couber até a prova é declarado como removido, não escondido.
 Ainda não entra aqui: drag-and-drop no calendário e as camadas de edital/IA sobre a agenda (dependem das Fases 6 e 7).
 
-## FASE 5 — Questões
-Provas, questões, alternativas, comentários, importação, classificação assistida por IA com revisão humana, filtros, cadernos, execução de questões, simulados (todos os tipos) com cronômetro e autosave. **Aceite:** simulado oficial de 120 questões executado, salvo e corrigido.
+## FASE 5 — Questões  ✅ implementada
+Provas, questões, alternativas, comentários, importação em lote com relatório de erros, classificação assistida por IA **com revisão humana obrigatória**, filtros, resolução com correção comentada, simulados por tipo (oficial, banca, erros, relâmpago, personalizado) com cronômetro, autosave e correção completa por disciplina e dificuldade.
+**Aceite:** ver `docs/15-criterios-aceite-fase5.md`. Regra que sustenta a fase: **nenhum percentual sem amostra** — abaixo de 20 respostas a taxa de acerto não é exibida, e quando falta dado para o simulado pedido a plataforma diz o motivo em vez de montar outro no lugar.
+Ainda não entra aqui: cadernos de questões e o simulado adaptativo na interface (dependem do Priority Score da Fase 6).
 
 ## FASE 6 — Inteligência
 Mapa de incidência, DNA da Banca, Priority Score com breakdown, Caderno de Erros com classificação de causa, Radar de Pegadinhas. **Aceite:** todo score exibido abre o "POR QUÊ?" com contribuições que somam o valor mostrado; nenhuma estatística sem amostra registrada.

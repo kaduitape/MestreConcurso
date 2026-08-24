@@ -226,3 +226,14 @@ EXTRACTION_PAYLOAD: dict[str, Any] = {
         },
     ],
 }
+
+
+# Sugestão de classificação plausível — é apenas sugestão: nada é aplicado sozinho.
+CLASSIFY_PAYLOAD: dict[str, Any] = {
+    "subject": "Direito Penal",
+    "topic": "Crimes contra a pessoa",
+    "difficulty": "HARD",
+    "tags": ["homicídio", "qualificadoras"],
+    "confidence": 0.82,
+    "rationale": "O enunciado trata de qualificadoras do homicídio.",
+}

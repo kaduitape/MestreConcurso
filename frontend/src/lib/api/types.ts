@@ -433,12 +433,7 @@ export interface Radiography {
 // Plano de estudo (Fase 4)
 // --------------------------------------------------------------------------
 export type StudyTaskKind =
-  | 'THEORY'
-  | 'QUESTIONS'
-  | 'REVIEW'
-  | 'FLASHCARDS'
-  | 'SIMULATION'
-  | 'SPRINT'
+  'THEORY' | 'QUESTIONS' | 'REVIEW' | 'FLASHCARDS' | 'SIMULATION' | 'SPRINT'
 
 export type StudyTaskStatus = 'PENDING' | 'DONE' | 'SKIPPED' | 'RESCHEDULED' | 'DROPPED'
 
@@ -547,4 +542,166 @@ export interface SubjectProgress {
   tasks_skipped: number
   completion: number
   last_studied_at: string | null
+}
+
+// --------------------------------------------------------------------------- //
+// Questões e simulados
+// --------------------------------------------------------------------------- //
+export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD'
+export type QuestionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'NEEDS_REVIEW'
+export type QuestionOrigin = 'OFFICIAL' | 'AI_GENERATED' | 'EDITORIAL'
+export type SimulationKind =
+  'OFFICIAL' | 'BOARD' | 'ERRORS' | 'FINAL_STRETCH' | 'FLASH' | 'CUSTOM' | 'ADAPTIVE'
+
+export interface Alternative {
+  public_id: string
+  letter: string
+  content: string
+}
+
+export interface AlternativeAdmin extends Alternative {
+  is_correct: boolean
+  feedback: string | null
+}
+
+export interface QuestionStats {
+  attempts: number
+  /** Nulo enquanto a amostra for pequena: a tela mostra “dados insuficientes”. */
+  accuracy: number | null
+  average_time_seconds: number | null
+}
+
+export interface Question {
+  public_id: string
+  statement: string
+  kind: string
+  difficulty: QuestionDifficulty
+  origin: QuestionOrigin
+  year: number | null
+  subject_name: string | null
+  tags: string[]
+  alternatives: Alternative[]
+  stats: QuestionStats | null
+}
+
+export interface QuestionAdmin extends Omit<Question, 'alternatives'> {
+  status: QuestionStatus
+  explanation: string | null
+  source_note: string | null
+  alternatives: AlternativeAdmin[]
+  ai_suggestion: Record<string, unknown>
+  created_at: string
+}
+
+export interface AnswerFeedback {
+  is_correct: boolean
+  is_blank: boolean
+  selected_letter: string | null
+  correct_letter: string | null
+  correct_feedback: string | null
+  selected_feedback: string | null
+  explanation: string | null
+  time_seconds: number
+}
+
+export interface AttemptHistoryItem {
+  public_id: string
+  question_public_id: string
+  question_statement: string
+  selected_letter: string | null
+  is_correct: boolean
+  is_blank: boolean
+  time_seconds: number
+  created_at: string
+}
+
+export interface ImportSummary {
+  created: number
+  skipped_duplicates: number
+  errors: string[]
+}
+
+export interface ClassificationSuggestion {
+  subject: string | null
+  topic: string | null
+  difficulty: QuestionDifficulty | null
+  tags: string[]
+  confidence: number | null
+  rationale: string | null
+  model: string | null
+  prompt_version: string | null
+  applied: boolean
+}
+
+export interface Simulation {
+  public_id: string
+  kind: SimulationKind
+  name: string
+  questions_count: number
+  duration_minutes: number | null
+  config: Record<string, unknown>
+  created_at: string
+}
+
+export interface SubjectResult {
+  subject_id: number | null
+  subject_name: string
+  total: number
+  correct: number
+  wrong: number
+  blank: number
+  accuracy: number
+  average_time_seconds: number
+}
+
+export interface DifficultyResult {
+  difficulty: QuestionDifficulty
+  total: number
+  correct: number
+  accuracy: number
+}
+
+export interface SimulationAnalysis {
+  score: number
+  accuracy: number
+  total: number
+  correct: number
+  wrong: number
+  blank: number
+  total_time_seconds: number
+  average_time_seconds: number
+  previous_accuracy: number | null
+  accuracy_delta: number | null
+  by_subject: SubjectResult[]
+  by_difficulty: DifficultyResult[]
+  weakest_subjects: string[]
+  strongest_subjects: string[]
+  recommendations: string[]
+}
+
+export interface SimulationAttempt {
+  public_id: string
+  status: 'IN_PROGRESS' | 'PAUSED' | 'FINISHED' | 'ABANDONED'
+  started_at: string
+  finished_at: string | null
+  elapsed_seconds: number
+  correct_count: number
+  wrong_count: number
+  blank_count: number
+  score: number | null
+  simulation: Simulation | null
+  analysis: Partial<SimulationAnalysis>
+}
+
+export interface SimulationRunQuestion {
+  order_index: number
+  question: Question
+  selected_letter: string | null
+}
+
+export interface SimulationRun {
+  attempt: SimulationAttempt
+  questions: SimulationRunQuestion[]
+  /** Nulo quando o simulado não tem tempo definido. */
+  remaining_seconds: number | null
 }

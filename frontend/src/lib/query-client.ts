@@ -48,4 +48,10 @@ export const queryKeys = {
   studyProgress: ['study', 'progress'] as const,
   studySession: ['study', 'session'] as const,
   studyWeekMinutes: ['study', 'week-minutes'] as const,
+  questions: (params: unknown) => ['questions', params] as const,
+  questionHistory: (params: unknown) => ['questions', 'history', params] as const,
+  adminQuestions: (params: unknown) => ['admin', 'questions', params] as const,
+  simulationHistory: ['simulations', 'history'] as const,
+  simulationCurrent: ['simulations', 'current'] as const,
+  simulationAttempt: (publicId: string) => ['simulations', 'attempt', publicId] as const,
 }

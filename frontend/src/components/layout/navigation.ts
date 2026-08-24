@@ -42,8 +42,8 @@ export const navigation: NavGroup[] = [
   {
     title: 'Treino',
     items: [
-      { label: 'Questões', icon: ListChecks, phase: 'Fase 5' },
-      { label: 'Simulados', icon: ClipboardList, phase: 'Fase 5' },
+      { label: 'Questões', to: '/questoes', icon: ListChecks },
+      { label: 'Simulados', to: '/simulados', icon: ClipboardList },
       { label: 'Flashcards', icon: Layers, phase: 'Fase 8' },
       { label: 'Meus erros', icon: TrendingUp, phase: 'Fase 6' },
     ],

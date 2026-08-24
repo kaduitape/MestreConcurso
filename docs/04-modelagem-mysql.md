@@ -110,15 +110,22 @@ document_chunks(id, document_id→documents ON DELETE CASCADE, chunk_index,
 ```
 exams(id, competition_id, position_id, exam_board_id, year, phase, name,
       questions_count, duration_minutes, source_url, is_official)
-questions(id, public_id, exam_id NULL, exam_board_id, subject_id, topic_id,
-      subtopic_id, year, position_id, statement MEDIUMTEXT, kind[MC|TF|DISCURSIVE],
-      correct_alternative_id, difficulty[EASY|MEDIUM|HARD], difficulty_score,
-      origin[OFFICIAL|AI_GENERATED|EDITORIAL], status, explanation MEDIUMTEXT,
-      trap_pattern_id NULL, tags JSON, checksum UNIQUE, created_at)
-  IDX (subject_id, topic_id), (exam_board_id, year), (origin, status)
+questions(id, public_id, exam_id NULL, exam_board_id, subject_id, topic_id, year,
+      statement MEDIUMTEXT, kind[MC|TF|DISCURSIVE], difficulty[EASY|MEDIUM|HARD],
+      origin[OFFICIAL|AI_GENERATED|EDITORIAL], status, explanation MEDIUMTEXT, source_note,
+      tags JSON, ai_suggestion JSON, reviewed_by_user_id, reviewed_at,
+      checksum UNIQUE, created_at)
+  IDX (subject_id, topic_id), (exam_board_id, year), (status, origin)
+  Reservados para a Fase 6 (ainda **não** criados): `difficulty_score` e `trap_pattern_id`,
+  que dependem do Radar de Pegadinhas.
+  `ai_suggestion` guarda a classificação sugerida pelo modelo **sem aplicá-la**; ela só vira
+  classificação quando `reviewed_by_user_id` é preenchido. O gabarito vive em
+  `alternatives.is_correct` — não há ponteiro duplicado na questão para sair de sincronia.
 alternatives(id, question_id→questions ON DELETE CASCADE, letter, content TEXT, is_correct, feedback TEXT)
-question_stats(question_id PK→questions, attempts, correct_attempts, avg_time_seconds,
-      accuracy DECIMAL(5,4), updated_at)
+question_stats(question_id PK→questions, attempts, correct_attempts, total_time_seconds,
+      last_attempt_at, updated_at)
+  A taxa de acerto e o tempo médio são derivados na leitura, não guardados: um percentual
+  gravado envelhece; abaixo de 20 respostas ele nem é exibido (`accuracy = NULL`).
 trap_patterns(id, slug UNIQUE, name, category, description, detection_hint, example)
 topic_incidence(id, exam_board_id, subject_id, topic_id, position_scope,
       period_start_year, period_end_year, exams_count, questions_count,
@@ -160,11 +167,20 @@ flashcard_reviews(id, flashcard_id, user_id, rating[AGAIN|HARD|GOOD|EASY], revie
   IDX (user_id, due_at)
 revision_queue(id, user_id, item_type[TOPIC|FLASHCARD|QUESTION|VOCAB], item_id,
       due_at, priority_score, times_reviewed, last_result, state) IDX (user_id, due_at, state)
-simulations(id, user_id NULL, competition_id NULL, kind[OFFICIAL|BOARD|ERRORS|FINAL_STRETCH|TRAPS|FLASH|CUSTOM|ADAPTIVE],
+simulations(id, public_id, user_id NULL, competition_id NULL,
+      kind[OFFICIAL|BOARD|ERRORS|FINAL_STRETCH|FLASH|CUSTOM|ADAPTIVE],
       name, questions_count, duration_minutes, config JSON, is_template, created_by)
+  `config` registra a regra que montou o simulado (e as cotas por disciplina, no oficial):
+  a composição é auditável depois, não uma caixa preta.
 simulation_questions(simulation_id, question_id, order_index) PK composta
-simulation_attempts(id, simulation_id, user_id, started_at, finished_at, status,
-      score DECIMAL(6,2), correct_count, wrong_count, blank_count, time_seconds, analysis JSON)
+simulation_attempts(id, public_id, simulation_id, user_id, started_at, finished_at, paused_at,
+      status[IN_PROGRESS|PAUSED|FINISHED|ABANDONED], score DECIMAL(6,2),
+      correct_count, wrong_count, blank_count, elapsed_seconds, analysis JSON)
+question_attempts(id, public_id, user_id, question_id, simulation_attempt_id NULL,
+      selected_alternative_id NULL, selected_letter, is_correct, is_blank, time_seconds,
+      confidence, subject_id, created_at) IDX (user_id, created_at), (user_id, question_id)
+  Resposta avulsa e resposta dentro de simulado são a mesma tabela: o histórico do candidato
+  é um só, e é dele que sai o "simulado dos erros".
 mestre_scores(id, user_id, computed_at, score SMALLINT /* 0..1000 */, components JSON,
       estimated_min DECIMAL(6,2), estimated_max DECIMAL(6,2), confidence)
   IDX (user_id, computed_at)

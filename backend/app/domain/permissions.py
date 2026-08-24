@@ -35,6 +35,8 @@ CATALOG_READ = "catalog:read"
 CATALOG_WRITE = "catalog:write"
 NOTICES_READ = "notices:read"
 NOTICES_WRITE = "notices:write"
+QUESTIONS_READ = "questions:read"
+QUESTIONS_WRITE = "questions:write"
 AI_SETTINGS_READ = "ai_settings:read"
 AI_SETTINGS_WRITE = "ai_settings:write"
 
@@ -50,6 +52,8 @@ PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec(CATALOG_WRITE, "Cadastrar e editar o catálogo de concursos"),
     PermissionSpec(NOTICES_READ, "Consultar editais e seus arquivos"),
     PermissionSpec(NOTICES_WRITE, "Cadastrar editais e enviar arquivos"),
+    PermissionSpec(QUESTIONS_READ, "Consultar o banco de questões"),
+    PermissionSpec(QUESTIONS_WRITE, "Cadastrar, importar e classificar questões"),
     PermissionSpec(AI_SETTINGS_READ, "Ver a configuração de provedores de IA"),
     PermissionSpec(AI_SETTINGS_WRITE, "Configurar provedores, chaves e modelos de IA"),
 )
@@ -88,6 +92,8 @@ ROLES: tuple[RoleSpec, ...] = (
             CATALOG_WRITE,
             NOTICES_READ,
             NOTICES_WRITE,
+            QUESTIONS_READ,
+            QUESTIONS_WRITE,
         ),
     ),
     RoleSpec(
