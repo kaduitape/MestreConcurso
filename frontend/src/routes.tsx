@@ -26,6 +26,19 @@ const NoticeDetailPage = lazy(() =>
     default: module.NoticeDetailPage,
   })),
 )
+const PlanPage = lazy(() =>
+  import('@/features/study/plan-page').then((module) => ({ default: module.PlanPage })),
+)
+const PlanSetupPage = lazy(() =>
+  import('@/features/study/plan-setup-page').then((module) => ({
+    default: module.PlanSetupPage,
+  })),
+)
+const StudyCalendarPage = lazy(() =>
+  import('@/features/study/calendar-page').then((module) => ({
+    default: module.StudyCalendarPage,
+  })),
+)
 const CompetitionsPage = lazy(() =>
   import('@/features/competitions/competitions-page').then((module) => ({
     default: module.CompetitionsPage,
@@ -71,6 +84,9 @@ export const router = createBrowserRouter([
         children: [
           { path: '/', element: <Navigate to="/hoje" replace /> },
           { path: '/hoje', element: <TodayPage /> },
+          { path: '/plano', element: lazyRoute(<PlanPage />) },
+          { path: '/plano/novo', element: lazyRoute(<PlanSetupPage />) },
+          { path: '/calendario', element: lazyRoute(<StudyCalendarPage />) },
           { path: '/concursos', element: lazyRoute(<CompetitionsPage />) },
           { path: '/concursos/:publicId', element: lazyRoute(<CompetitionDetailPage />) },
           { path: '/conta', element: <AccountPage /> },

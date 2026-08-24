@@ -428,3 +428,123 @@ export interface Radiography {
   attention_points: AttentionPoint[]
   coverage: Record<string, number>
 }
+
+// --------------------------------------------------------------------------
+// Plano de estudo (Fase 4)
+// --------------------------------------------------------------------------
+export type StudyTaskKind =
+  | 'THEORY'
+  | 'QUESTIONS'
+  | 'REVIEW'
+  | 'FLASHCARDS'
+  | 'SIMULATION'
+  | 'SPRINT'
+
+export type StudyTaskStatus = 'PENDING' | 'DONE' | 'SKIPPED' | 'RESCHEDULED' | 'DROPPED'
+
+export interface AvailabilityDay {
+  weekday: number
+  minutes: number
+  label: string
+}
+
+export interface SubjectShare {
+  key: string
+  name: string
+  share: number
+  minutes: number
+  breakdown: Record<string, number>
+}
+
+export interface StudyPlan {
+  public_id: string
+  name: string
+  status: string
+  exam_date: string | null
+  starts_on: string
+  weekly_minutes_target: number
+  generated_at: string | null
+  recalculated_at: string | null
+  availability: AvailabilityDay[]
+  shares: SubjectShare[]
+  minutes_by_kind: Record<string, number>
+  total_planned_minutes: number
+  days_until_exam: number | null
+}
+
+export interface StudyTask {
+  public_id: string
+  scheduled_for: string
+  kind: StudyTaskKind
+  kind_label: string
+  subject_key: string | null
+  subject_label: string | null
+  color_token: string
+  planned_minutes: number
+  actual_minutes: number
+  status: StudyTaskStatus
+  order_index: number
+  source: string
+  reschedule_count: number
+  rescheduled_from: string | null
+  score_breakdown: Record<string, unknown>
+}
+
+export interface TodayMission {
+  day: string
+  plan_public_id: string
+  plan_name: string
+  days_until_exam: number | null
+  planned_minutes: number
+  done_minutes: number
+  overdue_count: number
+  tasks: StudyTask[]
+}
+
+export interface CalendarDay {
+  day: string
+  planned_minutes: number
+  done_minutes: number
+  tasks: StudyTask[]
+}
+
+export interface StudyCalendar {
+  start: string
+  end: string
+  exam_date: string | null
+  days: CalendarDay[]
+}
+
+export interface RebalanceResult {
+  rescheduled: number
+  dropped: number
+  dropped_minutes: number
+  days_touched: number
+  summary: string
+}
+
+export interface StudySession {
+  public_id: string
+  status: 'RUNNING' | 'PAUSED' | 'FINISHED' | 'ABANDONED'
+  kind: string
+  subject_key: string | null
+  subject_label: string | null
+  started_at: string
+  ended_at: string | null
+  focus_seconds: number
+  pause_seconds: number
+  notes: string | null
+  task_public_id: string | null
+}
+
+export interface SubjectProgress {
+  subject_key: string
+  subject_label: string
+  color_token: string
+  planned_minutes: number
+  studied_minutes: number
+  tasks_done: number
+  tasks_skipped: number
+  completion: number
+  last_studied_at: string | null
+}

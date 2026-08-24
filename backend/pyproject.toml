@@ -66,6 +66,9 @@ ignore = ["B008", "S101", "RUF001", "RUF002", "RUF003"]
 "app/models/audit.py" = ["S105"]
 "app/schemas/auth.py" = ["S105"]
 "app/core/config.py" = ["S105"]
+# color_token não é segredo: é o nome do token de cor no design system.
+"app/domain/planner/allocation.py" = ["S105"]
+"app/schemas/study.py" = ["S105"]
 "alembic/*" = ["E501"]
 
 [tool.mypy]

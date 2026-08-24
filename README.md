@@ -13,7 +13,7 @@ A plataforma responde continuamente a uma única pergunta:
 
 ## Estado atual
 
-**Fases 1 a 3** entregues e executáveis:
+**Fases 1 a 4** entregues e executáveis:
 
 - **Fase 1:** arquitetura, Docker, FastAPI, MySQL, Redis, Celery, autenticação completa,
   sessões/dispositivos, RBAC, auditoria, LGPD, design system, casca da aplicação e painel
@@ -27,6 +27,10 @@ A plataforma responde continuamente a uma única pergunta:
   Qdrant, extração de campos com prompt versionado e, acima de tudo, **conferência de cada
   citação contra o documento**: sem citação verificada, o dado não vira fato. Acompanhamento
   ao vivo do processamento, revisão humana campo a campo e Raio-X do edital.
+- **Fase 4:** plano de estudo gerado por cálculo (peso no edital, questões, extensão do
+  conteúdo e sua disponibilidade real), missão diária, cronômetro com pausa, calendário,
+  Modo Sprint e replanejamento que **não acumula dívida** — o que não cabe até a prova é
+  declarado, não empilhado. Toda tarefa abre o "por quê?" com os números que a geraram.
 
 As demais fases estão especificadas em [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md)
 e ainda **não** foram implementadas — a interface indica explicitamente o que está por vir,
@@ -56,6 +60,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [11 — Critérios de aceite da Fase 1](docs/11-criterios-aceite-fase1.md) | como verificar a fundação |
 | [12 — Critérios de aceite da Fase 2](docs/12-criterios-aceite-fase2.md) | catálogo, IA configurável e cache |
 | [13 — Critérios de aceite da Fase 3](docs/13-criterios-aceite-fase3.md) | pipeline de edital, prova de origem e Raio-X |
+| [14 — Critérios de aceite da Fase 4](docs/14-criterios-aceite-fase4.md) | planejador, agenda, sessões e sprint |
 
 ## Como executar
 

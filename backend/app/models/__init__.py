@@ -46,6 +46,19 @@ from app.models.notice_analysis import (
     NoticeTopic,
 )
 from app.models.rbac import Permission, Role, role_permissions, user_roles
+from app.models.study import (
+    StudyAvailability,
+    StudyPeriod,
+    StudyPlan,
+    StudyPlanStatus,
+    StudySession,
+    StudySessionStatus,
+    StudyTask,
+    StudyTaskKind,
+    StudyTaskSource,
+    StudyTaskStatus,
+    UserSubjectProgress,
+)
 from app.models.token import AuthToken, AuthTokenType
 from app.models.user import Profile, User, UserStatus
 from app.models.user_session import UserSession
@@ -94,11 +107,22 @@ __all__ = [
     "PositionSubject",
     "Profile",
     "Role",
+    "StudyAvailability",
+    "StudyPeriod",
+    "StudyPlan",
+    "StudyPlanStatus",
+    "StudySession",
+    "StudySessionStatus",
+    "StudyTask",
+    "StudyTaskKind",
+    "StudyTaskSource",
+    "StudyTaskStatus",
     "Subject",
     "Topic",
     "User",
     "UserSession",
     "UserStatus",
+    "UserSubjectProgress",
     "role_permissions",
     "user_roles",
 ]

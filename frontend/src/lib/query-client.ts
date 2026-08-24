@@ -42,4 +42,10 @@ export const queryKeys = {
   competition: (publicId: string) => ['catalog', 'competition', publicId] as const,
   competitionNotices: (publicId: string) =>
     ['catalog', 'competition-notices', publicId] as const,
+  studyPlan: ['study', 'plan'] as const,
+  studyToday: (day?: string) => ['study', 'today', day ?? 'hoje'] as const,
+  studyCalendar: (start: string, end: string) => ['study', 'calendar', start, end] as const,
+  studyProgress: ['study', 'progress'] as const,
+  studySession: ['study', 'session'] as const,
+  studyWeekMinutes: ['study', 'week-minutes'] as const,
 }

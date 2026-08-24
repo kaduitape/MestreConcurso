@@ -21,8 +21,10 @@ Entrou junto, por decisão do produto: **configuração de provedores de IA no p
 Pipeline PDF → extração (PyMuPDF) → OCR condicional (Tesseract, quando o PDF não tem camada de texto) → chunking com página e deslocamento → embeddings → Qdrant → extração estruturada com prompt versionado → **validação de citação em Python** → revisão humana → confirmação → Raio-X. Progresso ao vivo por SSE, alimentado pelo estado no banco (o worker roda em outro processo).
 **Aceite:** ver `docs/13-criterios-aceite-fase3.md`. Regra que sustenta a fase: nenhum campo é `OFICIAL` sem citação conferida caractere a caractere no PDF; sem prova, é `INFERIDO` e sem página.
 
-## FASE 4 — Estudo
-Planner determinístico, disponibilidade semanal, tarefas diárias, cronômetro/sessões, calendário 3 camadas com drag-and-drop, replanejamento ao perder dias, Modo Sprint. **Aceite:** aluno com 12h/semana recebe plano coerente até a data da prova e o replanejamento não acumula dívida infinita.
+## FASE 4 — Estudo  ✅ implementada
+Planejador determinístico (alocação por peso/questões/extensão, agenda por dia, composição por tipo de atividade, reta final automática), disponibilidade semanal, missão do dia, cronômetro com pausa, calendário de quatro semanas, replanejamento com teto diário e Modo Sprint.
+**Aceite:** ver `docs/14-criterios-aceite-fase4.md`. Regra que sustenta a fase: o plano **nunca** vira pilha de atrasos — o que não couber até a prova é declarado como removido, não escondido.
+Ainda não entra aqui: drag-and-drop no calendário e as camadas de edital/IA sobre a agenda (dependem das Fases 6 e 7).
 
 ## FASE 5 — Questões
 Provas, questões, alternativas, comentários, importação, classificação assistida por IA com revisão humana, filtros, cadernos, execução de questões, simulados (todos os tipos) com cronômetro e autosave. **Aceite:** simulado oficial de 120 questões executado, salvo e corrigido.

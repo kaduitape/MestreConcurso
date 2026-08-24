@@ -44,6 +44,11 @@ EXPECTED_TABLES = {
     "notice_subjects",
     "notice_topics",
     "notice_events",
+    "study_plans",
+    "study_availability",
+    "study_tasks",
+    "study_sessions",
+    "user_subject_progress",
 }
 
 

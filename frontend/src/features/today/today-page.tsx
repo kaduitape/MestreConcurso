@@ -1,36 +1,32 @@
-import type { ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
+  AlertTriangle,
   CalendarClock,
+  CalendarRange,
   CheckCircle2,
   Circle,
-  FileText,
+  Clock,
   Lock,
-  MonitorSmartphone,
+  RefreshCw,
   Target,
 } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { toast } from 'sonner'
+import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { usersApi } from '@/lib/api/users'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton, SkeletonList } from '@/components/ui/skeleton'
+import { ApiError } from '@/lib/api/client'
+import { studyApi } from '@/lib/api/study'
 import { queryKeys } from '@/lib/query-client'
 import { useAuth } from '@/providers/auth-provider'
 import { firstName, greeting } from '@/lib/utils'
+import { MissionPanel } from '@/features/study/mission'
+import { SprintDialog } from '@/features/study/sprint-dialog'
+import { formatMinutes } from '@/features/study/helpers'
 
-function formatDate(value: string | null): string {
-  if (!value) return '—'
-  return new Date(value).toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-/** Cada passo reflete um estado real da conta — nada aqui é ilustrativo. */
 function SetupStep({
   done,
   locked,
@@ -69,157 +65,199 @@ function SetupStep({
 
 export function TodayPage() {
   const { user } = useAuth()
-  const sessions = useQuery({ queryKey: queryKeys.sessions, queryFn: usersApi.sessions })
+  const queryClient = useQueryClient()
+
+  const mission = useQuery({
+    queryKey: queryKeys.studyToday(),
+    queryFn: () => studyApi.today(),
+    retry: false,
+  })
+
+  const weekMinutes = useQuery({
+    queryKey: queryKeys.studyWeekMinutes,
+    queryFn: studyApi.weekMinutes,
+    enabled: mission.isSuccess,
+  })
+
+  const rebalance = useMutation({
+    mutationFn: studyApi.rebalance,
+    onSuccess: (result) => {
+      toast.success(result.summary)
+      queryClient.invalidateQueries({ queryKey: ['study'] })
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof ApiError ? error.message : 'Não foi possível replanejar.'),
+  })
 
   if (!user) return null
 
-  const memberSince = new Date(user.created_at).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  })
+  const hasNoPlan =
+    mission.isError && mission.error instanceof ApiError && mission.error.code === 'no_active_plan'
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <p className="text-sm text-muted">{greeting()},</p>
-        <h1 className="text-3xl font-semibold tracking-tight">{firstName(user.full_name)}.</h1>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-sm text-muted">{greeting()},</p>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {firstName(user.full_name)}.
+          </h1>
+        </div>
+        {mission.isSuccess && <SprintDialog />}
       </header>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <CardTitle>Sua missão de hoje</CardTitle>
-              <CardDescription>
-                A missão diária é montada a partir do seu edital, da banca e do seu desempenho.
-              </CardDescription>
-            </div>
-            <Badge variant="primary">Fundação concluída</Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="rounded-md border border-dashed border-border p-5 text-sm text-muted">
-            <p className="text-foreground">
-              Ainda não há edital vinculado à sua conta, então não existe missão para exibir.
-            </p>
-            <p className="mt-1">
-              A plataforma não sugere estudo sem base. O catálogo de concursos já está no ar;
-              quando o analisador de edital (Fase 3) e o planejador adaptativo (Fase 4)
-              entrarem, esta área passa a mostrar o que estudar hoje, por quanto tempo e por
-              quê.
-            </p>
-          </div>
+      {mission.isLoading && <SkeletonList rows={3} />}
 
-          <ul>
-            <SetupStep done title="Conta criada" description={`Membro desde ${memberSince}.`} />
-            <SetupStep
-              done={Boolean(user.email_verified_at)}
-              title="E-mail confirmado"
-              description={
-                user.email_verified_at
-                  ? `Confirmado em ${formatDate(user.email_verified_at)}.`
-                  : 'Confirme seu e-mail para liberar todos os recursos.'
-              }
-            />
-            <SetupStep
-              title="Escolher seu concurso"
-              description="O catálogo já traz certames, cargos, disciplinas e editais oficiais."
-              action={
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/concursos">Ver concursos</Link>
-                </Button>
-              }
-            />
-            <SetupStep
-              locked
-              phase="Fase 3"
-              title="Enviar meu edital"
-              description="Upload do PDF, extração com evidência por página e Raio-X do concurso."
-            />
-            <SetupStep
-              locked
-              phase="Fase 4"
-              title="Gerar plano de estudo"
-              description="Distribuição de teoria, questões, revisões e simulados na sua agenda."
-            />
-          </ul>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-3">
+      {hasNoPlan && (
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
-              <CalendarClock className="size-4" aria-hidden /> Último acesso
-            </CardTitle>
+          <CardHeader>
+            <CardTitle>Comece pelo seu plano</CardTitle>
+            <CardDescription>
+              A missão diária aparece assim que existir um plano — e o plano sai de dados
+              reais, não de suposição.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-lg font-semibold">{formatDate(user.last_login_at)}</p>
+          <CardContent className="space-y-4">
+            <ul>
+              <SetupStep
+                done
+                title="Conta criada"
+                description={`Membro desde ${new Date(user.created_at).toLocaleDateString('pt-BR')}.`}
+              />
+              <SetupStep
+                done={Boolean(user.email_verified_at)}
+                title="E-mail confirmado"
+                description={
+                  user.email_verified_at
+                    ? 'Confirmado.'
+                    : 'Confirme seu e-mail para liberar todos os recursos.'
+                }
+              />
+              <SetupStep
+                title="Montar plano de estudo"
+                description="Escolha o cargo e informe sua disponibilidade real por dia da semana."
+                action={
+                  <Button asChild size="sm">
+                    <Link to="/plano/novo">Montar plano</Link>
+                  </Button>
+                }
+              />
+              <SetupStep
+                locked
+                phase="Fase 5"
+                title="Resolver questões da banca"
+                description="Banco de provas e simulados com correção detalhada."
+              />
+            </ul>
           </CardContent>
         </Card>
+      )}
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
-              <MonitorSmartphone className="size-4" aria-hidden /> Dispositivos conectados
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between gap-2">
-            {sessions.isLoading ? (
-              <Skeleton className="h-7 w-10" />
-            ) : (
-              <p className="text-lg font-semibold">{sessions.data?.length ?? '—'}</p>
-            )}
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/conta">Gerenciar</Link>
-            </Button>
-          </CardContent>
-        </Card>
+      {mission.isError && !hasNoPlan && (
+        <Alert tone="danger" title="Não foi possível carregar sua missão">
+          Tente recarregar a página em instantes.
+        </Alert>
+      )}
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
-              <Target className="size-4" aria-hidden /> Perfil de acesso
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-1.5">
-            {user.roles.map((role) => (
-              <Badge key={role.slug} variant="primary">
-                {role.name}
-              </Badge>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+      {mission.data && (
+        <>
+          {mission.data.overdue_count > 0 && (
+            <Alert tone="warning" title={`${mission.data.overdue_count} tarefa(s) atrasada(s)`}>
+              <p>
+                O plano não acumula dívida: o replanejamento redistribui o que couber e
+                declara o que ficou de fora.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                loading={rebalance.isPending}
+                onClick={() => rebalance.mutate()}
+              >
+                <RefreshCw /> Replanejar agora
+              </Button>
+            </Alert>
+          )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="size-4 text-muted" aria-hidden /> O que vem a seguir
-          </CardTitle>
-          <CardDescription>
-            Roteiro público das próximas entregas — cada fase mantém a aplicação executável.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ol className="grid gap-3 sm:grid-cols-2">
-            {[
-              ['Fase 3', 'Analisador de edital com IA, RAG e Raio-X'],
-              ['Fase 4', 'Planejador adaptativo, agenda e sessões de estudo'],
-              ['Fase 5', 'Banco de questões e simulados'],
-              ['Fase 6', 'Priority Score, DNA da banca e caderno de erros'],
-            ].map(([phase, description]) => (
-              <li key={phase} className="rounded-md bg-surface-muted p-3">
-                <p className="text-xs font-semibold tracking-wide text-primary uppercase">
-                  {phase}
+          <MissionPanel mission={mission.data} />
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
+                  <CalendarClock className="size-4" aria-hidden /> Dias até a prova
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold tabular-nums">
+                  {mission.data.days_until_exam ?? '—'}
                 </p>
-                <p className="text-sm text-muted">{description}</p>
-              </li>
-            ))}
-          </ol>
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
+                  <Clock className="size-4" aria-hidden /> Estudado em 7 dias
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {weekMinutes.isLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  <p className="text-2xl font-semibold">
+                    {formatMinutes(weekMinutes.data?.minutes ?? 0)}
+                  </p>
+                )}
+                <p className="text-xs text-subtle">tempo real de foco, sem pausas</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
+                  <Target className="size-4" aria-hidden /> Concluído hoje
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold">
+                  {formatMinutes(mission.data.done_minutes)}
+                </p>
+                <p className="text-xs text-subtle">
+                  de {formatMinutes(mission.data.planned_minutes)} planejados
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted">
+                  <AlertTriangle className="size-4" aria-hidden /> Atrasos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold tabular-nums">
+                  {mission.data.overdue_count}
+                </p>
+                <p className="text-xs text-subtle">tarefas de dias anteriores</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link to="/plano">
+                <Target /> Ver meu plano
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/calendario">
+                <CalendarRange /> Calendário
+              </Link>
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

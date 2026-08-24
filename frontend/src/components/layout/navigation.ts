@@ -34,9 +34,9 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Hoje', to: '/hoje', icon: LayoutDashboard },
       { label: 'Concursos', to: '/concursos', icon: Briefcase },
+      { label: 'Plano de estudo', to: '/plano', icon: Target },
+      { label: 'Calendário', to: '/calendario', icon: CalendarDays },
       { label: 'Meu edital', icon: FileText, phase: 'Fase 3' },
-      { label: 'Plano de estudo', icon: Target, phase: 'Fase 4' },
-      { label: 'Calendário', icon: CalendarDays, phase: 'Fase 4' },
     ],
   },
   {
