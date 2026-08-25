@@ -182,13 +182,27 @@ error_analyses(id, public_id, question_attempt_id UNIQUE, user_id, question_id,
   Sugestão de IA entra com `source=AI` e `confirmed_at` nulo: aparece como sugestão e
   **não entra em estatística alguma** até que a pessoa confirme. Todo agregado do Caderno
   de Erros filtra por `confirmed_at IS NOT NULL`.
-flashcards(id, user_id NULL /* NULL = global */, subject_id, topic_id, front, back,
-      extra JSON, origin[AI|USER|QUESTION|NOTICE|LESSON], source_ref, is_active)
-flashcard_reviews(id, flashcard_id, user_id, rating[AGAIN|HARD|GOOD|EASY], reviewed_at,
-      time_seconds, prev_interval_days, next_interval_days, ease_factor, stability, due_at)
-  IDX (user_id, due_at)
+flashcards(id, public_id, user_id NULL /* NULL = global */, subject_id, topic_id,
+      front MEDIUMTEXT, back MEDIUMTEXT, hint MEDIUMTEXT, tags JSON, extra JSON,
+      origin[USER|AI|QUESTION|ERROR|NOTICE|EDITORIAL], source_ref, source_quote MEDIUMTEXT,
+      source_page, source_document, model_slug, prompt_version, checksum, is_active)
+  IDX (user_id, subject_id), (origin, is_active)
+  `origin` governa o selo exibido. Cartão gerado por IA carrega a citação conferida no
+  material — o que não se sustenta é descartado na geração e nunca chega a virar linha.
+flashcard_states(id, user_id, flashcard_id, state[NEW|LEARNING|REVIEW|RELEARNING],
+      ease_factor DECIMAL(4,3), interval_days, repetitions, lapses, step_index,
+      due_on DATE, last_reviewed_at, last_rating, last_breakdown JSON, postponed_count)
+  UNIQUE (user_id, flashcard_id) · IDX (user_id, due_on)
+  Tabela separada do cartão de propósito: um cartão global é revisado por muita gente, e
+  cada pessoa tem seu próprio intervalo. `last_breakdown` guarda o cálculo que produziu o
+  intervalo atual — é o "por quê?" que a interface mostra.
+flashcard_reviews(id, user_id, flashcard_id, rating[AGAIN|HARD|GOOD|EASY], time_seconds,
+      previous_interval_days, next_interval_days, ease_factor, due_on DATE, breakdown JSON)
+  IDX (user_id, created_at), (flashcard_id)
 revision_queue(id, user_id, item_type[TOPIC|FLASHCARD|QUESTION|VOCAB], item_id,
       due_at, priority_score, times_reviewed, last_result, state) IDX (user_id, due_at, state)
+  **Ainda não criada.** A Fase 8 entregou a fila de flashcards; unificar tópicos, questões
+  e vocabulário na mesma fila exige decidir como um tópico "vence" — trabalho da Fase 9.
 simulations(id, public_id, user_id NULL, competition_id NULL,
       kind[OFFICIAL|BOARD|ERRORS|FINAL_STRETCH|FLASH|CUSTOM|ADAPTIVE],
       name, questions_count, duration_minutes, config JSON, is_template, created_by)

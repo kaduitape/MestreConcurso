@@ -65,4 +65,7 @@ export const queryKeys = {
   conversation: (publicId: string) => ['tutor', 'conversation', publicId] as const,
   vocabulary: (params: unknown) => ['vocabulary', params] as const,
   adminVideos: (params: unknown) => ['admin', 'videos', params] as const,
+  flashcards: (params: unknown) => ['flashcards', params] as const,
+  reviewQueue: (params: unknown) => ['review', 'queue', params] as const,
+  reviewStats: ['review', 'stats'] as const,
 }

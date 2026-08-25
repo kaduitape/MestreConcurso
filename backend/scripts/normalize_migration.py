@@ -100,9 +100,17 @@ revision""",
 
     # MYSQL_OPTS entra ao final de cada create_table. O autogenerate escreve o
     # nome da tabela na mesma linha da chamada; o ruff format quebra em duas.
+    def _with_opts(match: re.Match[str]) -> str:
+        body, closing = match.group(1), match.group(2)
+        # Sem a vírgula final, "**MYSQL_OPTS" seria lido como potência do último
+        # argumento em vez de desempacotamento — o autogenerate nem sempre a põe.
+        if not body.rstrip().endswith(","):
+            body = body.rstrip() + ",\n"
+        return body + "    **MYSQL_OPTS,\n" + closing
+
     source = re.sub(
         r"(op\.create_table\((?:.|\n)*?\n)(    \)\n)",
-        lambda match: match.group(1) + "    **MYSQL_OPTS,\n" + match.group(2),
+        _with_opts,
         source,
     )
 

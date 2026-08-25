@@ -59,6 +59,14 @@ const SimulationResultPage = lazy(() =>
     default: module.SimulationResultPage,
   })),
 )
+const DeckPage = lazy(() =>
+  import('@/features/flashcards/deck-page').then((module) => ({ default: module.DeckPage })),
+)
+const ReviewPage = lazy(() =>
+  import('@/features/flashcards/review-page').then((module) => ({
+    default: module.ReviewPage,
+  })),
+)
 const TutorPage = lazy(() =>
   import('@/features/tutor/tutor-page').then((module) => ({ default: module.TutorPage })),
 )
@@ -134,6 +142,8 @@ export const router = createBrowserRouter([
           { path: '/meus-erros', element: lazyRoute(<ErrorsPage />) },
           { path: '/mestre-ia', element: lazyRoute(<TutorPage />) },
           { path: '/vocabulario', element: lazyRoute(<VocabularyPage />) },
+          { path: '/flashcards', element: lazyRoute(<DeckPage />) },
+          { path: '/revisao', element: lazyRoute(<ReviewPage />) },
           { path: '/concursos', element: lazyRoute(<CompetitionsPage />) },
           { path: '/concursos/:publicId', element: lazyRoute(<CompetitionDetailPage />) },
           { path: '/conta', element: <AccountPage /> },

@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Layers,
   ListChecks,
+  RefreshCw,
   Shield,
   Sparkles,
   Target,
@@ -46,7 +47,8 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Questões', to: '/questoes', icon: ListChecks },
       { label: 'Simulados', to: '/simulados', icon: ClipboardList },
-      { label: 'Flashcards', icon: Layers, phase: 'Fase 8' },
+      { label: 'Flashcards', to: '/flashcards', icon: Layers },
+      { label: 'Revisão', to: '/revisao', icon: RefreshCw },
       { label: 'Meus erros', to: '/meus-erros', icon: TrendingUp },
     ],
   },

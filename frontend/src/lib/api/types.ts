@@ -981,3 +981,94 @@ export interface VideoAdmin extends TutorVideo {
   is_active: boolean
   is_verified: boolean
 }
+
+// --------------------------------------------------------------------------- //
+// Flashcards e repetição espaçada
+// --------------------------------------------------------------------------- //
+export type CardOrigin = 'USER' | 'AI' | 'QUESTION' | 'ERROR' | 'NOTICE' | 'EDITORIAL'
+export type CardRating = 'AGAIN' | 'HARD' | 'GOOD' | 'EASY'
+export type CardState = 'NEW' | 'LEARNING' | 'REVIEW' | 'RELEARNING'
+
+export interface Flashcard {
+  public_id: string
+  front: string
+  back: string
+  hint: string | null
+  tags: string[]
+  subject_name: string | null
+  /** Governa o selo de procedência exibido na interface. */
+  origin: CardOrigin
+  source_ref: string | null
+  source_quote: string | null
+  source_page: number | null
+  source_document: string | null
+  model_slug: string | null
+  is_owned: boolean
+  created_at: string
+}
+
+export interface CardMemoryState {
+  state: CardState
+  interval_days: number
+  due_on: string
+  repetitions: number
+  lapses: number
+  ease_factor: number
+  last_rating: CardRating | null
+  postponed_count: number
+}
+
+export interface QueueItem {
+  card: Flashcard
+  state: CardMemoryState
+  is_new: boolean
+}
+
+export interface QueuePlan {
+  review_count: number
+  new_count: number
+  overdue_count: number
+  absence_days: number
+  rescheduled_count: number
+  /** Frase que explica o que aconteceu com a fila hoje. */
+  summary: string
+}
+
+export interface ReviewQueue {
+  items: QueueItem[]
+  plan: QueuePlan
+  total_cards: number
+  reviewed_today: number
+  upcoming: { day: string; count: number }[]
+}
+
+export interface ReviewResult {
+  interval_days: number
+  due_on: string
+  state: CardState
+  /** Como o intervalo foi calculado — o "por quê?" do próximo encontro. */
+  breakdown: Record<string, unknown>
+  remaining_today: number
+}
+
+export interface ReviewStats {
+  total_cards: number
+  by_state: Record<string, number>
+  due_today: number
+  mature_cards: number
+  total_reviews: number
+  reviewed_today: number
+  /** Nulo enquanto não houver revisão registrada. */
+  recall_rate: number | null
+  ratings: Record<string, number>
+  upcoming: { day: string; count: number }[]
+}
+
+export interface CardGeneration {
+  created: Flashcard[]
+  /** Cartões descartados por citação não conferida. */
+  discarded: string[]
+  skipped_reason: string | null
+  model: string | null
+  prompt_version: string | null
+}

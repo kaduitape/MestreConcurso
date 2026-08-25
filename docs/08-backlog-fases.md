@@ -41,8 +41,10 @@ Tutor com RAG sobre o edital analisado, transmissão do processamento por etapa,
 **Aceite:** ver `docs/17-criterios-aceite-fase7.md`. Regra que sustenta a fase: **afirmação factual sem citação conferida não passa** — ela é marcada, e uma resposta inteiramente insustentada vira recusa.
 Ainda não entra aqui: rerank cross-encoder, coleções além de `notices` e *function calling* aberto (as ferramentas são roteadas por regra).
 
-## FASE 8 — Memorização
-Flashcards (geração a partir de conteúdo/erro/questão/seleção), motor de repetição espaçada adaptativo, fila de revisão, revisão relâmpago. **Aceite:** intervalos reagem a acerto/erro/velocidade e a fila nunca "explode" após ausência.
+## FASE 8 — Memorização  ✅ implementada
+Flashcards com origem declarada (mão, IA com citação conferida, questão errada, erro do caderno), motor de repetição espaçada que reage a acerto, erro e **velocidade**, fila com teto diário e redistribuição, revisão relâmpago e estatística de memória.
+**Aceite:** ver `docs/18-criterios-aceite-fase8.md`. Regra que sustenta a fase: **a fila nunca explode** — o excedente é redistribuído com o motivo declarado, e todo intervalo vem explicado.
+Ainda não entra aqui: fila unificada com tópicos e vocabulário (depende da Fase 9) e curadoria de cartões globais.
 
 ## FASE 9 — Analytics
 Mestre Score, "Se a prova fosse hoje", Caminho da Aprovação, dashboards (cobertura, retenção, consistência, evolução), Reta Final / Modo Guerra. **Aceite:** cada gráfico tem uma decisão associada; intervalos de confiança sempre visíveis.

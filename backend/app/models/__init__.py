@@ -34,6 +34,12 @@ from app.models.document import (
     DocumentStatus,
     ExtractionMethod,
 )
+from app.models.flashcard import (
+    CardMemoryState,
+    CardOrigin,
+    Flashcard,
+    FlashcardReview,
+)
 from app.models.intelligence import (
     AnalysisSource,
     BoardProfileMetric,
@@ -112,6 +118,8 @@ __all__ = [
     "BoardKnowledgeEntry",
     "BoardKnowledgeKind",
     "BoardProfileMetric",
+    "CardMemoryState",
+    "CardOrigin",
     "ChatMode",
     "Competition",
     "CompetitionStatus",
@@ -128,6 +136,8 @@ __all__ = [
     "Exam",
     "ExamBoard",
     "ExtractionMethod",
+    "Flashcard",
+    "FlashcardReview",
     "GovernmentSphere",
     "KnowledgeSource",
     "Message",

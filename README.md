@@ -49,6 +49,11 @@ A plataforma responde continuamente a uma única pergunta:
   aparece marcado como sem origem, e uma resposta inteiramente insustentada vira recusa
   explícita. Inclui Modo Professor, vocabulário com origem e vídeos conferidos por pessoas.
 
+- **Fase 8:** flashcards com procedência declarada — cartão gerado por IA só entra se a
+  citação existir literalmente no material, e o que não passa é descartado, não salvo com
+  aviso. O motor de repetição espaçada reage a acerto, erro e velocidade, e **a fila nunca
+  explode**: o que passa do teto diário é redistribuído, com o motivo dito em texto.
+
 As demais fases estão especificadas em [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md)
 e ainda **não** foram implementadas — a interface indica explicitamente o que está por vir,
 sem telas ilustrativas nem dados fictícios.
@@ -81,6 +86,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [15 — Critérios de aceite da Fase 5](docs/15-criterios-aceite-fase5.md) | banco de questões, prática e simulados |
 | [16 — Critérios de aceite da Fase 6](docs/16-criterios-aceite-fase6.md) | incidência, DNA da banca, Priority Score e erros |
 | [17 — Critérios de aceite da Fase 7](docs/17-criterios-aceite-fase7.md) | Mestre IA, citações conferidas e vocabulário |
+| [18 — Critérios de aceite da Fase 8](docs/18-criterios-aceite-fase8.md) | flashcards, repetição espaçada e fila de revisão |
 
 ## Como executar
 

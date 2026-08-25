@@ -66,6 +66,9 @@ EXPECTED_TABLES = {
     "chat_messages",
     "vocabulary_terms",
     "video_resources",
+    "flashcards",
+    "flashcard_states",
+    "flashcard_reviews",
 }
 
 
