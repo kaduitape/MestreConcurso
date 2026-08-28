@@ -85,5 +85,11 @@ export const queryKeys = {
   gameCurrentRun: ['game', 'challenges', 'current'] as const,
   gameRun: (publicId: string) => ['game', 'challenges', 'run', publicId] as const,
   gameRunHistory: ['game', 'challenges', 'history'] as const,
+  gameDuels: ['game', 'duels'] as const,
+  gameDuel: (publicId: string) => ['game', 'duel', publicId] as const,
+  gameEvents: ['game', 'events'] as const,
+  gameWar: ['game', 'war'] as const,
+  gameWarHistory: ['game', 'war', 'history'] as const,
+  gameCards: ['game', 'cards'] as const,
   gameRules: ['admin', 'game', 'rules'] as const,
 }

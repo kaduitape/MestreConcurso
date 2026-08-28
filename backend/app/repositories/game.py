@@ -5,11 +5,13 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.models.game import (
     Achievement,
+    Duel,
+    EventParticipation,
     GameRule,
     GameRun,
     GamificationProfile,
@@ -18,8 +20,11 @@ from app.models.game import (
     RankSnapshot,
     Season,
     SeasonParticipation,
+    ShareCardRecord,
+    SpecialEvent,
     StreakDay,
     UserAchievement,
+    WarCampaign,
     XPTransaction,
 )
 from app.repositories.base import BaseRepository
@@ -260,3 +265,87 @@ class GameRunRepository(BaseRepository[GameRun]):
             func.date(GameRun.ended_at) == day,
         )
         return int((await self.session.execute(stmt)).scalar_one())
+
+
+class DuelRepository(BaseRepository[Duel]):
+    model = Duel
+
+    async def get_by_code(self, code: str) -> Duel | None:
+        return await self.get_by(code=code)
+
+    async def get_by_public_id(self, public_id: str) -> Duel | None:
+        return await self.get_by(public_id=public_id)
+
+    async def for_user(self, user_id: int, *, limit: int = 20) -> Sequence[Duel]:
+        stmt = (
+            select(Duel)
+            .where(or_(Duel.challenger_id == user_id, Duel.opponent_id == user_id))
+            .order_by(Duel.id.desc())
+            .limit(limit)
+        )
+        return (await self.session.execute(stmt)).scalars().all()
+
+
+class SpecialEventRepository(BaseRepository[SpecialEvent]):
+    model = SpecialEvent
+
+    async def get_by_slug(self, slug: str) -> SpecialEvent | None:
+        return await self.get_by(slug=slug)
+
+    async def open_on(self, day: date) -> Sequence[SpecialEvent]:
+        """Eventos podem coexistir — ao contrário das temporadas."""
+        stmt = (
+            select(SpecialEvent)
+            .where(
+                SpecialEvent.is_active.is_(True),
+                SpecialEvent.starts_on <= day,
+                SpecialEvent.ends_on >= day,
+            )
+            .order_by(SpecialEvent.ends_on)
+        )
+        return (await self.session.execute(stmt)).scalars().all()
+
+
+class EventParticipationRepository(BaseRepository[EventParticipation]):
+    model = EventParticipation
+
+    async def get_for(self, event_id: int, user_id: int) -> EventParticipation | None:
+        return await self.get_by(event_id=event_id, user_id=user_id)
+
+
+class WarCampaignRepository(BaseRepository[WarCampaign]):
+    model = WarCampaign
+
+    async def running_for(self, user_id: int) -> WarCampaign | None:
+        stmt = (
+            select(WarCampaign)
+            .where(WarCampaign.user_id == user_id, WarCampaign.status == "RUNNING")
+            .order_by(WarCampaign.id.desc())
+            .limit(1)
+        )
+        return (await self.session.execute(stmt)).scalars().first()
+
+    async def history_for(self, user_id: int, *, limit: int = 10) -> Sequence[WarCampaign]:
+        stmt = (
+            select(WarCampaign)
+            .where(WarCampaign.user_id == user_id)
+            .order_by(WarCampaign.id.desc())
+            .limit(limit)
+        )
+        return (await self.session.execute(stmt)).scalars().all()
+
+
+class ShareCardRepository(BaseRepository[ShareCardRecord]):
+    model = ShareCardRecord
+
+    async def get_by_token(self, token: str) -> ShareCardRecord | None:
+        return await self.get_by(token=token)
+
+    async def for_user(self, user_id: int, *, limit: int = 20) -> Sequence[ShareCardRecord]:
+        stmt = (
+            select(ShareCardRecord)
+            .where(ShareCardRecord.user_id == user_id)
+            .order_by(ShareCardRecord.id.desc())
+            .limit(limit)
+        )
+        return (await self.session.execute(stmt)).scalars().all()

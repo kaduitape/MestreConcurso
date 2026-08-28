@@ -78,6 +78,15 @@ A plataforma responde continuamente a uma única pergunta:
   disciplina de maior Priority Score), Sobrevivência, Combo e Contra o Relógio — montados
   sobre questões reais do banco: sem questões suficientes, a rodada não acontece.
 
+- **Gamificação (G4):** o momento em que os números saem da plataforma. **Duelos** em que
+  os dois lados respondem exatamente as mesmas questões — sem adversário simulado, e com
+  a vitória por ausência dita com esse nome. **Eventos** com metas medidas nas mesmas
+  métricas do resto do sistema. **Modo Guerra**, um período intenso que o próprio
+  candidato declara, com a meta confrontada com o histórico dele antes de começar e um
+  acompanhamento que descreve sem acusar. E o **card compartilhável**: nada publicado por
+  padrão, estatística sem amostra fica de fora com o motivo à vista, verificação literal
+  contra qualquer promessa de aprovação, conteúdo congelado na publicação e link revogável.
+
 As demais fases estão especificadas em [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md)
 e ainda **não** foram implementadas — a interface indica explicitamente o que está por vir,
 sem telas ilustrativas nem dados fictícios.
@@ -115,6 +124,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [20 — Critérios de aceite da Gamificação 1](docs/20-criterios-aceite-gamificacao-1.md) | XP auditável, antiabuso, rank, sequência e missões |
 | [21 — Critérios de aceite da Gamificação 2](docs/21-criterios-aceite-gamificacao-2.md) | histórico de rank, Você vs Banca, jornada e mapa do edital |
 | [22 — Critérios de aceite da Gamificação 3](docs/22-criterios-aceite-gamificacao-3.md) | temporadas, ligas por contexto e modos de desafio |
+| [23 — Critérios de aceite da Gamificação 4](docs/23-criterios-aceite-gamificacao-4.md) | duelos, eventos, Modo Guerra e card compartilhável |
 
 ## Como executar
 

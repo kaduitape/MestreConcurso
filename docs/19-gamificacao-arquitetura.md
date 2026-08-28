@@ -345,6 +345,7 @@ O aviso do rodapé não é decorativo: é o item 40 do pedido, escrito na tela.
 `MissionProgress`, `AchievementCard`, `AchievementModal`, `DailyProgress`,
 `XPToast`, `GameHeader`.
 **Fase 2:** `JourneyMap`, `StudyTerritory`, `BattleBar`, `MasterScore`.
+**Fase 4:** `DuelBoard`, `WarSchedule`, `ShareCardPreview`.
 **Fase 3:** `LeagueTable`, `SeasonProgress`, `ComboCounter`, `LivesCounter`, `RunClock`
 (a rodada de desafio é uma tela só, que muda de regra conforme o modo — um
 componente por modo duplicaria a mesma mecânica quatro vezes).
@@ -395,7 +396,23 @@ POST  /api/v1/admin/game/seasons           abrir temporada
 POST  /api/v1/admin/game/seasons/{slug}/close    fechar e conceder prêmios
 ```
 
-**Fases seguintes:** `/game/challenges/friends`, `/game/events`.
+**Fase 4**
+```
+POST  /api/v1/game/duels                   criar convite (questões congeladas)
+POST  /api/v1/game/duels/accept            aceitar pelo código
+GET   /api/v1/game/duels                   meus duelos
+GET   /api/v1/game/duels/{id}              placar dos dois lados
+GET   /api/v1/game/events                  eventos abertos, com progresso real
+GET   /api/v1/game/war                     Modo Guerra em andamento
+POST  /api/v1/game/war                     declarar um período intenso
+POST  /api/v1/game/war/abandon             encerrar antes do fim
+GET   /api/v1/game/war/history             períodos anteriores
+POST  /api/v1/game/cards/preview           prévia (não publica nada)
+POST  /api/v1/game/cards                   publicar um link, com o conteúdo congelado
+GET   /api/v1/game/cards/public/{token}    rota aberta: o card compartilhado
+DELETE /api/v1/game/cards/{id}             revogar o link
+POST  /api/v1/admin/game/events            criar evento especial
+```
 
 ---
 
@@ -406,7 +423,7 @@ POST  /api/v1/admin/game/seasons/{slug}/close    fechar e conceder prêmios
 | **G1** | XP com razão e antiabuso, níveis, streak com proteção, missões diárias por sinal real, conquistas, perfil, Central de Missões, animações, painel de regras | **entregue** |
 | **G2** | Histórico de rank na interface, Você vs Banca, Jornada da Aprovação, Mapa do Edital | **entregue** |
 | **G3** | Temporadas, ligas por contexto, Boss Battle, Sobrevivência, Combo, Contra o Relógio | **entregue** |
-| **G4** | Desafio entre amigos, card compartilhável, eventos especiais e Modo Guerra | a pedido |
+| **G4** | Desafio entre amigos, card compartilhável, eventos especiais e Modo Guerra | **entregue** |
 
 O **rank** é calculado e exposto já na G1 (o perfil precisa dele); a G2 acrescenta
 o histórico diário, que é o que permite dizer se a preparação subiu ou escorregou.
@@ -418,6 +435,7 @@ o histórico diário, que é o que permite dizer se a preparação subiu ou esco
 Fase 1: `docs/20-criterios-aceite-gamificacao-1.md`.
 Fase 2: `docs/21-criterios-aceite-gamificacao-2.md`.
 Fase 3: `docs/22-criterios-aceite-gamificacao-3.md`.
+Fase 4: `docs/23-criterios-aceite-gamificacao-4.md`.
 
 ---
 

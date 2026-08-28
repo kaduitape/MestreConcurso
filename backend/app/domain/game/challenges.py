@@ -36,6 +36,9 @@ class ChallengeMode(StrEnum):
     SURVIVAL = "SURVIVAL"
     COMBO = "COMBO"
     TIME_ATTACK = "TIME_ATTACK"
+    #: Rodada de um duelo (Fase 4). Não aparece na lista de modos avulsos: ela
+    #: só existe dentro de um desafio entre dois candidatos.
+    DUEL = "DUEL"
 
 
 class RunStatus(StrEnum):
@@ -109,7 +112,19 @@ MODES: tuple[ModeSpec, ...] = (
     ),
 )
 
-MODES_BY_KEY: dict[str, ModeSpec] = {item.mode: item for item in MODES}
+#: O lado de um duelo. Fora da tupla ``MODES`` porque não se começa sozinho.
+DUEL_SPEC = ModeSpec(
+    mode=ChallengeMode.DUEL,
+    name="Duelo",
+    description="Sua rodada de um desafio entre dois candidatos.",
+    questions=10,
+    lives=None,
+    time_limit_seconds=None,
+    base_xp=60,
+    rule="Os dois lados respondem as mesmas questões. Vence quem acerta mais.",
+)
+
+MODES_BY_KEY: dict[str, ModeSpec] = {item.mode: item for item in (*MODES, DUEL_SPEC)}
 
 
 @dataclass(frozen=True, slots=True)
@@ -251,6 +266,11 @@ def score_run(spec: ModeSpec, state: RunState) -> RunScore:
         lines.append(
             ScoreLine("Multiplicador máximo", f"{combo_multiplier(state.best_combo):.1f}×")
         )
+    elif spec.mode == ChallengeMode.DUEL:
+        score = scoring
+        achieved = state.answered >= spec.questions
+        headline = f"{score} acertos em {state.answered} questões"
+        share = scoring / spec.questions
     elif spec.mode == ChallengeMode.TIME_ATTACK:
         score = scoring
         achieved = state.answered >= spec.questions

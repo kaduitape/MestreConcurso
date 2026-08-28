@@ -3,6 +3,8 @@ import type {
   AchievementList,
   BoardBattle,
   ChallengeMode,
+  Duel,
+  DuelHistoryEntry,
   ClaimResult,
   DailyBoard,
   GameProfile,
@@ -10,6 +12,7 @@ import type {
   GameRun,
   Journey,
   League,
+  PublishedCard,
   LeaguePreferences,
   Page,
   RankHistory,
@@ -17,8 +20,11 @@ import type {
   RunHistoryEntry,
   Season,
   SeasonHistoryEntry,
+  ShareCard,
+  SpecialEvent,
   StreakInfo,
   TerritoryMap,
+  WarCampaign,
   XPTransaction,
 } from './types'
 
@@ -74,6 +80,35 @@ export const gameApi = {
     api.post<GameRun>(`/game/challenges/runs/${publicId}/finish?abandon=${abandon}`),
 
   runHistory: () => api.get<RunHistoryEntry[]>('/game/challenges/history'),
+
+  createDuel: () => api.post<Duel>('/game/duels'),
+
+  acceptDuel: (code: string) => api.post<Duel>('/game/duels/accept', { code }),
+
+  duel: (publicId: string) => api.get<Duel>(`/game/duels/${publicId}`),
+
+  duels: () => api.get<DuelHistoryEntry[]>('/game/duels'),
+
+  events: () => api.get<SpecialEvent[]>('/game/events'),
+
+  warMode: () => api.get<WarCampaign>('/game/war'),
+
+  startWarMode: (input: { days: number; daily_minutes: number; daily_questions: number }) =>
+    api.post<WarCampaign>('/game/war', input),
+
+  abandonWarMode: () => api.post<WarCampaign>('/game/war/abandon'),
+
+  warHistory: () => api.get<WarCampaign[]>('/game/war/history'),
+
+  previewCard: (input: { include: string[]; display_name?: string }) =>
+    api.post<ShareCard>('/game/cards/preview', input),
+
+  publishCard: (input: { include: string[]; display_name?: string }) =>
+    api.post<PublishedCard>('/game/cards', input),
+
+  cards: () => api.get<PublishedCard[]>('/game/cards'),
+
+  revokeCard: (publicId: string) => api.delete<PublishedCard>(`/game/cards/${publicId}`),
 }
 
 export const gameRulesApi = {

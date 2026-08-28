@@ -83,6 +83,14 @@ const ChallengesPage = lazy(() =>
     default: module.ChallengesPage,
   })),
 )
+const ArenaPage = lazy(() =>
+  import('@/features/game/arena-page').then((module) => ({ default: module.ArenaPage })),
+)
+const PublicCardPage = lazy(() =>
+  import('@/features/game/public-card-page').then((module) => ({
+    default: module.PublicCardPage,
+  })),
+)
 const DeckPage = lazy(() =>
   import('@/features/flashcards/deck-page').then((module) => ({ default: module.DeckPage })),
 )
@@ -143,6 +151,8 @@ export const router = createBrowserRouter([
     ],
   },
   { path: '/verificar-email', element: <VerifyEmailPage /> },
+  // Card compartilhado: link público, sem sessão.
+  { path: '/card/:token', element: lazyRoute(<PublicCardPage />) },
   { path: '/redefinir-senha', element: <ResetPasswordPage /> },
   {
     element: <ProtectedRoute />,
@@ -174,6 +184,7 @@ export const router = createBrowserRouter([
           { path: '/jornada', element: lazyRoute(<JourneyPage />) },
           { path: '/temporada', element: lazyRoute(<SeasonPage />) },
           { path: '/desafios', element: lazyRoute(<ChallengesPage />) },
+          { path: '/arena', element: lazyRoute(<ArenaPage />) },
           { path: '/concursos', element: lazyRoute(<CompetitionsPage />) },
           { path: '/concursos/:publicId', element: lazyRoute(<CompetitionDetailPage />) },
           { path: '/conta', element: <AccountPage /> },

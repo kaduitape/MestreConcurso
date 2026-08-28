@@ -4,6 +4,7 @@ import {
   Briefcase,
   CalendarDays,
   ClipboardList,
+  Crosshair,
   FileText,
   LayoutDashboard,
   Layers,
@@ -56,8 +57,9 @@ export const navigation: NavGroup[] = [
       { label: 'Flashcards', to: '/flashcards', icon: Layers },
       { label: 'Revisão', to: '/revisao', icon: RefreshCw },
       { label: 'Meus erros', to: '/meus-erros', icon: TrendingUp },
-      { label: 'Você vs Banca', to: '/voce-vs-banca', icon: Swords },
+      { label: 'Você vs Banca', to: '/voce-vs-banca', icon: Crosshair },
       { label: 'Desafios', to: '/desafios', icon: Zap },
+      { label: 'Arena', to: '/arena', icon: Swords },
     ],
   },
   {

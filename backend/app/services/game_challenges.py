@@ -177,12 +177,14 @@ class ChallengeService:
             for item in rows
         ]
 
+    @staticmethod
+    def _aware(moment: datetime) -> datetime:
+        """SQLite devolve datas sem fuso; o resto do sistema trabalha em UTC."""
+        return moment if moment.tzinfo is not None else moment.replace(tzinfo=UTC)
+
     def _elapsed(self, run: GameRun) -> int:
-        reference = run.ended_at or datetime.now(UTC)
-        started = run.started_at
-        if started.tzinfo is None:
-            started = started.replace(tzinfo=UTC)
-        return int((reference - started).total_seconds())
+        reference = self._aware(run.ended_at) if run.ended_at else datetime.now(UTC)
+        return int((reference - self._aware(run.started_at)).total_seconds())
 
     async def view(self, user: User, public_id: str) -> RunView:
         run = await self.runs.get_by_public_id(public_id, user.id)

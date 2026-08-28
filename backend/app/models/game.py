@@ -328,6 +328,11 @@ class GameRun(IdMixin, PublicIdMixin, TimestampMixin, Base):
     user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
+    # Rodada que pertence a um duelo (Fase 4): os dois lados apontam para o
+    # mesmo duelo e respondem exatamente as mesmas questões.
+    duel_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("duels.id", ondelete="CASCADE")
+    )
     mode: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20), default="RUNNING")
     question_ids: Mapped[list[int]] = mapped_column(JsonType, default=list)
@@ -346,3 +351,130 @@ class GameRun(IdMixin, PublicIdMixin, TimestampMixin, Base):
     achieved: Mapped[bool] = mapped_column(Boolean, default=False)
     # Placar aberto: as linhas que explicam de onde saiu o XP da rodada.
     summary: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
+
+
+class Duel(IdMixin, PublicIdMixin, TimestampMixin, Base):
+    """Desafio entre dois candidatos sobre **as mesmas questões**.
+
+    A lista de questões nasce com o convite e vale para os dois lados. Um duelo
+    com listas diferentes não compararia ninguém — compararia sortes.
+    """
+
+    __tablename__ = "duels"
+    __table_args__ = (
+        UniqueConstraint("code", name="uq_duels_code"),
+        Index("ix_duels_challenger_status", "challenger_id", "status"),
+        Index("ix_duels_opponent_status", "opponent_id", "status"),
+    )
+
+    #: Código curto que o candidato compartilha para convidar alguém.
+    code: Mapped[str] = mapped_column(String(12), index=True)
+    challenger_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    opponent_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE")
+    )
+    status: Mapped[str] = mapped_column(String(20), default="OPEN")
+    question_ids: Mapped[list[int]] = mapped_column(JsonType, default=list)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    winner_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    outcome: Mapped[str | None] = mapped_column(String(20))
+    # Placar aberto: como o resultado foi decidido, linha a linha.
+    result: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
+
+
+class SpecialEvent(IdMixin, PublicIdMixin, TimestampMixin, Base):
+    """Evento com janela, metas e prêmio de utilidade declarada.
+
+    As metas usam as mesmas métricas do resto da plataforma. Uma métrica que só
+    existisse dentro do evento seria um número inventado para gerar urgência.
+    """
+
+    __tablename__ = "special_events"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_special_events_slug"),
+        Index("ix_special_events_window", "starts_on", "ends_on"),
+    )
+
+    slug: Mapped[str] = mapped_column(String(80), index=True)
+    name: Mapped[str] = mapped_column(String(140))
+    description: Mapped[str | None] = mapped_column(String(400))
+    starts_on: Mapped[date] = mapped_column(Date)
+    ends_on: Mapped[date] = mapped_column(Date)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # [{"metric": "questions", "target": 200}, ...]
+    goals: Mapped[list[dict[str, Any]]] = mapped_column(JsonType, default=list)
+    reward_label: Mapped[str | None] = mapped_column(String(120))
+    reward_utility: Mapped[str | None] = mapped_column(String(400))
+
+
+class EventParticipation(IdMixin, TimestampMixin, Base):
+    """O resultado do candidato num evento, congelado ao concluí-lo."""
+
+    __tablename__ = "event_participations"
+    __table_args__ = (
+        UniqueConstraint("event_id", "user_id", name="uq_event_participations_event_user"),
+    )
+
+    event_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("special_events.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    progress: Mapped[list[dict[str, Any]]] = mapped_column(JsonType, default=list)
+
+
+class WarCampaign(IdMixin, PublicIdMixin, TimestampMixin, Base):
+    """Modo Guerra: um período intenso declarado pelo próprio candidato.
+
+    A meta é dele, o período é dele, e o acompanhamento é factual — inclusive
+    quando o dia não foi cumprido.
+    """
+
+    __tablename__ = "war_campaigns"
+    __table_args__ = (Index("ix_war_campaigns_user_status", "user_id", "status"),)
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    status: Mapped[str] = mapped_column(String(20), default="RUNNING")
+    starts_on: Mapped[date] = mapped_column(Date)
+    days: Mapped[int] = mapped_column(Integer, default=7)
+    daily_minutes: Mapped[int] = mapped_column(Integer, default=120)
+    daily_questions: Mapped[int] = mapped_column(Integer, default=0)
+    # Avisos mostrados na criação (meta muito acima do histórico, por exemplo).
+    warnings: Mapped[list[dict[str, Any]]] = mapped_column(JsonType, default=list)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    days_met: Mapped[int] = mapped_column(Integer, default=0)
+    succeeded: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class ShareCardRecord(IdMixin, PublicIdMixin, TimestampMixin, Base):
+    """Card compartilhável, com o conteúdo **congelado** no momento da criação.
+
+    Congelar é a escolha honesta: o link publicado mostra os números daquele dia,
+    e não um retrato que muda sozinho depois que alguém já o compartilhou.
+    """
+
+    __tablename__ = "share_cards"
+    __table_args__ = (Index("ix_share_cards_user", "user_id"),)
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    #: Segredo do link público. Sem ele o card não é acessível.
+    token: Mapped[str] = mapped_column(String(43), unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(80))
+    headline: Mapped[str] = mapped_column(String(200))
+    stats: Mapped[list[dict[str, Any]]] = mapped_column(JsonType, default=list)
+    omitted: Mapped[list[str]] = mapped_column(JsonType, default=list)
+    footer: Mapped[str] = mapped_column(String(400))
+    #: O candidato pode revogar o link a qualquer momento.
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

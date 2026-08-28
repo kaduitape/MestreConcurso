@@ -13,16 +13,24 @@ from app.core.pagination import Page, PageParams, page_params
 from app.domain import permissions as perms
 from app.domain.game import ACHIEVEMENTS_BY_SLUG, MODES, MODES_BY_KEY, evaluate
 from app.models.audit import AuditAction
-from app.models.game import GameRun, Mission, SeasonParticipation
+from app.models.game import Duel, GameRun, Mission, SeasonParticipation, ShareCardRecord
 from app.models.user import User
 from app.repositories.game import AchievementRepository, GameRuleRepository
 from app.schemas.game import (
+    AcceptDuelInput,
     AchievementListRead,
     AchievementRead,
     BoardBattleRead,
+    CardStatRead,
     ChallengeModeRead,
     ClaimResultRead,
     DailyBoardRead,
+    DuelHistoryRead,
+    DuelRead,
+    DuelSideRead,
+    EventCreate,
+    EventGoalRead,
+    EventRead,
     GameRuleRead,
     GameRuleUpdate,
     JourneyRead,
@@ -34,6 +42,7 @@ from app.schemas.game import (
     MilestoneRead,
     MissionRead,
     ProfileRead,
+    PublishedCardRead,
     RankComponentRead,
     RankHistoryRead,
     RankPointRead,
@@ -49,11 +58,16 @@ from app.schemas.game import (
     SeasonRead,
     SeasonRewardRead,
     SeasonStandingRead,
+    ShareCardCreate,
+    ShareCardRead,
     StreakRead,
     SubjectScoreRead,
     TerritoryMapRead,
     TerritoryPartRead,
     TerritoryRead,
+    WarCampaignCreate,
+    WarCampaignRead,
+    WarDayRead,
     WeekPointRead,
     XPTransactionRead,
 )
@@ -64,6 +78,7 @@ from app.services.game_engine import GameEngine
 from app.services.game_missions import MissionService
 from app.services.game_progress import DEFAULT_HISTORY_DAYS, GameProgressService
 from app.services.game_seasons import SeasonService
+from app.services.game_social import DuelView, SocialService
 
 router = APIRouter(tags=["gamificação"])
 game_router = APIRouter(prefix="/game", tags=["gamificação"])
@@ -498,6 +513,112 @@ async def territory_map(user: CurrentUser, db: DbSession) -> TerritoryMapRead:
     )
 
 
+def _duel_side_read(side: Any) -> DuelSideRead:
+    return DuelSideRead(
+        display_name=side.display_name,
+        answered=side.answered,
+        correct=side.correct,
+        time_seconds=side.time_seconds,
+        finished=side.finished,
+    )
+
+
+async def _duel_read(view: DuelView, db: DbSession, user: User) -> DuelRead:
+    """Monta a visão do duelo para um dos lados, com o placar dos dois."""
+    service = SocialService(db)
+    duel = view.duel
+    runs = await service._runs(duel)
+
+    challenger_side = await service._side(runs.get(duel.challenger_id), view.challenger_name, "")
+    opponent_side = (
+        await service._side(runs.get(duel.opponent_id), view.opponent_name or "", "")
+        if duel.opponent_id
+        else None
+    )
+
+    you_won: bool | None = None
+    if duel.winner_id is not None:
+        you_won = duel.winner_id == user.id
+    elif duel.status == "FINISHED":
+        you_won = False
+
+    my_run = None
+    if view.my_run is not None:
+        my_run = _run_read(await ChallengeService(db).view(user, view.my_run.public_id))
+
+    return DuelRead(
+        public_id=duel.public_id,
+        code=duel.code,
+        status=duel.status,
+        outcome=view.result.outcome,
+        headline=view.result.headline,
+        lines=list(view.result.lines),
+        is_challenger=view.is_challenger,
+        challenger=_duel_side_read(challenger_side),
+        opponent=_duel_side_read(opponent_side) if opponent_side else None,
+        you_won=you_won,
+        my_run=my_run,
+        expires_at=duel.expires_at,
+        resolved_at=duel.resolved_at,
+    )
+
+
+def _duel_history_read(duel: Duel, user: User) -> DuelHistoryRead:
+    return DuelHistoryRead(
+        public_id=duel.public_id,
+        code=duel.code,
+        status=duel.status,
+        outcome=duel.outcome,
+        headline=str((duel.result or {}).get("headline", "")),
+        is_challenger=duel.challenger_id == user.id,
+        you_won=None if duel.winner_id is None else duel.winner_id == user.id,
+        resolved_at=duel.resolved_at,
+    )
+
+
+def _war_read(campaign: Any, progress: Any) -> WarCampaignRead:
+    return WarCampaignRead(
+        public_id=campaign.public_id,
+        status=campaign.status,
+        starts_on=campaign.starts_on,
+        days=campaign.days,
+        daily_minutes=campaign.daily_minutes,
+        daily_questions=campaign.daily_questions,
+        days_met=progress.days_met,
+        days_missed=progress.days_missed,
+        days_left=progress.days_left,
+        ratio=progress.ratio,
+        is_over=progress.is_over,
+        succeeded=progress.succeeded,
+        message=progress.message,
+        schedule=[
+            WarDayRead(
+                day=item.day,
+                minutes=item.minutes,
+                questions=item.questions,
+                met=item.met,
+                is_future=item.is_future,
+            )
+            for item in progress.days
+        ],
+        warnings=list(campaign.warnings or []),
+    )
+
+
+def _card_read(record: ShareCardRecord) -> PublishedCardRead:
+    return PublishedCardRead(
+        public_id=record.public_id,
+        token=record.token,
+        display_name=record.display_name,
+        headline=record.headline,
+        stats=[CardStatRead(**item) for item in record.stats or []],
+        omitted=list(record.omitted or []),
+        footer=record.footer,
+        revoked_at=record.revoked_at,
+        created_at=record.created_at,
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Fase 3 — temporada, liga e desafios
 # --------------------------------------------------------------------------- #
@@ -687,6 +808,197 @@ async def run_history(user: CurrentUser, db: DbSession) -> list[RunHistoryRead]:
 
 
 # --------------------------------------------------------------------------- #
+# Fase 4 — duelos, eventos, Modo Guerra e card compartilhável
+# --------------------------------------------------------------------------- #
+@game_router.post(
+    "/duels",
+    response_model=DuelRead,
+    status_code=201,
+    summary="Criar um desafio entre amigos",
+    dependencies=[Depends(rate_limit("30/hour", scope="game:duel"))],
+)
+async def create_duel(user: CurrentUser, db: DbSession) -> DuelRead:
+    """As questões nascem com o convite e valem para os dois lados."""
+    view = await SocialService(db).create_duel(user)
+    return await _duel_read(view, db, user)
+
+
+@game_router.post("/duels/accept", response_model=DuelRead, summary="Aceitar um desafio")
+async def accept_duel(payload: AcceptDuelInput, user: CurrentUser, db: DbSession) -> DuelRead:
+    view = await SocialService(db).accept_duel(user, payload.code)
+    return await _duel_read(view, db, user)
+
+
+@game_router.get("/duels", response_model=list[DuelHistoryRead], summary="Meus duelos")
+async def duel_history(user: CurrentUser, db: DbSession) -> list[DuelHistoryRead]:
+    duels = await SocialService(db).duel_history(user)
+    return [_duel_history_read(item, user) for item in duels]
+
+
+@game_router.get("/duels/{public_id}", response_model=DuelRead, summary="Estado do duelo")
+async def duel_state(public_id: str, user: CurrentUser, db: DbSession) -> DuelRead:
+    """O resultado só é declarado quando os dois lados terminam."""
+    view = await SocialService(db).duel_view(user, public_id)
+    return await _duel_read(view, db, user)
+
+
+@game_router.get("/events", response_model=list[EventRead], summary="Eventos abertos")
+async def events(user: CurrentUser, db: DbSession) -> list[EventRead]:
+    """Metas medidas nos mesmos números do resto da plataforma."""
+    result = await SocialService(db).open_events(user)
+    return [
+        EventRead(
+            slug=event.slug,
+            name=event.name,
+            description=event.description,
+            starts_on=event.starts_on,
+            ends_on=event.ends_on,
+            days_left=progress.days_left,
+            is_open=progress.is_open,
+            goals=[
+                EventGoalRead(
+                    metric=goal.metric,
+                    label=goal.label,
+                    current=goal.current,
+                    target=goal.target,
+                    ratio=goal.ratio,
+                    completed=goal.completed,
+                )
+                for goal in progress.goals
+            ],
+            completed=progress.completed,
+            completed_goals=progress.completed_goals,
+            total_goals=progress.total_goals,
+            reward_label=progress.reward_label,
+            reward_utility=progress.reward_utility,
+            note=progress.note,
+        )
+        for event, progress in result
+    ]
+
+
+@game_router.get("/war", response_model=WarCampaignRead, summary="Meu Modo Guerra")
+async def war_mode(user: CurrentUser, db: DbSession) -> WarCampaignRead:
+    current = await SocialService(db).current_campaign(user)
+    if current is None:
+        return WarCampaignRead(
+            empty_reason=(
+                "Nenhum Modo Guerra em andamento. É um período intenso que você declara: "
+                "você escolhe os dias e a meta diária."
+            )
+        )
+    campaign, progress = current
+    return _war_read(campaign, progress)
+
+
+@game_router.post(
+    "/war",
+    response_model=WarCampaignRead,
+    status_code=201,
+    summary="Declarar um Modo Guerra",
+)
+async def start_war_mode(
+    payload: WarCampaignCreate, user: CurrentUser, db: DbSession
+) -> WarCampaignRead:
+    """A meta é comparada com o seu histórico: se for muito alta, avisamos."""
+    service = SocialService(db)
+    campaign = await service.start_campaign(
+        user,
+        days=payload.days,
+        daily_minutes=payload.daily_minutes,
+        daily_questions=payload.daily_questions,
+    )
+    return _war_read(campaign, await service.campaign_progress(campaign))
+
+
+@game_router.post("/war/abandon", response_model=WarCampaignRead, summary="Encerrar o Modo Guerra")
+async def abandon_war_mode(user: CurrentUser, db: DbSession) -> WarCampaignRead:
+    service = SocialService(db)
+    campaign = await service.abandon_campaign(user)
+    return _war_read(campaign, await service.campaign_progress(campaign))
+
+
+@game_router.get(
+    "/war/history", response_model=list[WarCampaignRead], summary="Períodos anteriores"
+)
+async def war_history(user: CurrentUser, db: DbSession) -> list[WarCampaignRead]:
+    service = SocialService(db)
+    result: list[WarCampaignRead] = []
+    for campaign in await service.campaign_history(user):
+        result.append(_war_read(campaign, await service.campaign_progress(campaign)))
+    return result
+
+
+@game_router.post("/cards/preview", response_model=ShareCardRead, summary="Prévia do card")
+async def preview_card(payload: ShareCardCreate, user: CurrentUser, db: DbSession) -> ShareCardRead:
+    """Prévia não publica nada: só mostra o que entraria e o que ficaria de fora."""
+    card = await SocialService(db).build_card(
+        user, include=set(payload.include), display_name=payload.display_name
+    )
+    return ShareCardRead(
+        display_name=card.display_name,
+        headline=card.headline,
+        stats=[
+            CardStatRead(key=item.key, label=item.label, value=item.value, detail=item.detail)
+            for item in card.stats
+        ],
+        omitted=list(card.omitted),
+        footer=card.footer,
+    )
+
+
+@game_router.post(
+    "/cards",
+    response_model=PublishedCardRead,
+    status_code=201,
+    summary="Publicar um card compartilhável",
+    dependencies=[Depends(rate_limit("20/hour", scope="game:card"))],
+)
+async def publish_card(
+    payload: ShareCardCreate, user: CurrentUser, db: DbSession
+) -> PublishedCardRead:
+    """O conteúdo é congelado: o link mostra os números do dia da publicação."""
+    record = await SocialService(db).publish_card(
+        user, include=set(payload.include), display_name=payload.display_name
+    )
+    return _card_read(record)
+
+
+@game_router.get(
+    "/cards/public/{token}",
+    response_model=ShareCardRead,
+    summary="Ver um card publicado",
+    dependencies=[Depends(rate_limit("120/hour", scope="game:card-public"))],
+)
+async def public_card(token: str, db: DbSession) -> ShareCardRead:
+    """Rota aberta: é o link que o candidato compartilha.
+
+    O acesso depende do segredo do link, e nada além do que ele escolheu publicar
+    é exposto. Revogado, o card deixa de existir para quem tiver o endereço.
+    """
+    record = await SocialService(db).public_card(token)
+    return ShareCardRead(
+        display_name=record.display_name,
+        headline=record.headline,
+        stats=[CardStatRead(**item) for item in record.stats or []],
+        omitted=list(record.omitted or []),
+        footer=record.footer,
+    )
+
+
+@game_router.get("/cards", response_model=list[PublishedCardRead], summary="Meus cards")
+async def my_cards(user: CurrentUser, db: DbSession) -> list[PublishedCardRead]:
+    return [_card_read(item) for item in await SocialService(db).my_cards(user)]
+
+
+@game_router.delete(
+    "/cards/{public_id}", response_model=PublishedCardRead, summary="Revogar o link do card"
+)
+async def revoke_card(public_id: str, user: CurrentUser, db: DbSession) -> PublishedCardRead:
+    return _card_read(await SocialService(db).revoke_card(user, public_id))
+
+
+# --------------------------------------------------------------------------- #
 # Administração das regras
 # --------------------------------------------------------------------------- #
 @admin_router.get("/rules", response_model=list[GameRuleRead], summary="Regras de pontuação")
@@ -766,6 +1078,35 @@ async def close_season(slug: str, _: GameAdmin, db: DbSession) -> list[SeasonHis
     records = await service.close(slug)
     stored = await service.seasons.get_by_slug(slug)
     return [_participation_read(item, stored.name if stored else "") for item in records]
+
+
+@admin_router.post(
+    "/events", response_model=EventRead, status_code=201, summary="Criar um evento especial"
+)
+async def create_event(payload: EventCreate, _: GameAdmin, db: DbSession) -> EventRead:
+    """Prêmio sem utilidade declarada é recusado na criação."""
+    event = await SocialService(db).create_event(
+        name=payload.name,
+        starts_on=payload.starts_on,
+        ends_on=payload.ends_on,
+        goals=[{"metric": item.metric, "target": item.target} for item in payload.goals],
+        description=payload.description,
+        reward_label=payload.reward_label,
+        reward_utility=payload.reward_utility,
+    )
+    return EventRead(
+        slug=event.slug,
+        name=event.name,
+        description=event.description,
+        starts_on=event.starts_on,
+        ends_on=event.ends_on,
+        is_open=True,
+        completed=False,
+        completed_goals=0,
+        total_goals=len(event.goals or []),
+        reward_label=event.reward_label,
+        reward_utility=event.reward_utility,
+    )
 
 
 router.include_router(game_router)

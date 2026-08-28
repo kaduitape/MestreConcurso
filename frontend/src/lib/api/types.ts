@@ -1485,6 +1485,126 @@ export interface RunHistoryEntry {
   ended_at: string | null
 }
 
+// --------------------------------------------------------------------------- //
+// Gamificação — Fase 4: duelos, eventos, Modo Guerra e card compartilhável
+// --------------------------------------------------------------------------- //
+export interface DuelSide {
+  display_name: string
+  answered: number
+  correct: number
+  time_seconds: number
+  finished: boolean
+}
+
+export type DuelOutcome = 'WIN' | 'LOSS' | 'TIE' | 'WALKOVER' | 'EXPIRED' | 'UNDECIDED'
+
+export interface Duel {
+  public_id: string
+  /** Código curto que o candidato compartilha para convidar alguém. */
+  code: string
+  status: string
+  outcome: DuelOutcome
+  /** A frase do resultado. Vitória por ausência é dita com esse nome. */
+  headline: string
+  lines: string[]
+  is_challenger: boolean
+  challenger: DuelSide
+  opponent: DuelSide | null
+  you_won: boolean | null
+  my_run: GameRun | null
+  expires_at: string
+  resolved_at: string | null
+}
+
+export interface DuelHistoryEntry {
+  public_id: string
+  code: string
+  status: string
+  outcome: DuelOutcome | null
+  headline: string
+  is_challenger: boolean
+  you_won: boolean | null
+  resolved_at: string | null
+}
+
+export interface EventGoal {
+  metric: string
+  label: string
+  current: number
+  target: number
+  ratio: number
+  completed: boolean
+}
+
+export interface SpecialEvent {
+  slug: string
+  name: string
+  description: string | null
+  starts_on: string
+  ends_on: string
+  days_left: number | null
+  is_open: boolean
+  goals: EventGoal[]
+  completed: boolean
+  completed_goals: number
+  total_goals: number
+  reward_label: string | null
+  /** Prêmio sem utilidade declarada não é aceito na criação. */
+  reward_utility: string | null
+  note: string
+}
+
+export interface WarDay {
+  day: string
+  minutes: number
+  questions: number
+  met: boolean
+  is_future: boolean
+}
+
+export interface WarCampaign {
+  public_id: string | null
+  status: string | null
+  starts_on: string | null
+  days: number
+  daily_minutes: number
+  daily_questions: number
+  days_met: number
+  days_missed: number
+  days_left: number
+  ratio: number
+  is_over: boolean
+  succeeded: boolean
+  /** Texto factual: descreve o período, não julga o candidato. */
+  message: string
+  schedule: WarDay[]
+  warnings: { field?: string; message: string }[]
+  empty_reason: string | null
+}
+
+export interface CardStat {
+  key: string
+  label: string
+  value: string
+  detail: string
+}
+
+export interface ShareCard {
+  display_name: string
+  headline: string
+  stats: CardStat[]
+  /** O que ficou de fora, com o motivo. */
+  omitted: string[]
+  footer: string
+}
+
+export interface PublishedCard extends ShareCard {
+  public_id: string
+  token: string
+  revoked_at: string | null
+  created_at: string
+}
+
 export interface GameRule {
   key: string
   label: string

@@ -445,3 +445,156 @@ class SeasonCreate(BaseModel):
     starts_on: date
     ends_on: date | None = None
     description: str | None = Field(default=None, max_length=400)
+
+
+# --------------------------------------------------------------------------- #
+# Fase 4 — duelos, eventos, Modo Guerra e card compartilhável
+# --------------------------------------------------------------------------- #
+class DuelSideRead(BaseModel):
+    display_name: str
+    answered: int
+    correct: int
+    time_seconds: int
+    finished: bool
+
+
+class DuelRead(BaseModel):
+    public_id: str
+    #: Código curto que o candidato compartilha para convidar alguém.
+    code: str
+    status: str
+    outcome: str
+    #: A frase do resultado. Vitória por ausência é dita com esse nome.
+    headline: str
+    #: Como o resultado foi decidido, linha a linha.
+    lines: list[str] = Field(default_factory=list)
+    is_challenger: bool
+    challenger: DuelSideRead
+    opponent: DuelSideRead | None = None
+    you_won: bool | None = None
+    my_run: RunRead | None = None
+    expires_at: datetime
+    resolved_at: datetime | None = None
+
+
+class DuelHistoryRead(BaseModel):
+    public_id: str
+    code: str
+    status: str
+    outcome: str | None = None
+    headline: str = ""
+    is_challenger: bool
+    you_won: bool | None = None
+    resolved_at: datetime | None = None
+
+
+class AcceptDuelInput(BaseModel):
+    code: str = Field(min_length=4, max_length=12)
+
+
+class EventGoalRead(BaseModel):
+    metric: str
+    label: str
+    current: int
+    target: int
+    ratio: float
+    completed: bool
+
+
+class EventRead(BaseModel):
+    slug: str
+    name: str
+    description: str | None = None
+    starts_on: date
+    ends_on: date
+    days_left: int | None = None
+    is_open: bool
+    goals: list[EventGoalRead] = Field(default_factory=list)
+    completed: bool
+    completed_goals: int
+    total_goals: int
+    reward_label: str | None = None
+    #: Prêmio sem utilidade declarada não é aceito na criação.
+    reward_utility: str | None = None
+    note: str = ""
+
+
+class EventGoalInput(BaseModel):
+    metric: str = Field(max_length=40)
+    target: int = Field(gt=0)
+
+
+class EventCreate(BaseModel):
+    name: str = Field(min_length=3, max_length=140)
+    starts_on: date
+    ends_on: date
+    goals: list[EventGoalInput] = Field(min_length=1)
+    description: str | None = Field(default=None, max_length=400)
+    reward_label: str | None = Field(default=None, max_length=120)
+    reward_utility: str | None = Field(default=None, max_length=400)
+
+
+class WarDayRead(BaseModel):
+    day: date
+    minutes: int
+    questions: int
+    met: bool
+    is_future: bool
+
+
+class WarCampaignRead(BaseModel):
+    public_id: str | None = None
+    status: str | None = None
+    starts_on: date | None = None
+    days: int = 0
+    daily_minutes: int = 0
+    daily_questions: int = 0
+    days_met: int = 0
+    days_missed: int = 0
+    days_left: int = 0
+    ratio: float = 0.0
+    is_over: bool = False
+    succeeded: bool = False
+    #: Texto factual. Descreve o período, não julga o candidato.
+    message: str = ""
+    schedule: list[WarDayRead] = Field(default_factory=list)
+    #: Avisos dados na criação — meta muito acima do histórico, por exemplo.
+    warnings: list[dict[str, Any]] = Field(default_factory=list)
+    empty_reason: str | None = None
+
+
+class WarCampaignCreate(BaseModel):
+    days: int = Field(ge=1, le=60)
+    daily_minutes: int = Field(ge=0, le=1440)
+    daily_questions: int = Field(default=0, ge=0, le=500)
+
+
+class CardStatRead(BaseModel):
+    key: str
+    label: str
+    value: str
+    #: Explica o número em uma linha (amostra, período, origem).
+    detail: str
+
+
+class ShareCardRead(BaseModel):
+    display_name: str
+    headline: str
+    stats: list[CardStatRead] = Field(default_factory=list)
+    #: O que ficou de fora, com o motivo.
+    omitted: list[str] = Field(default_factory=list)
+    footer: str
+
+
+class PublishedCardRead(ShareCardRead):
+    public_id: str
+    #: O link só existe porque o candidato pediu, e pode ser revogado.
+    token: str
+    revoked_at: datetime | None = None
+    created_at: datetime
+
+
+class ShareCardCreate(BaseModel):
+    #: O candidato escolhe o que entra. Nada é publicado por padrão.
+    include: list[str] = Field(default_factory=lambda: ["level", "rank", "streak", "questions"])
+    display_name: str | None = Field(default=None, max_length=80)
