@@ -77,5 +77,13 @@ export const queryKeys = {
   gameBoardBattle: ['game', 'board-battle'] as const,
   gameJourney: ['game', 'journey'] as const,
   gameTerritory: ['game', 'territory'] as const,
+  gameSeason: ['game', 'season'] as const,
+  gameSeasonHistory: ['game', 'season', 'history'] as const,
+  gameLeague: ['game', 'league'] as const,
+  gameLeaguePreferences: ['game', 'league', 'preferences'] as const,
+  gameChallengeModes: ['game', 'challenges', 'modes'] as const,
+  gameCurrentRun: ['game', 'challenges', 'current'] as const,
+  gameRun: (publicId: string) => ['game', 'challenges', 'run', publicId] as const,
+  gameRunHistory: ['game', 'challenges', 'history'] as const,
   gameRules: ['admin', 'game', 'rules'] as const,
 }

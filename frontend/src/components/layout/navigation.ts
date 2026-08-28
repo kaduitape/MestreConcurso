@@ -9,6 +9,7 @@ import {
   Layers,
   ListChecks,
   Map,
+  Medal,
   RefreshCw,
   Shield,
   Sparkles,
@@ -17,6 +18,7 @@ import {
   TrendingUp,
   Trophy,
   User,
+  Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -55,6 +57,7 @@ export const navigation: NavGroup[] = [
       { label: 'Revisão', to: '/revisao', icon: RefreshCw },
       { label: 'Meus erros', to: '/meus-erros', icon: TrendingUp },
       { label: 'Você vs Banca', to: '/voce-vs-banca', icon: Swords },
+      { label: 'Desafios', to: '/desafios', icon: Zap },
     ],
   },
   {
@@ -71,6 +74,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Meu progresso', to: '/progresso', icon: Trophy },
       { label: 'Jornada', to: '/jornada', icon: Map },
+      { label: 'Temporada', to: '/temporada', icon: Medal },
       { label: 'Minha conta', to: '/conta', icon: User },
       {
         label: 'Administração',

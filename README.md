@@ -70,6 +70,14 @@ A plataforma responde continuamente a uma única pergunta:
   disciplina como território, com o estado *pede revisão* para o que já foi dominado e
   está esfriando.
 
+- **Gamificação (G3):** competição opcional e honesta. **Temporadas** com placar somado
+  do próprio extrato de XP e recompensas de critério verificável — nada de caixa surpresa,
+  e nenhum prêmio desbloqueia conteúdo de estudo. **Ligas** entre candidatos ao mesmo
+  cargo, anônimas por padrão, desligáveis dos dois lados e que se recusam a virar tabela
+  com menos de cinco participantes. E quatro **modos de desafio** — Boss Battle (contra a
+  disciplina de maior Priority Score), Sobrevivência, Combo e Contra o Relógio — montados
+  sobre questões reais do banco: sem questões suficientes, a rodada não acontece.
+
 As demais fases estão especificadas em [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md)
 e ainda **não** foram implementadas — a interface indica explicitamente o que está por vir,
 sem telas ilustrativas nem dados fictícios.
@@ -106,6 +114,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [19 — Gamificação: arquitetura](docs/19-gamificacao-arquitetura.md) | Mestre Game Engine, XP, ranks, missões e wireframes |
 | [20 — Critérios de aceite da Gamificação 1](docs/20-criterios-aceite-gamificacao-1.md) | XP auditável, antiabuso, rank, sequência e missões |
 | [21 — Critérios de aceite da Gamificação 2](docs/21-criterios-aceite-gamificacao-2.md) | histórico de rank, Você vs Banca, jornada e mapa do edital |
+| [22 — Critérios de aceite da Gamificação 3](docs/22-criterios-aceite-gamificacao-3.md) | temporadas, ligas por contexto e modos de desafio |
 
 ## Como executar
 

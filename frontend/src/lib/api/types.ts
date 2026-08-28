@@ -1328,6 +1328,163 @@ export interface TerritoryMap {
   empty_reason: string | null
 }
 
+// --------------------------------------------------------------------------- //
+// Gamificação — Fase 3: temporadas, ligas e desafios
+// --------------------------------------------------------------------------- //
+export interface SeasonReward {
+  slug: string
+  label: string
+  /** Para que serve. Prêmio sem utilidade declarada não existe aqui. */
+  utility: string
+  criterion: string
+}
+
+export interface SeasonStanding {
+  seasonal_xp: number
+  qualified_days: number
+  questions: number
+  challenges: number
+  position: number | null
+  participants: number
+}
+
+export interface Season {
+  slug: string | null
+  name: string | null
+  description: string | null
+  starts_on: string | null
+  ends_on: string | null
+  days_left: number | null
+  progress: number
+  standing: SeasonStanding | null
+  rewards: SeasonReward[]
+  missed_rewards: SeasonReward[]
+  /** A temporada mede esforço; quem mede aprendizado é o rank. */
+  note: string
+  empty_reason: string | null
+}
+
+export interface SeasonHistoryEntry {
+  season_name: string
+  context_label: string
+  seasonal_xp: number
+  qualified_days: number
+  position: number | null
+  participants: number
+  rewards: SeasonReward[]
+  closed_at: string | null
+}
+
+export interface LeagueMember {
+  position: number
+  label: string
+  seasonal_xp: number
+  active_days: number
+  is_you: boolean
+  /** Falso quando o candidato permanece anônimo — o padrão. */
+  is_named: boolean
+}
+
+export interface League {
+  context_label: string
+  participants: number
+  division_index: number
+  division_label: string
+  members: LeagueMember[]
+  your_position: number | null
+  your_division_position: number | null
+  note: string
+  empty_reason: string | null
+}
+
+export interface LeaguePreferences {
+  opt_out: boolean
+  display_name: string | null
+}
+
+export type ChallengeModeKey = 'BOSS' | 'SURVIVAL' | 'COMBO' | 'TIME_ATTACK'
+
+export interface ChallengeMode {
+  mode: ChallengeModeKey
+  name: string
+  description: string
+  questions: number
+  lives: number | null
+  time_limit_seconds: number | null
+  /** O critério de vitória, escrito. */
+  rule: string
+}
+
+export interface RunState {
+  answered: number
+  correct: number
+  wrong: number
+  lives_left: number | null
+  combo: number
+  best_combo: number
+  multiplier: number
+  elapsed_seconds: number
+  seconds_left: number | null
+  questions_left: number
+  /** Nulo sem resposta alguma: zero de zero não é zero por cento. */
+  accuracy: number | null
+  is_over: boolean
+  over_reason: string | null
+}
+
+export interface RunScoreLine {
+  label: string
+  value: string
+}
+
+export interface RunScore {
+  score: number
+  xp: number
+  achieved: boolean
+  headline: string
+  /** A conta aberta do XP da rodada. */
+  breakdown: RunScoreLine[]
+}
+
+export interface GameRun {
+  public_id: string
+  mode: ChallengeModeKey
+  mode_name: string
+  status: 'RUNNING' | 'FINISHED' | 'ABANDONED'
+  subject_label: string | null
+  /** Por que estas questões e não outras. */
+  selection: Record<string, unknown>
+  state: RunState
+  question: Question | null
+  score: RunScore | null
+  xp_awarded: number
+  started_at: string
+  ended_at: string | null
+}
+
+export interface RunAnswerResult {
+  run: GameRun
+  is_correct: boolean
+  correct_letter: string | null
+  selected_feedback: string | null
+  correct_feedback: string | null
+  explanation: string | null
+}
+
+export interface RunHistoryEntry {
+  public_id: string
+  mode: ChallengeModeKey
+  mode_name: string
+  status: string
+  score: number
+  best_combo: number
+  xp_awarded: number
+  achieved: boolean
+  subject_label: string | null
+  summary: Record<string, unknown>
+  ended_at: string | null
+}
+
 export interface GameRule {
   key: string
   label: string

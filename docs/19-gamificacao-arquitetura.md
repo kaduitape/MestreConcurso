@@ -345,7 +345,9 @@ O aviso do rodapé não é decorativo: é o item 40 do pedido, escrito na tela.
 `MissionProgress`, `AchievementCard`, `AchievementModal`, `DailyProgress`,
 `XPToast`, `GameHeader`.
 **Fase 2:** `JourneyMap`, `StudyTerritory`, `BattleBar`, `MasterScore`.
-**Fase 3:** `LeagueTable`, `BossBattle`, `ComboCounter`, `SeasonProgress`, `RewardCard`.
+**Fase 3:** `LeagueTable`, `SeasonProgress`, `ComboCounter`, `LivesCounter`, `RunClock`
+(a rodada de desafio é uma tela só, que muda de regra conforme o modo — um
+componente por modo duplicaria a mesma mecânica quatro vezes).
 
 Animação com Framer Motion, já no projeto: *count-up* no XP, *progress ring* na
 missão, *glow* discreto ao subir de nível, confete curto só em conquista. Todas
@@ -375,7 +377,25 @@ GET   /api/v1/game/journey              marcos da jornada, com o aviso obrigató
 GET   /api/v1/game/territory            mapa do edital, do território mais frágil ao mais firme
 ```
 
-**Fases seguintes:** `/game/seasons`, `/game/leagues`, `/game/challenges`.
+**Fase 3**
+```
+GET   /api/v1/game/season                  temporada em curso, com prêmios e critérios
+GET   /api/v1/game/season/history          temporadas fechadas, com a posição congelada
+GET   /api/v1/game/league                  minha divisão, entre candidatos ao mesmo cargo
+GET   /api/v1/game/league/preferences      participo? apareço com nome?
+PUT   /api/v1/game/league/preferences      ligar, desligar ou identificar-se
+GET   /api/v1/game/challenges/modes        modos, com a regra de vitória de cada um
+GET   /api/v1/game/challenges/current      rodada em andamento (no máximo uma)
+POST  /api/v1/game/challenges/{mode}       começar uma rodada
+GET   /api/v1/game/challenges/runs/{id}    estado da rodada e a questão da vez
+POST  /api/v1/game/challenges/runs/{id}/answer   responder
+POST  /api/v1/game/challenges/runs/{id}/finish   encerrar (ou abandonar)
+GET   /api/v1/game/challenges/history      rodadas anteriores
+POST  /api/v1/admin/game/seasons           abrir temporada
+POST  /api/v1/admin/game/seasons/{slug}/close    fechar e conceder prêmios
+```
+
+**Fases seguintes:** `/game/challenges/friends`, `/game/events`.
 
 ---
 
@@ -385,7 +405,7 @@ GET   /api/v1/game/territory            mapa do edital, do território mais frá
 |---|---|---|
 | **G1** | XP com razão e antiabuso, níveis, streak com proteção, missões diárias por sinal real, conquistas, perfil, Central de Missões, animações, painel de regras | **entregue** |
 | **G2** | Histórico de rank na interface, Você vs Banca, Jornada da Aprovação, Mapa do Edital | **entregue** |
-| **G3** | Temporadas, ligas, Boss Battle, Sobrevivência, Combo, Contra o Relógio | a pedido |
+| **G3** | Temporadas, ligas por contexto, Boss Battle, Sobrevivência, Combo, Contra o Relógio | **entregue** |
 | **G4** | Desafio entre amigos, card compartilhável, eventos especiais e Modo Guerra | a pedido |
 
 O **rank** é calculado e exposto já na G1 (o perfil precisa dele); a G2 acrescenta
@@ -397,6 +417,7 @@ o histórico diário, que é o que permite dizer se a preparação subiu ou esco
 
 Fase 1: `docs/20-criterios-aceite-gamificacao-1.md`.
 Fase 2: `docs/21-criterios-aceite-gamificacao-2.md`.
+Fase 3: `docs/22-criterios-aceite-gamificacao-3.md`.
 
 ---
 

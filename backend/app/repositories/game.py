@@ -11,10 +11,13 @@ from sqlalchemy.orm import selectinload
 from app.models.game import (
     Achievement,
     GameRule,
+    GameRun,
     GamificationProfile,
     Mission,
     MissionStatus,
     RankSnapshot,
+    Season,
+    SeasonParticipation,
     StreakDay,
     UserAchievement,
     XPTransaction,
@@ -182,3 +185,78 @@ class RankSnapshotRepository(BaseRepository[RankSnapshot]):
             .limit(limit)
         )
         return (await self.session.execute(stmt)).scalars().all()
+
+
+class SeasonRepository(BaseRepository[Season]):
+    model = Season
+
+    async def get_by_slug(self, slug: str) -> Season | None:
+        return await self.get_by(slug=slug)
+
+    async def active_on(self, day: date) -> Season | None:
+        """A temporada vigente naquele dia. Janelas não se sobrepõem por convenção."""
+        stmt = (
+            select(Season)
+            .where(
+                Season.is_active.is_(True),
+                Season.starts_on <= day,
+                Season.ends_on >= day,
+            )
+            .order_by(Season.starts_on.desc())
+            .limit(1)
+        )
+        return (await self.session.execute(stmt)).scalars().first()
+
+    async def recent(self, *, limit: int = 12) -> Sequence[Season]:
+        stmt = select(Season).order_by(Season.starts_on.desc()).limit(limit)
+        return (await self.session.execute(stmt)).scalars().all()
+
+
+class SeasonParticipationRepository(BaseRepository[SeasonParticipation]):
+    model = SeasonParticipation
+
+    async def get_for(self, season_id: int, user_id: int) -> SeasonParticipation | None:
+        return await self.get_by(season_id=season_id, user_id=user_id)
+
+    async def history_for(self, user_id: int, *, limit: int = 12) -> Sequence[SeasonParticipation]:
+        stmt = (
+            select(SeasonParticipation)
+            .where(SeasonParticipation.user_id == user_id)
+            .order_by(SeasonParticipation.id.desc())
+            .limit(limit)
+        )
+        return (await self.session.execute(stmt)).scalars().all()
+
+
+class GameRunRepository(BaseRepository[GameRun]):
+    model = GameRun
+
+    async def get_by_public_id(self, public_id: str, user_id: int) -> GameRun | None:
+        return await self.get_by(public_id=public_id, user_id=user_id)
+
+    async def running_for(self, user_id: int) -> GameRun | None:
+        """No máximo uma rodada aberta por vez: duas seriam dois placares."""
+        stmt = (
+            select(GameRun)
+            .where(GameRun.user_id == user_id, GameRun.status == "RUNNING")
+            .order_by(GameRun.id.desc())
+            .limit(1)
+        )
+        return (await self.session.execute(stmt)).scalars().first()
+
+    async def history(self, user_id: int, *, limit: int = 20) -> Sequence[GameRun]:
+        stmt = (
+            select(GameRun)
+            .where(GameRun.user_id == user_id, GameRun.status != "RUNNING")
+            .order_by(GameRun.id.desc())
+            .limit(limit)
+        )
+        return (await self.session.execute(stmt)).scalars().all()
+
+    async def finished_today(self, user_id: int, day: date) -> int:
+        stmt = select(func.count()).where(
+            GameRun.user_id == user_id,
+            GameRun.status == "FINISHED",
+            func.date(GameRun.ended_at) == day,
+        )
+        return int((await self.session.execute(stmt)).scalar_one())

@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.question import QuestionRead
+
 _READ = ConfigDict(from_attributes=True)
 
 
@@ -274,3 +276,172 @@ class TerritoryMapRead(BaseModel):
     mastered: int = 0
     needs_review: int = 0
     empty_reason: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# Fase 3 — temporadas, ligas e desafios
+# --------------------------------------------------------------------------- #
+class SeasonRewardRead(BaseModel):
+    slug: str
+    label: str
+    #: Para que serve. Prêmio sem utilidade declarada não existe aqui.
+    utility: str
+    criterion: str
+
+
+class SeasonStandingRead(BaseModel):
+    seasonal_xp: int
+    qualified_days: int
+    questions: int
+    challenges: int
+    position: int | None = None
+    participants: int = 0
+
+
+class SeasonRead(BaseModel):
+    slug: str | None = None
+    name: str | None = None
+    description: str | None = None
+    starts_on: date | None = None
+    ends_on: date | None = None
+    days_left: int | None = None
+    progress: float = 0.0
+    standing: SeasonStandingRead | None = None
+    rewards: list[SeasonRewardRead] = Field(default_factory=list)
+    missed_rewards: list[SeasonRewardRead] = Field(default_factory=list)
+    #: A temporada mede esforço; quem mede aprendizado é o rank.
+    note: str = ""
+    empty_reason: str | None = None
+
+
+class SeasonHistoryRead(BaseModel):
+    season_name: str
+    context_label: str
+    seasonal_xp: int
+    qualified_days: int
+    position: int | None = None
+    participants: int
+    rewards: list[SeasonRewardRead] = Field(default_factory=list)
+    closed_at: datetime | None = None
+
+
+class LeagueMemberRead(BaseModel):
+    position: int
+    label: str
+    seasonal_xp: int
+    active_days: int
+    is_you: bool
+    #: Falso quando o candidato optou por permanecer anônimo (o padrão).
+    is_named: bool
+
+
+class LeagueRead(BaseModel):
+    context_label: str
+    participants: int
+    division_index: int = 0
+    division_label: str = ""
+    members: list[LeagueMemberRead] = Field(default_factory=list)
+    your_position: int | None = None
+    your_division_position: int | None = None
+    note: str = ""
+    empty_reason: str | None = None
+
+
+class LeaguePreferencesUpdate(BaseModel):
+    #: Desliga a comparação por completo (item 21 do pedido).
+    opt_out: bool | None = None
+    #: Vazio devolve ao anonimato, que é o padrão.
+    display_name: str | None = Field(default=None, max_length=40)
+
+
+class LeaguePreferencesRead(BaseModel):
+    opt_out: bool
+    display_name: str | None = None
+
+
+class ChallengeModeRead(BaseModel):
+    mode: str
+    name: str
+    description: str
+    questions: int
+    lives: int | None = None
+    time_limit_seconds: int | None = None
+    #: O critério de vitória, escrito.
+    rule: str
+
+
+class RunStateRead(BaseModel):
+    answered: int
+    correct: int
+    wrong: int
+    lives_left: int | None = None
+    combo: int
+    best_combo: int
+    multiplier: float
+    elapsed_seconds: int
+    seconds_left: int | None = None
+    questions_left: int
+    #: Nulo sem resposta alguma: zero de zero não é zero por cento.
+    accuracy: float | None = None
+    is_over: bool
+    over_reason: str | None = None
+
+
+class ScoreLineRead(BaseModel):
+    label: str
+    value: str
+
+
+class RunScoreRead(BaseModel):
+    score: int
+    xp: int
+    achieved: bool
+    headline: str
+    #: A conta aberta do XP da rodada.
+    breakdown: list[ScoreLineRead] = Field(default_factory=list)
+
+
+class RunRead(BaseModel):
+    public_id: str
+    mode: str
+    mode_name: str
+    status: str
+    subject_label: str | None = None
+    #: Por que estas questões e não outras.
+    selection: dict[str, Any] = Field(default_factory=dict)
+    state: RunStateRead
+    question: QuestionRead | None = None
+    score: RunScoreRead | None = None
+    xp_awarded: int = 0
+    started_at: datetime
+    ended_at: datetime | None = None
+
+
+class RunAnswerResultRead(BaseModel):
+    run: RunRead
+    is_correct: bool
+    correct_letter: str | None = None
+    selected_feedback: str | None = None
+    correct_feedback: str | None = None
+    explanation: str | None = None
+
+
+class RunHistoryRead(BaseModel):
+    public_id: str
+    mode: str
+    mode_name: str
+    status: str
+    score: int
+    best_combo: int
+    xp_awarded: int
+    achieved: bool
+    subject_label: str | None = None
+    summary: dict[str, Any] = Field(default_factory=dict)
+    ended_at: datetime | None = None
+
+
+class SeasonCreate(BaseModel):
+    name: str = Field(min_length=3, max_length=120)
+    starts_on: date
+    ends_on: date | None = None
+    description: str | None = Field(default=None, max_length=400)

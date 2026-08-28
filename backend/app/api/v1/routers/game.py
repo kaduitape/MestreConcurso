@@ -2,28 +2,34 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import CurrentUser, DbSession, RequestCtx, rate_limit, require_permissions
+from app.api.v1.routers.questions import question_read
 from app.core.errors import NotFoundError
 from app.core.pagination import Page, PageParams, page_params
 from app.domain import permissions as perms
-from app.domain.game import ACHIEVEMENTS_BY_SLUG, evaluate
+from app.domain.game import ACHIEVEMENTS_BY_SLUG, MODES, MODES_BY_KEY, evaluate
 from app.models.audit import AuditAction
-from app.models.game import Mission
+from app.models.game import GameRun, Mission, SeasonParticipation
 from app.models.user import User
 from app.repositories.game import AchievementRepository, GameRuleRepository
 from app.schemas.game import (
     AchievementListRead,
     AchievementRead,
     BoardBattleRead,
+    ChallengeModeRead,
     ClaimResultRead,
     DailyBoardRead,
     GameRuleRead,
     GameRuleUpdate,
     JourneyRead,
+    LeagueMemberRead,
+    LeaguePreferencesRead,
+    LeaguePreferencesUpdate,
+    LeagueRead,
     LevelRead,
     MilestoneRead,
     MissionRead,
@@ -32,6 +38,17 @@ from app.schemas.game import (
     RankHistoryRead,
     RankPointRead,
     RankRead,
+    RunAnswerResultRead,
+    RunHistoryRead,
+    RunRead,
+    RunScoreRead,
+    RunStateRead,
+    ScoreLineRead,
+    SeasonCreate,
+    SeasonHistoryRead,
+    SeasonRead,
+    SeasonRewardRead,
+    SeasonStandingRead,
     StreakRead,
     SubjectScoreRead,
     TerritoryMapRead,
@@ -40,10 +57,13 @@ from app.schemas.game import (
     WeekPointRead,
     XPTransactionRead,
 )
+from app.schemas.question import SaveAnswerInput
 from app.services.audit import AuditService
+from app.services.game_challenges import ChallengeService, RunView
 from app.services.game_engine import GameEngine
 from app.services.game_missions import MissionService
 from app.services.game_progress import DEFAULT_HISTORY_DAYS, GameProgressService
+from app.services.game_seasons import SeasonService
 
 router = APIRouter(tags=["gamificação"])
 game_router = APIRouter(prefix="/game", tags=["gamificação"])
@@ -78,6 +98,94 @@ def _mission_read(mission: Mission) -> MissionRead:
         status=mission.status,
         rationale=mission.rationale,
         valid_from=mission.valid_from,
+    )
+
+
+def _reward_read(item: dict[str, Any] | Any) -> SeasonRewardRead:
+    """Aceita tanto o objeto do domínio quanto a cópia congelada no banco."""
+    if isinstance(item, dict):
+        return SeasonRewardRead(
+            slug=item["slug"],
+            label=item["label"],
+            utility=item["utility"],
+            criterion=item["criterion"],
+        )
+    return SeasonRewardRead(
+        slug=item.slug, label=item.label, utility=item.utility, criterion=item.criterion
+    )
+
+
+def _run_read(view: RunView) -> RunRead:
+    state = view.state
+    return RunRead(
+        public_id=view.run.public_id,
+        mode=view.run.mode,
+        mode_name=view.spec.name,
+        status=view.run.status,
+        subject_label=view.run.subject_label,
+        selection=view.run.selection or {},
+        state=RunStateRead(
+            answered=state.answered,
+            correct=state.correct,
+            wrong=state.wrong,
+            lives_left=state.lives_left,
+            combo=state.combo,
+            best_combo=state.best_combo,
+            multiplier=state.multiplier,
+            elapsed_seconds=state.elapsed_seconds,
+            seconds_left=state.seconds_left,
+            questions_left=state.questions_left,
+            accuracy=state.accuracy,
+            is_over=state.is_over,
+            over_reason=state.over_reason,
+        ),
+        question=question_read(view.question) if view.question else None,
+        score=(
+            RunScoreRead(
+                score=view.score.score,
+                xp=view.score.xp,
+                achieved=view.score.achieved,
+                headline=view.score.headline,
+                breakdown=[
+                    ScoreLineRead(label=line.label, value=line.value)
+                    for line in view.score.breakdown
+                ],
+            )
+            if view.score
+            else None
+        ),
+        xp_awarded=view.run.xp_awarded,
+        started_at=view.run.started_at,
+        ended_at=view.run.ended_at,
+    )
+
+
+def _run_history_read(run: GameRun) -> RunHistoryRead:
+    return RunHistoryRead(
+        public_id=run.public_id,
+        mode=run.mode,
+        mode_name=MODES_BY_KEY[run.mode].name if run.mode in MODES_BY_KEY else run.mode,
+        status=run.status,
+        score=run.score,
+        best_combo=run.best_combo,
+        xp_awarded=run.xp_awarded,
+        achieved=run.achieved,
+        subject_label=run.subject_label,
+        summary=run.summary or {},
+        ended_at=run.ended_at,
+    )
+
+
+def _participation_read(record: SeasonParticipation, season_name: str) -> SeasonHistoryRead:
+    return SeasonHistoryRead(
+        season_name=season_name,
+        context_label=record.context_label,
+        seasonal_xp=record.seasonal_xp,
+        qualified_days=record.qualified_days,
+        position=record.position,
+        participants=record.participants,
+        rewards=[_reward_read(item) for item in record.rewards or []],
+        closed_at=record.closed_at,
     )
 
 
@@ -391,6 +499,194 @@ async def territory_map(user: CurrentUser, db: DbSession) -> TerritoryMapRead:
 
 
 # --------------------------------------------------------------------------- #
+# Fase 3 — temporada, liga e desafios
+# --------------------------------------------------------------------------- #
+@game_router.get("/season", response_model=SeasonRead, summary="Temporada em curso")
+async def season(user: CurrentUser, db: DbSession) -> SeasonRead:
+    """A temporada mede esforço no período. Quem mede aprendizado é o rank."""
+    view = await SeasonService(db).view(user)
+    if view.season is None or view.window is None:
+        return SeasonRead(empty_reason=view.empty_reason)
+
+    outcome = view.outcome
+    return SeasonRead(
+        slug=view.season.slug,
+        name=view.season.name,
+        description=view.season.description,
+        starts_on=view.season.starts_on,
+        ends_on=view.season.ends_on,
+        days_left=view.days_left,
+        progress=view.progress,
+        standing=SeasonStandingRead(
+            seasonal_xp=view.standing.seasonal_xp,
+            qualified_days=view.standing.qualified_days,
+            questions=view.standing.questions,
+            challenges=view.standing.challenges,
+            position=view.standing.position,
+            participants=view.standing.participants,
+        ),
+        rewards=[_reward_read(item) for item in (outcome.rewards if outcome else [])],
+        missed_rewards=[_reward_read(item) for item in (outcome.missed if outcome else [])],
+        note=outcome.note if outcome else "",
+    )
+
+
+@game_router.get(
+    "/season/history",
+    response_model=list[SeasonHistoryRead],
+    summary="Temporadas anteriores",
+)
+async def season_history(user: CurrentUser, db: DbSession) -> list[SeasonHistoryRead]:
+    service = SeasonService(db)
+    records = await service.history(user)
+    result: list[SeasonHistoryRead] = []
+    for record in records:
+        stored = await service.seasons.get(record.season_id)
+        result.append(_participation_read(record, stored.name if stored else ""))
+    return result
+
+
+@game_router.get("/league", response_model=LeagueRead, summary="Minha liga")
+async def league(user: CurrentUser, db: DbSession) -> LeagueRead:
+    """Comparação entre candidatos ao mesmo cargo — e só entre eles (item 21)."""
+    result = await SeasonService(db).league(user)
+    return LeagueRead(
+        context_label=result.context_label,
+        participants=result.participants,
+        division_index=result.division_index,
+        division_label=result.division_label,
+        members=[
+            LeagueMemberRead(
+                position=item.position,
+                label=item.label,
+                seasonal_xp=item.seasonal_xp,
+                active_days=item.active_days,
+                is_you=item.is_you,
+                is_named=item.is_named,
+            )
+            for item in result.members
+        ],
+        your_position=result.your_position,
+        your_division_position=result.your_division_position,
+        note=result.note,
+        empty_reason=result.empty_reason,
+    )
+
+
+@game_router.get(
+    "/league/preferences",
+    response_model=LeaguePreferencesRead,
+    summary="Minhas preferências de comparação",
+)
+async def league_preferences(user: CurrentUser, db: DbSession) -> LeaguePreferencesRead:
+    profile = await GameEngine(db).profile_for(user)
+    return LeaguePreferencesRead(
+        opt_out=profile.league_opt_out, display_name=profile.league_display_name
+    )
+
+
+@game_router.put(
+    "/league/preferences",
+    response_model=LeaguePreferencesRead,
+    summary="Ligar, desligar ou identificar-se na comparação",
+)
+async def update_league_preferences(
+    payload: LeaguePreferencesUpdate, user: CurrentUser, db: DbSession
+) -> LeaguePreferencesRead:
+    """Sair da comparação não afeta nada do estudo — e o anonimato é o padrão."""
+    profile = await SeasonService(db).set_preferences(
+        user, opt_out=payload.opt_out, display_name=payload.display_name
+    )
+    return LeaguePreferencesRead(
+        opt_out=profile.league_opt_out, display_name=profile.league_display_name
+    )
+
+
+@game_router.get(
+    "/challenges/modes", response_model=list[ChallengeModeRead], summary="Modos de desafio"
+)
+async def challenge_modes() -> list[ChallengeModeRead]:
+    return [
+        ChallengeModeRead(
+            mode=item.mode,
+            name=item.name,
+            description=item.description,
+            questions=item.questions,
+            lives=item.lives,
+            time_limit_seconds=item.time_limit_seconds,
+            rule=item.rule,
+        )
+        for item in MODES
+    ]
+
+
+@game_router.get(
+    "/challenges/current", response_model=RunRead | None, summary="Rodada em andamento"
+)
+async def current_run(user: CurrentUser, db: DbSession) -> RunRead | None:
+    view = await ChallengeService(db).current(user)
+    return _run_read(view) if view else None
+
+
+@game_router.post(
+    "/challenges/{mode}",
+    response_model=RunRead,
+    status_code=201,
+    summary="Começar uma rodada",
+    dependencies=[Depends(rate_limit("60/hour", scope="game:run"))],
+)
+async def start_run(mode: str, user: CurrentUser, db: DbSession) -> RunRead:
+    """Sem questões suficientes no banco, a rodada não é criada — e o motivo é dito."""
+    return _run_read(await ChallengeService(db).start(user, mode.upper()))
+
+
+@game_router.get("/challenges/runs/{public_id}", response_model=RunRead, summary="Estado da rodada")
+async def run_state(public_id: str, user: CurrentUser, db: DbSession) -> RunRead:
+    return _run_read(await ChallengeService(db).view(user, public_id))
+
+
+@game_router.post(
+    "/challenges/runs/{public_id}/answer",
+    response_model=RunAnswerResultRead,
+    summary="Responder a questão da vez",
+)
+async def answer_run(
+    public_id: str, payload: SaveAnswerInput, user: CurrentUser, db: DbSession
+) -> RunAnswerResultRead:
+    view, feedback = await ChallengeService(db).answer(
+        user, public_id, letter=payload.letter, time_seconds=payload.time_seconds
+    )
+    return RunAnswerResultRead(
+        run=_run_read(view),
+        is_correct=feedback.attempt.is_correct,
+        correct_letter=feedback.correct_letter,
+        selected_feedback=feedback.selected_feedback,
+        correct_feedback=feedback.correct_feedback,
+        explanation=feedback.explanation,
+    )
+
+
+@game_router.post(
+    "/challenges/runs/{public_id}/finish", response_model=RunRead, summary="Encerrar a rodada"
+)
+async def finish_run(
+    public_id: str,
+    user: CurrentUser,
+    db: DbSession,
+    abandon: Annotated[bool, Query()] = False,
+) -> RunRead:
+    """Rodada abandonada não pontua: parar no meio não é desempenho."""
+    return _run_read(await ChallengeService(db).finish(user, public_id, abandoned=abandon))
+
+
+@game_router.get(
+    "/challenges/history", response_model=list[RunHistoryRead], summary="Rodadas anteriores"
+)
+async def run_history(user: CurrentUser, db: DbSession) -> list[RunHistoryRead]:
+    return [_run_history_read(item) for item in await ChallengeService(db).history(user)]
+
+
+# --------------------------------------------------------------------------- #
 # Administração das regras
 # --------------------------------------------------------------------------- #
 @admin_router.get("/rules", response_model=list[GameRuleRead], summary="Regras de pontuação")
@@ -437,6 +733,39 @@ async def update_rule(
     stored = await repository.get_fresh(key)
     assert stored is not None
     return GameRuleRead.model_validate(stored)
+
+
+@admin_router.post(
+    "/seasons", response_model=SeasonRead, status_code=201, summary="Abrir uma temporada"
+)
+async def create_season(payload: SeasonCreate, _: GameAdmin, db: DbSession) -> SeasonRead:
+    """Temporadas são períodos definidos pela administração, não janelas implícitas."""
+    season_row = await SeasonService(db).create(
+        name=payload.name,
+        starts_on=payload.starts_on,
+        ends_on=payload.ends_on,
+        description=payload.description,
+    )
+    return SeasonRead(
+        slug=season_row.slug,
+        name=season_row.name,
+        description=season_row.description,
+        starts_on=season_row.starts_on,
+        ends_on=season_row.ends_on,
+    )
+
+
+@admin_router.post(
+    "/seasons/{slug}/close",
+    response_model=list[SeasonHistoryRead],
+    summary="Fechar a temporada e conceder os prêmios",
+)
+async def close_season(slug: str, _: GameAdmin, db: DbSession) -> list[SeasonHistoryRead]:
+    """Congela as posições e concede o que o critério de cada prêmio já garantia."""
+    service = SeasonService(db)
+    records = await service.close(slug)
+    stored = await service.seasons.get_by_slug(slug)
+    return [_participation_read(item, stored.name if stored else "") for item in records]
 
 
 router.include_router(game_router)

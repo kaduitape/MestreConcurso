@@ -25,6 +25,7 @@ class GameEventKind(StrEnum):
     DAILY_MISSIONS_DONE = "DAILY_MISSIONS_DONE"
     WEEKLY_MISSION_DONE = "WEEKLY_MISSION_DONE"
     ACHIEVEMENT_UNLOCKED = "ACHIEVEMENT_UNLOCKED"
+    CHALLENGE_FINISHED = "CHALLENGE_FINISHED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +48,7 @@ DEFAULT_RULES: tuple[XPRule, ...] = (
     XPRule(GameEventKind.DAILY_MISSIONS_DONE, "Todas as missões do dia", 250, 250),
     XPRule(GameEventKind.WEEKLY_MISSION_DONE, "Missão da semana", 500, 500),
     XPRule(GameEventKind.ACHIEVEMENT_UNLOCKED, "Conquista desbloqueada", 0, 1000),
+    XPRule(GameEventKind.CHALLENGE_FINISHED, "Rodada de desafio concluída", 0, 500),
 )
 
 RULES_BY_KEY: dict[str, XPRule] = {rule.key: rule for rule in DEFAULT_RULES}
@@ -215,6 +217,16 @@ def _base_for(event: GameEvent, rule: XPRule) -> tuple[int, float, str, str | No
     if event.kind == GameEventKind.ACHIEVEMENT_UNLOCKED:
         amount = int(metrics.get("xp", 0))
         return amount, 1.0, str(metrics.get("label", "Conquista desbloqueada.")), None
+
+    if event.kind == GameEventKind.CHALLENGE_FINISHED:
+        # O valor vem da rodada, que já é uma conta aberta (modo, proporção
+        # respondida e combo). A regra guarda apenas o teto diário — é ele que
+        # impede transformar desafio em torneira de XP.
+        answered = int(metrics.get("answered", 0))
+        if answered <= 0:
+            return 0, 0.0, "", "Rodada encerrada sem resposta alguma."
+        amount = int(metrics.get("xp", 0))
+        return amount, 1.0, str(metrics.get("label", "Rodada de desafio concluída.")), None
 
     # Missões: o valor é o da própria regra.
     return rule.xp_value, 1.0, rule.label + ".", None

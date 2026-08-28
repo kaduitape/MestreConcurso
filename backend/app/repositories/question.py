@@ -112,6 +112,11 @@ class QuestionRepository(BaseRepository[Question]):
         stmt = self.filtered(**filters)  # type: ignore[arg-type]
         return await self.paginate(stmt, limit=limit, offset=offset)
 
+    async def get_full(self, question_id: int) -> Question | None:
+        """Questão com alternativas já carregadas — usado pelas rodadas de desafio."""
+        stmt = self._base().where(Question.id == question_id)
+        return (await self.session.execute(stmt)).scalars().first()
+
     async def pick_for_simulation(
         self,
         *,

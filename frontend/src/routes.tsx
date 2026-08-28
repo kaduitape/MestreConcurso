@@ -75,6 +75,14 @@ const BoardBattlePage = lazy(() =>
 const JourneyPage = lazy(() =>
   import('@/features/game/journey-page').then((module) => ({ default: module.JourneyPage })),
 )
+const SeasonPage = lazy(() =>
+  import('@/features/game/season-page').then((module) => ({ default: module.SeasonPage })),
+)
+const ChallengesPage = lazy(() =>
+  import('@/features/game/challenges-page').then((module) => ({
+    default: module.ChallengesPage,
+  })),
+)
 const DeckPage = lazy(() =>
   import('@/features/flashcards/deck-page').then((module) => ({ default: module.DeckPage })),
 )
@@ -164,6 +172,8 @@ export const router = createBrowserRouter([
           { path: '/progresso', element: lazyRoute(<GameProfilePage />) },
           { path: '/voce-vs-banca', element: lazyRoute(<BoardBattlePage />) },
           { path: '/jornada', element: lazyRoute(<JourneyPage />) },
+          { path: '/temporada', element: lazyRoute(<SeasonPage />) },
+          { path: '/desafios', element: lazyRoute(<ChallengesPage />) },
           { path: '/concursos', element: lazyRoute(<CompetitionsPage />) },
           { path: '/concursos/:publicId', element: lazyRoute(<CompetitionDetailPage />) },
           { path: '/conta', element: <AccountPage /> },

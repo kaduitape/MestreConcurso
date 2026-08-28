@@ -91,6 +91,12 @@ class GamificationProfile(IdMixin, TimestampMixin, Base):
     achievements_count: Mapped[int] = mapped_column(Integer, default=0)
     computed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # Liga (Fase 3): a comparação é desligável (item 21 do pedido). Quem sai não
+    # aparece na tabela de ninguém e não vê a de ninguém.
+    league_opt_out: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Anonimato é o padrão: só aparece com nome quem escolheu aparecer.
+    league_display_name: Mapped[str | None] = mapped_column(String(40))
+
 
 class XPTransaction(IdMixin, PublicIdMixin, TimestampMixin, Base):
     """Uma linha por ganho. O saldo do perfil é a soma disto — nunca o contrário."""
@@ -254,3 +260,89 @@ class RankSnapshot(IdMixin, TimestampMixin, Base):
     missing_signals: Mapped[list[str]] = mapped_column(JsonType, default=list)
     xp_total: Mapped[int] = mapped_column(Integer, default=0)
     level: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class Season(IdMixin, PublicIdMixin, TimestampMixin, Base):
+    """Um período fechado com placar próprio.
+
+    O XP da temporada **não é um contador**: ele é somado do razão dentro da
+    janela. Assim a temporada não pode divergir do extrato, e reabrir ou corrigir
+    uma data recalcula o placar em vez de deixar dois números conflitantes.
+    """
+
+    __tablename__ = "seasons"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_seasons_slug"),
+        Index("ix_seasons_window", "starts_on", "ends_on"),
+    )
+
+    slug: Mapped[str] = mapped_column(String(60), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str | None] = mapped_column(String(400))
+    starts_on: Mapped[date] = mapped_column(Date)
+    ends_on: Mapped[date] = mapped_column(Date)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Preenchido quando a temporada é fechada e as posições são congeladas.
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SeasonParticipation(IdMixin, TimestampMixin, Base):
+    """A posição do candidato numa temporada, congelada no fechamento."""
+
+    __tablename__ = "season_participations"
+    __table_args__ = (
+        UniqueConstraint("season_id", "user_id", name="uq_season_participations_season_user"),
+    )
+
+    season_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("seasons.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    seasonal_xp: Mapped[int] = mapped_column(Integer, default=0)
+    qualified_days: Mapped[int] = mapped_column(Integer, default=0)
+    position: Mapped[int | None] = mapped_column(Integer)
+    participants: Mapped[int] = mapped_column(Integer, default=0)
+    division_index: Mapped[int] = mapped_column(Integer, default=0)
+    context_label: Mapped[str] = mapped_column(String(160), default="")
+    # Prêmios concedidos, com o critério que os justificou.
+    rewards: Mapped[list[dict[str, Any]]] = mapped_column(JsonType, default=list)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class GameRun(IdMixin, PublicIdMixin, TimestampMixin, Base):
+    """Uma rodada de desafio: Boss Battle, Sobrevivência, Combo ou Relógio.
+
+    As questões são escolhidas na largada e **congeladas** em ``question_ids``.
+    Sem isso, uma rodada em andamento mudaria de conteúdo a cada requisição, e o
+    placar não seria reproduzível.
+    """
+
+    __tablename__ = "game_runs"
+    __table_args__ = (
+        Index("ix_game_runs_user_status", "user_id", "status"),
+        Index("ix_game_runs_user_created", "user_id", "created_at"),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    mode: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default="RUNNING")
+    question_ids: Mapped[list[int]] = mapped_column(JsonType, default=list)
+    # Regra da seleção, para auditoria: por que estas questões e não outras.
+    selection: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
+    subject_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("subjects.id", ondelete="SET NULL")
+    )
+    subject_label: Mapped[str | None] = mapped_column(String(200))
+
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    score: Mapped[int] = mapped_column(Integer, default=0)
+    best_combo: Mapped[int] = mapped_column(Integer, default=0)
+    xp_awarded: Mapped[int] = mapped_column(Integer, default=0)
+    achieved: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Placar aberto: as linhas que explicam de onde saiu o XP da rodada.
+    summary: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)

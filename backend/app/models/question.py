@@ -224,6 +224,11 @@ class QuestionAttempt(IdMixin, PublicIdMixin, TimestampMixin, Base):
     study_task_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("study_tasks.id", ondelete="SET NULL")
     )
+    # Rodada de desafio (Fase 3 da gamificação). A resposta é real e conta nas
+    # estatísticas; a marca existe para que se possa separá-la depois.
+    game_run_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("game_runs.id", ondelete="SET NULL")
+    )
 
     selected_alternative_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("alternatives.id", ondelete="SET NULL")

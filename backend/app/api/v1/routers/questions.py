@@ -60,7 +60,7 @@ def _stats_read(question: Question) -> QuestionStatsRead | None:
     )
 
 
-def _question_read(question: Question) -> QuestionRead:
+def question_read(question: Question) -> QuestionRead:
     """Visão do candidato: alternativas sem indicar qual é a correta."""
     return QuestionRead(
         public_id=question.public_id,
@@ -314,7 +314,7 @@ async def search_questions(
         year=year,
         status=QuestionStatus.PUBLISHED,
     )
-    return Page.create([_question_read(item) for item in questions], total, params)
+    return Page.create([question_read(item) for item in questions], total, params)
 
 
 @practice_router.post(
@@ -385,7 +385,7 @@ def _run_read(attempt: SimulationAttempt, answers: dict[str, str | None]) -> Sim
         questions=[
             SimulationQuestionRead(
                 order_index=item.order_index,
-                question=_question_read(item.question),
+                question=question_read(item.question),
                 selected_letter=answers.get(item.question.public_id),
             )
             for item in attempt.simulation.questions
