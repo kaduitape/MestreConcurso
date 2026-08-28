@@ -1,12 +1,16 @@
 import { api } from './client'
 import type {
   AchievementList,
+  BoardBattle,
   ClaimResult,
   DailyBoard,
   GameProfile,
   GameRule,
+  Journey,
   Page,
+  RankHistory,
   StreakInfo,
+  TerritoryMap,
   XPTransaction,
 } from './types'
 
@@ -25,6 +29,14 @@ export const gameApi = {
     api.get<Page<XPTransaction>>(
       `/game/xp/history?page=${params.page}&page_size=${params.page_size}`,
     ),
+
+  rankHistory: (days = 90) => api.get<RankHistory>(`/game/rank/history?days=${days}`),
+
+  boardBattle: () => api.get<BoardBattle>('/game/board-battle'),
+
+  journey: () => api.get<Journey>('/game/journey'),
+
+  territory: () => api.get<TerritoryMap>('/game/territory'),
 }
 
 export const gameRulesApi = {

@@ -367,8 +367,15 @@ GET   /api/v1/admin/game/rules          regras vigentes
 PUT   /api/v1/admin/game/rules/{key}    editar valor, teto e liga/desliga
 ```
 
-**Fases seguintes:** `/game/board-battle`, `/game/journey`, `/game/seasons`,
-`/game/leagues`, `/game/challenges`.
+**Fase 2**
+```
+GET   /api/v1/game/rank/history         evolução diária do rank, com o XP do mesmo período
+GET   /api/v1/game/board-battle         placar contra a banca do concurso-alvo
+GET   /api/v1/game/journey              marcos da jornada, com o aviso obrigatório
+GET   /api/v1/game/territory            mapa do edital, do território mais frágil ao mais firme
+```
+
+**Fases seguintes:** `/game/seasons`, `/game/leagues`, `/game/challenges`.
 
 ---
 
@@ -376,19 +383,20 @@ PUT   /api/v1/admin/game/rules/{key}    editar valor, teto e liga/desliga
 
 | Fase | Escopo | Estado |
 |---|---|---|
-| **G1** | XP com razão e antiabuso, níveis, streak com proteção, missões diárias por sinal real, conquistas, perfil, Central de Missões, animações, painel de regras | **esta entrega** |
-| **G2** | Ranks na interface, Você vs Banca, Jornada da Aprovação, Mapa do Edital | a pedido |
+| **G1** | XP com razão e antiabuso, níveis, streak com proteção, missões diárias por sinal real, conquistas, perfil, Central de Missões, animações, painel de regras | **entregue** |
+| **G2** | Histórico de rank na interface, Você vs Banca, Jornada da Aprovação, Mapa do Edital | **entregue** |
 | **G3** | Temporadas, ligas, Boss Battle, Sobrevivência, Combo, Contra o Relógio | a pedido |
 | **G4** | Desafio entre amigos, card compartilhável, eventos especiais e Modo Guerra | a pedido |
 
-O **rank** é calculado e exposto já na G1 (o perfil precisa dele), mas as telas
-comparativas ficam para a G2.
+O **rank** é calculado e exposto já na G1 (o perfil precisa dele); a G2 acrescenta
+o histórico diário, que é o que permite dizer se a preparação subiu ou escorregou.
 
 ---
 
-## 14. Critérios de aceite — Gamificação Fase 1
+## 14. Critérios de aceite
 
-Ver `docs/20-criterios-aceite-gamificacao-1.md`.
+Fase 1: `docs/20-criterios-aceite-gamificacao-1.md`.
+Fase 2: `docs/21-criterios-aceite-gamificacao-2.md`.
 
 ---
 

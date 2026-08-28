@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import CurrentUser, DbSession, RequestCtx, rate_limit, require_permissions
 from app.core.errors import NotFoundError
@@ -18,21 +18,32 @@ from app.repositories.game import AchievementRepository, GameRuleRepository
 from app.schemas.game import (
     AchievementListRead,
     AchievementRead,
+    BoardBattleRead,
     ClaimResultRead,
     DailyBoardRead,
     GameRuleRead,
     GameRuleUpdate,
+    JourneyRead,
     LevelRead,
+    MilestoneRead,
     MissionRead,
     ProfileRead,
     RankComponentRead,
+    RankHistoryRead,
+    RankPointRead,
     RankRead,
     StreakRead,
+    SubjectScoreRead,
+    TerritoryMapRead,
+    TerritoryPartRead,
+    TerritoryRead,
+    WeekPointRead,
     XPTransactionRead,
 )
 from app.services.audit import AuditService
 from app.services.game_engine import GameEngine
 from app.services.game_missions import MissionService
+from app.services.game_progress import DEFAULT_HISTORY_DAYS, GameProgressService
 
 router = APIRouter(tags=["gamificação"])
 game_router = APIRouter(prefix="/game", tags=["gamificação"])
@@ -238,6 +249,144 @@ async def streak(user: CurrentUser, db: DbSession) -> StreakRead:
         last_qualified_on=state.last_qualified_on,
         history=list(state.history),
         message=state.message,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Fase 2 — telas comparativas
+# --------------------------------------------------------------------------- #
+@game_router.get("/rank/history", response_model=RankHistoryRead, summary="Evolução do meu rank")
+async def rank_history(
+    user: CurrentUser,
+    db: DbSession,
+    days: Annotated[int, Query(ge=7, le=365)] = DEFAULT_HISTORY_DAYS,
+) -> RankHistoryRead:
+    """O rank ao longo do tempo — inclusive quando ele cai."""
+    history = await GameProgressService(db).rank_history(user, days=days)
+    points = [
+        RankPointRead(
+            day=item.day,
+            rank_slug=item.rank_slug,
+            rank_score=item.rank_score,
+            xp_total=item.xp_total,
+            level=item.level,
+        )
+        for item in history.points
+    ]
+    return RankHistoryRead(
+        points=points,
+        first=points[0] if points else None,
+        last=points[-1] if points else None,
+        delta=history.delta,
+        empty_reason=history.empty_reason,
+    )
+
+
+@game_router.get("/board-battle", response_model=BoardBattleRead, summary="Você vs Banca")
+async def board_battle(user: CurrentUser, db: DbSession) -> BoardBattleRead:
+    """Placar real contra a banca do concurso-alvo: os pontos dela são seus erros."""
+    battle = await GameProgressService(db).board_battle(user)
+    return BoardBattleRead(
+        board_slug=battle.board_slug,
+        board_name=battle.board_name,
+        answers=battle.answers,
+        correct=battle.correct,
+        you=battle.you,
+        board=battle.board,
+        is_sufficient=battle.is_sufficient,
+        is_winning=battle.is_winning,
+        subjects=[
+            SubjectScoreRead(
+                subject_id=item.subject_id,
+                subject_name=item.subject_name,
+                answers=item.answers,
+                correct=item.correct,
+                you=item.you,
+                board=item.board,
+                is_sufficient=item.is_sufficient,
+                insufficient_reason=item.insufficient_reason,
+            )
+            for item in battle.subjects
+        ],
+        evolution=[
+            WeekPointRead(week_start=item.week_start, answers=item.answers, accuracy=item.accuracy)
+            for item in battle.evolution
+        ],
+        empty_reason=battle.empty_reason,
+    )
+
+
+@game_router.get("/journey", response_model=JourneyRead, summary="Jornada da aprovação")
+async def journey(user: CurrentUser, db: DbSession) -> JourneyRead:
+    """Marcos com critério verificável. Nenhum deles prevê aprovação."""
+    result = await GameProgressService(db).journey(user)
+    return JourneyRead(
+        milestones=[
+            MilestoneRead(
+                key=item.key,
+                label=item.label,
+                description=item.description,
+                state=item.state,
+                current=item.current,
+                target=item.target,
+                ratio=item.ratio,
+                detail=item.detail,
+            )
+            for item in result.milestones
+        ],
+        current_key=result.current_key,
+        completed=result.completed,
+        total=result.total,
+        days_until_exam=result.days_until_exam,
+        disclaimer=result.disclaimer,
+        empty_reason=result.empty_reason,
+    )
+
+
+@game_router.get("/territory", response_model=TerritoryMapRead, summary="Mapa do edital")
+async def territory_map(user: CurrentUser, db: DbSession) -> TerritoryMapRead:
+    """Cada disciplina como território, do mais frágil ao mais consolidado."""
+    territories = await GameProgressService(db).territory_map(user)
+    if not territories:
+        return TerritoryMapRead(
+            empty_reason=(
+                "O mapa é desenhado sobre as disciplinas do seu plano. Monte o plano para "
+                "que os territórios existam."
+            )
+        )
+
+    items = [
+        TerritoryRead(
+            subject_key=item.subject_key,
+            subject_name=item.subject_name,
+            color_token=item.color_token,
+            subject_id=item.subject_id,
+            state=item.state,
+            mastery=item.mastery,
+            parts=[
+                TerritoryPartRead(
+                    key=part.key,
+                    label=part.label,
+                    weight=part.weight,
+                    value=part.value,
+                    points=part.points,
+                    available=part.available,
+                    detail=part.detail,
+                )
+                for part in item.parts
+            ],
+            missing_signals=list(item.missing_signals),
+            studied_minutes=item.studied_minutes,
+            planned_minutes=item.planned_minutes,
+            days_since_studied=item.days_since_studied,
+            note=item.note,
+        )
+        for item in territories
+    ]
+    return TerritoryMapRead(
+        territories=items,
+        mastered=len([item for item in items if item.state == "MASTERED"]),
+        needs_review=len([item for item in items if item.state == "NEEDS_REVIEW"]),
     )
 
 

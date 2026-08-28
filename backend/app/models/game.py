@@ -228,3 +228,29 @@ class StreakDay(IdMixin, TimestampMixin, Base):
     mission_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     qualified: Mapped[bool] = mapped_column(Boolean, default=False)
     shield_used: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class RankSnapshot(IdMixin, TimestampMixin, Base):
+    """Foto diária do rank. Sem histórico, "meu rank caiu" seria só sensação.
+
+    Guardamos junto o XP do dia **de propósito**: é o que permite mostrar, lado a
+    lado, que o acúmulo subiu e o desempenho não. Colunas separadas — o XP nunca
+    entra no cálculo do rank, nem aqui nem em lugar nenhum.
+    """
+
+    __tablename__ = "rank_snapshots"
+    __table_args__ = (
+        UniqueConstraint("user_id", "day", name="uq_rank_snapshots_user_day"),
+        Index("ix_rank_snapshots_user_day", "user_id", "day"),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    day: Mapped[date] = mapped_column(Date)
+    rank_slug: Mapped[str] = mapped_column(String(20), default="FERRO")
+    rank_score: Mapped[Decimal] = mapped_column(Numeric(5, 4), default=Decimal("0"))
+    components: Mapped[list[dict[str, Any]]] = mapped_column(JsonType, default=list)
+    missing_signals: Mapped[list[str]] = mapped_column(JsonType, default=list)
+    xp_total: Mapped[int] = mapped_column(Integer, default=0)
+    level: Mapped[int] = mapped_column(Integer, default=1)

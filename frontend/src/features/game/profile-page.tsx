@@ -10,6 +10,7 @@ import { gameApi } from '@/lib/api/game'
 import { queryKeys } from '@/lib/query-client'
 import { useAuth } from '@/providers/auth-provider'
 import { AchievementCard } from './components/achievement-card'
+import { RankHistoryChart } from './components/rank-history-chart'
 import { RankPanel } from './components/rank-badge'
 import { StreakCounter } from './components/streak-counter'
 import { CountUp, XPBar } from './components/xp-bar'
@@ -39,6 +40,10 @@ export function GameProfilePage() {
   const history = useQuery({
     queryKey: queryKeys.gameXpHistory({ page: 1 }),
     queryFn: () => gameApi.xpHistory({ page: 1, page_size: 30 }),
+  })
+  const rankHistory = useQuery({
+    queryKey: queryKeys.gameRankHistory(90),
+    queryFn: () => gameApi.rankHistory(90),
   })
 
   if (profile.isLoading) return <SkeletonList rows={4} />
@@ -106,6 +111,21 @@ export function GameProfilePage() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Evolução do rank</CardTitle>
+            <CardDescription>
+              O rank pode cair — um número que só sobe não mediria nada.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {rankHistory.isLoading && <SkeletonList rows={2} />}
+            {rankHistory.data && <RankHistoryChart history={rankHistory.data} />}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Mestre Score</CardTitle>

@@ -14,6 +14,7 @@ from app.models.game import (
     GamificationProfile,
     Mission,
     MissionStatus,
+    RankSnapshot,
     StreakDay,
     UserAchievement,
     XPTransaction,
@@ -161,6 +162,23 @@ class StreakRepository(BaseRepository[StreakDay]):
             select(StreakDay)
             .where(StreakDay.user_id == user_id)
             .order_by(StreakDay.day.desc())
+            .limit(limit)
+        )
+        return (await self.session.execute(stmt)).scalars().all()
+
+
+class RankSnapshotRepository(BaseRepository[RankSnapshot]):
+    model = RankSnapshot
+
+    async def get_day(self, user_id: int, day: date) -> RankSnapshot | None:
+        return await self.get_by(user_id=user_id, day=day)
+
+    async def history(self, user_id: int, *, limit: int = 90) -> Sequence[RankSnapshot]:
+        """Do mais recente para trás — quem chama ordena para exibir."""
+        stmt = (
+            select(RankSnapshot)
+            .where(RankSnapshot.user_id == user_id)
+            .order_by(RankSnapshot.day.desc())
             .limit(limit)
         )
         return (await self.session.execute(stmt)).scalars().all()

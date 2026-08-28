@@ -67,6 +67,14 @@ const GameProfilePage = lazy(() =>
     default: module.GameProfilePage,
   })),
 )
+const BoardBattlePage = lazy(() =>
+  import('@/features/game/board-battle-page').then((module) => ({
+    default: module.BoardBattlePage,
+  })),
+)
+const JourneyPage = lazy(() =>
+  import('@/features/game/journey-page').then((module) => ({ default: module.JourneyPage })),
+)
 const DeckPage = lazy(() =>
   import('@/features/flashcards/deck-page').then((module) => ({ default: module.DeckPage })),
 )
@@ -154,6 +162,8 @@ export const router = createBrowserRouter([
           { path: '/revisao', element: lazyRoute(<ReviewPage />) },
           { path: '/missoes', element: lazyRoute(<MissionsPage />) },
           { path: '/progresso', element: lazyRoute(<GameProfilePage />) },
+          { path: '/voce-vs-banca', element: lazyRoute(<BoardBattlePage />) },
+          { path: '/jornada', element: lazyRoute(<JourneyPage />) },
           { path: '/concursos', element: lazyRoute(<CompetitionsPage />) },
           { path: '/concursos/:publicId', element: lazyRoute(<CompetitionDetailPage />) },
           { path: '/conta', element: <AccountPage /> },

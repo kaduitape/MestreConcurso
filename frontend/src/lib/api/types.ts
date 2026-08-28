@@ -1217,6 +1217,117 @@ export interface XPTransaction {
   created_at: string
 }
 
+// --------------------------------------------------------------------------- //
+// Gamificação — Fase 2: telas comparativas
+// --------------------------------------------------------------------------- //
+export interface RankPoint {
+  day: string
+  rank_slug: RankSlug
+  rank_score: number
+  /** XP ao lado do rank: acumular e dominar são coisas diferentes. */
+  xp_total: number
+  level: number
+}
+
+export interface RankHistory {
+  points: RankPoint[]
+  first: RankPoint | null
+  last: RankPoint | null
+  /** Nulo com menos de duas fotos: uma medição não é tendência. */
+  delta: number | null
+  empty_reason: string | null
+}
+
+export interface SubjectScore {
+  subject_id: number | null
+  subject_name: string
+  answers: number
+  correct: number
+  you: number
+  board: number
+  is_sufficient: boolean
+  insufficient_reason: string | null
+}
+
+export interface BattleWeek {
+  week_start: string
+  answers: number
+  accuracy: number
+}
+
+export interface BoardBattle {
+  board_slug: string
+  board_name: string
+  answers: number
+  correct: number
+  /** you + board somam 100 quando há placar. */
+  you: number
+  board: number
+  is_sufficient: boolean
+  is_winning: boolean
+  subjects: SubjectScore[]
+  evolution: BattleWeek[]
+  empty_reason: string | null
+}
+
+export type MilestoneState = 'DONE' | 'CURRENT' | 'PENDING'
+
+export interface Milestone {
+  key: string
+  label: string
+  description: string
+  state: MilestoneState
+  current: number
+  target: number
+  ratio: number
+  detail: string
+}
+
+export interface Journey {
+  milestones: Milestone[]
+  current_key: string | null
+  completed: number
+  total: number
+  days_until_exam: number | null
+  /** Obrigatório na tela: a jornada não prevê aprovação. */
+  disclaimer: string
+  empty_reason: string | null
+}
+
+export type TerritoryState = 'LOCKED' | 'STARTED' | 'STUDYING' | 'MASTERED' | 'NEEDS_REVIEW'
+
+export interface TerritoryPart {
+  key: string
+  label: string
+  weight: number
+  value: number | null
+  points: number
+  available: boolean
+  detail: string
+}
+
+export interface Territory {
+  subject_key: string
+  subject_name: string
+  color_token: string
+  subject_id: number | null
+  state: TerritoryState
+  mastery: number
+  parts: TerritoryPart[]
+  missing_signals: string[]
+  studied_minutes: number
+  planned_minutes: number
+  days_since_studied: number | null
+  note: string
+}
+
+export interface TerritoryMap {
+  territories: Territory[]
+  mastered: number
+  needs_review: number
+  empty_reason: string | null
+}
+
 export interface GameRule {
   key: string
   label: string

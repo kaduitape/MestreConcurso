@@ -73,5 +73,9 @@ export const queryKeys = {
   gameAchievements: ['game', 'achievements'] as const,
   gameStreak: ['game', 'streak'] as const,
   gameXpHistory: (params: unknown) => ['game', 'xp', params] as const,
+  gameRankHistory: (days: number) => ['game', 'rank', 'history', days] as const,
+  gameBoardBattle: ['game', 'board-battle'] as const,
+  gameJourney: ['game', 'journey'] as const,
+  gameTerritory: ['game', 'territory'] as const,
   gameRules: ['admin', 'game', 'rules'] as const,
 }

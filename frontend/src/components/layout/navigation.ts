@@ -8,9 +8,11 @@ import {
   LayoutDashboard,
   Layers,
   ListChecks,
+  Map,
   RefreshCw,
   Shield,
   Sparkles,
+  Swords,
   Target,
   TrendingUp,
   Trophy,
@@ -52,6 +54,7 @@ export const navigation: NavGroup[] = [
       { label: 'Flashcards', to: '/flashcards', icon: Layers },
       { label: 'Revisão', to: '/revisao', icon: RefreshCw },
       { label: 'Meus erros', to: '/meus-erros', icon: TrendingUp },
+      { label: 'Você vs Banca', to: '/voce-vs-banca', icon: Swords },
     ],
   },
   {
@@ -67,6 +70,7 @@ export const navigation: NavGroup[] = [
     title: 'Conta',
     items: [
       { label: 'Meu progresso', to: '/progresso', icon: Trophy },
+      { label: 'Jornada', to: '/jornada', icon: Map },
       { label: 'Minha conta', to: '/conta', icon: User },
       {
         label: 'Administração',

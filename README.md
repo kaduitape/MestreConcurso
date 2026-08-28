@@ -60,6 +60,16 @@ A plataforma responde continuamente a uma única pergunta:
   e sem linguagem de ameaça, missões diárias que nascem de sinal real e carregam o número
   que as gerou, e conquistas avaliadas sobre dados reais.
 
+- **Gamificação (G2):** as telas comparativas. **Histórico de rank** com foto diária — o
+  rank aparece subindo *e caindo*, ao lado do XP do mesmo período, porque acumular e
+  dominar são coisas diferentes. **Você vs Banca**: o placar é a sua taxa de acerto real
+  na banca do concurso-alvo, e os pontos dela são exatamente as questões que você errou —
+  sem adversário simulado; disciplina com menos de 30 respostas não recebe placar.
+  **Jornada da Aprovação**: marcos com critério verificável e o aviso, escrito na tela, de
+  que eles medem cobertura e desempenho, não chance de aprovação. **Mapa do Edital**: cada
+  disciplina como território, com o estado *pede revisão* para o que já foi dominado e
+  está esfriando.
+
 As demais fases estão especificadas em [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md)
 e ainda **não** foram implementadas — a interface indica explicitamente o que está por vir,
 sem telas ilustrativas nem dados fictícios.
@@ -95,6 +105,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [18 — Critérios de aceite da Fase 8](docs/18-criterios-aceite-fase8.md) | flashcards, repetição espaçada e fila de revisão |
 | [19 — Gamificação: arquitetura](docs/19-gamificacao-arquitetura.md) | Mestre Game Engine, XP, ranks, missões e wireframes |
 | [20 — Critérios de aceite da Gamificação 1](docs/20-criterios-aceite-gamificacao-1.md) | XP auditável, antiabuso, rank, sequência e missões |
+| [21 — Critérios de aceite da Gamificação 2](docs/21-criterios-aceite-gamificacao-2.md) | histórico de rank, Você vs Banca, jornada e mapa do edital |
 
 ## Como executar
 
