@@ -4,6 +4,7 @@ import {
   Briefcase,
   CalendarDays,
   ClipboardList,
+  CreditCard,
   Crosshair,
   FileText,
   LayoutDashboard,
@@ -78,6 +79,7 @@ export const navigation: NavGroup[] = [
       { label: 'Jornada', to: '/jornada', icon: Map },
       { label: 'Temporada', to: '/temporada', icon: Medal },
       { label: 'Minha conta', to: '/conta', icon: User },
+      { label: 'Plano e cobrança', to: '/plano-e-cobranca', icon: CreditCard },
       {
         label: 'Administração',
         to: '/admin',

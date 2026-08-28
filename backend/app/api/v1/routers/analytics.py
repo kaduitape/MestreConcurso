@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import CurrentUser, DbSession
 from app.domain.analytics import Chart, ExamProjection, MasterScore, Path
+from app.domain.billing.plans import FeatureKey
 from app.schemas.analytics import (
     AnalyticsOverviewRead,
     ChartRead,
@@ -28,8 +29,20 @@ from app.schemas.analytics import (
     SubjectProjectionRead,
 )
 from app.services.analytics import HISTORY_DAYS, AnalyticsService
+from app.services.entitlements import EntitlementService, FeatureNotIncludedError
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
+
+
+async def _require_analytics(user: CurrentUser, db: DbSession) -> None:
+    """Porta booleana: Analytics é liberado ou não, sem contador de uso.
+
+    Consumir uma unidade por leitura transformaria abrir uma tela em gasto —
+    e o pedido é explícito em não cobrar por abrir tela.
+    """
+    result = await EntitlementService(db).check(user, FeatureKey.ANALYTICS)
+    if not result.allowed:
+        raise FeatureNotIncludedError(result.reason)
 
 
 def master_score_read(score: MasterScore) -> MasterScoreRead:
@@ -143,7 +156,12 @@ def _chart_read(chart: Chart) -> ChartRead:
     )
 
 
-@router.get("/master-score", response_model=MasterScoreRead, summary="Meu Mestre Score")
+@router.get(
+    "/master-score",
+    response_model=MasterScoreRead,
+    summary="Meu Mestre Score",
+    dependencies=[Depends(_require_analytics)],
+)
 async def master_score(user: CurrentUser, db: DbSession) -> MasterScoreRead:
     """Competência medida, de 0 a 1000, com a faixa ao lado. XP não entra."""
     return master_score_read(await AnalyticsService(db).master_score(user))
@@ -153,6 +171,7 @@ async def master_score(user: CurrentUser, db: DbSession) -> MasterScoreRead:
     "/master-score/history",
     response_model=ScoreHistoryRead,
     summary="Evolução do Mestre Score",
+    dependencies=[Depends(_require_analytics)],
 )
 async def master_score_history(
     user: CurrentUser,
@@ -178,19 +197,34 @@ async def master_score_history(
     )
 
 
-@router.get("/projection", response_model=ProjectionRead, summary="Se a prova fosse hoje")
+@router.get(
+    "/projection",
+    response_model=ProjectionRead,
+    summary="Se a prova fosse hoje",
+    dependencies=[Depends(_require_analytics)],
+)
 async def projection(user: CurrentUser, db: DbSession) -> ProjectionRead:
     """Estimativa de acerto sobre o seu histórico — nunca chance de aprovação."""
     return _projection_read(await AnalyticsService(db).projection(user))
 
 
-@router.get("/path", response_model=PathRead, summary="Caminho da aprovação")
+@router.get(
+    "/path",
+    response_model=PathRead,
+    summary="Caminho da aprovação",
+    dependencies=[Depends(_require_analytics)],
+)
 async def path(user: CurrentUser, db: DbSession) -> PathRead:
     """Ações ordenadas por quantas questões da prova elas colocam em jogo."""
     return _path_read(await AnalyticsService(db).path(user))
 
 
-@router.get("/dashboard", response_model=DashboardRead, summary="Painéis")
+@router.get(
+    "/dashboard",
+    response_model=DashboardRead,
+    summary="Painéis",
+    dependencies=[Depends(_require_analytics)],
+)
 async def dashboard(user: CurrentUser, db: DbSession) -> DashboardRead:
     """Todo gráfico carrega a decisão que ele serve — é o aceite da fase."""
     charts = await AnalyticsService(db).dashboard(user)

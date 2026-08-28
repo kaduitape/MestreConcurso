@@ -53,6 +53,11 @@ class AuditAction(StrEnum):
     SIMULATION_FINISHED = "simulation.finished"
     INTELLIGENCE_RECOMPUTED = "intelligence.recomputed"
     GAME_RULE_UPDATED = "game.rule_updated"
+
+    SUBSCRIPTION_CREATED = "billing.subscription_created"
+    SUBSCRIPTION_CANCELED = "billing.subscription_canceled"
+    PLAN_UPDATED = "billing.plan_updated"
+    PAYMENT_PROVIDER_UPDATED = "billing.payment_provider_updated"
     STUDY_PLAN_CREATED = "study.plan_created"
     STUDY_PLAN_REGENERATED = "study.plan_regenerated"
     STUDY_PLAN_REBALANCED = "study.plan_rebalanced"

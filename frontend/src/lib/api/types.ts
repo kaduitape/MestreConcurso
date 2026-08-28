@@ -1742,6 +1742,124 @@ export interface AnalyticsOverview {
   charts: AnalyticsChart[]
 }
 
+// --------------------------------------------------------------------------- //
+// Comercial (Fase 10) — planos, assinatura, limites e faturamento
+// --------------------------------------------------------------------------- //
+export interface PlanEntitlement {
+  feature: string
+  label: string
+  /** Falso = sem acesso. Diferente de `limit: null`, que é sem teto. */
+  enabled: boolean
+  limit: number | null
+  period: 'DAY' | 'MONTH' | 'TOTAL'
+  description: string
+}
+
+export interface BillingPlan {
+  slug: string
+  name: string
+  description: string
+  price_cents: number
+  months: number
+  trial_days: number
+  is_public: boolean
+  entitlements: PlanEntitlement[]
+}
+
+export interface Quota {
+  feature: string
+  label: string
+  allowed: boolean
+  /** Nulo = sem teto. */
+  limit: number | null
+  used: number
+  remaining: number | null
+  period: string
+  resets_on: string | null
+  /** Vazio quando permitido; explica a recusa quando não. */
+  reason: string
+}
+
+export interface SubscriptionInfo {
+  public_id: string | null
+  plan_slug: string
+  plan_name: string
+  status: string
+  status_label: string
+  started_on: string | null
+  current_period_start: string | null
+  current_period_end: string | null
+  trial_ends_on: string | null
+  grace_ends_on: string | null
+  canceled_at: string | null
+  scheduled_plan_slug: string | null
+  is_paid: boolean
+}
+
+export interface CouponResult {
+  valid: boolean
+  discount_cents: number
+  final_cents: number
+  reason: string
+  description: string
+}
+
+export interface BillingPayment {
+  public_id: string
+  reference: string
+  status: string
+  amount_cents: number
+  discount_cents: number
+  checkout_url: string | null
+  paid_at: string | null
+  created_at: string
+}
+
+export interface SubscribeResult {
+  subscription: SubscriptionInfo
+  payment: BillingPayment | null
+  coupon: CouponResult | null
+  detail: string
+}
+
+export interface ChangePlanResult {
+  subscription: SubscriptionInfo
+  kind: 'UPGRADE' | 'DOWNGRADE' | 'SAME'
+  immediate: boolean
+  credit_cents: number
+  charge_cents: number
+  reason: string
+  payment: BillingPayment | null
+}
+
+export interface Invoice {
+  description: string
+  amount_cents: number
+  discount_cents: number
+  credit_cents: number
+  total_cents: number
+  period_start: string | null
+  period_end: string | null
+  created_at: string
+}
+
+export interface SaasMetric {
+  key: string
+  label: string
+  /** Nulo quando não há base para calcular — nunca zero por omissão. */
+  value: number | null
+  unit: string
+  /** O denominador ou a amostra, escritos. */
+  basis: string
+  empty_reason: string | null
+}
+
+export interface SaasDashboard {
+  metrics: SaasMetric[]
+  period_start: string | null
+  period_end: string | null
+}
+
 export interface GameRule {
   key: string
   label: string

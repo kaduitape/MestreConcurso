@@ -83,6 +83,9 @@ const ChallengesPage = lazy(() =>
     default: module.ChallengesPage,
   })),
 )
+const BillingPage = lazy(() =>
+  import('@/features/billing/billing-page').then((module) => ({ default: module.BillingPage })),
+)
 const AnalyticsPage = lazy(() =>
   import('@/features/analytics/analytics-page').then((module) => ({
     default: module.AnalyticsPage,
@@ -191,6 +194,7 @@ export const router = createBrowserRouter([
           { path: '/desafios', element: lazyRoute(<ChallengesPage />) },
           { path: '/arena', element: lazyRoute(<ArenaPage />) },
           { path: '/analytics', element: lazyRoute(<AnalyticsPage />) },
+          { path: '/plano-e-cobranca', element: lazyRoute(<BillingPage />) },
           { path: '/concursos', element: lazyRoute(<CompetitionsPage />) },
           { path: '/concursos/:publicId', element: lazyRoute(<CompetitionDetailPage />) },
           { path: '/conta', element: <AccountPage /> },

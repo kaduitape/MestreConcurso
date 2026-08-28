@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query, status
 from app.api.deps import CurrentUser, DbSession, rate_limit
 from app.core.errors import ValidationError
 from app.core.pagination import Page, PageParams, page_params
+from app.domain.billing.plans import FeatureKey
 from app.domain.srs import DEFAULT_DAILY_LIMIT, DEFAULT_NEW_PER_DAY
 from app.models.flashcard import CardMemoryState, Flashcard
 from app.schemas.common import MessageResponse
@@ -27,6 +28,7 @@ from app.schemas.flashcard import (
     ReviewResultRead,
     ReviewStatsRead,
 )
+from app.services.entitlements import EntitlementService
 from app.services.flashcards import FlashcardService
 from app.services.review import ReviewService
 
@@ -163,6 +165,7 @@ async def generate_cards(
     payload: GenerateInput, user: CurrentUser, db: DbSession
 ) -> GenerationRead:
     """Cada cartão gerado precisa de citação literal no material; o resto é descartado."""
+    await EntitlementService(db).consume(user, FeatureKey.AI_FLASHCARDS)
     result = await FlashcardService(db).generate(
         user,
         material=payload.material,

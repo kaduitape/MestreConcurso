@@ -11,6 +11,7 @@ from app.api.v1.routers.questions import question_read
 from app.core.errors import NotFoundError
 from app.core.pagination import Page, PageParams, page_params
 from app.domain import permissions as perms
+from app.domain.billing.plans import FeatureKey
 from app.domain.game import ACHIEVEMENTS_BY_SLUG, MODES, MODES_BY_KEY, evaluate
 from app.models.audit import AuditAction
 from app.models.game import Duel, GameRun, Mission, SeasonParticipation, ShareCardRecord
@@ -74,6 +75,7 @@ from app.schemas.game import (
 from app.schemas.question import SaveAnswerInput
 from app.services.analytics import AnalyticsService
 from app.services.audit import AuditService
+from app.services.entitlements import EntitlementService
 from app.services.game_challenges import ChallengeService, RunView
 from app.services.game_engine import GameEngine
 from app.services.game_missions import MissionService
@@ -764,6 +766,7 @@ async def current_run(user: CurrentUser, db: DbSession) -> RunRead | None:
 )
 async def start_run(mode: str, user: CurrentUser, db: DbSession) -> RunRead:
     """Sem questões suficientes no banco, a rodada não é criada — e o motivo é dito."""
+    await EntitlementService(db).consume(user, FeatureKey.CHALLENGES)
     return _run_read(await ChallengeService(db).start(user, mode.upper()))
 
 
@@ -964,6 +967,7 @@ async def publish_card(
     payload: ShareCardCreate, user: CurrentUser, db: DbSession
 ) -> PublishedCardRead:
     """O conteúdo é congelado: o link mostra os números do dia da publicação."""
+    await EntitlementService(db).consume(user, FeatureKey.SHARE_CARDS)
     record = await SocialService(db).publish_card(
         user, include=set(payload.include), display_name=payload.display_name
     )

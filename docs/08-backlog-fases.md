@@ -51,8 +51,10 @@ Mestre Score de 0 a 1000 com faixa de incerteza, "Se a prova fosse hoje", Caminh
 **Aceite:** ver `docs/24-criterios-aceite-fase9.md`. Regra que sustenta a fase: **cada gráfico tem uma decisão associada e todo intervalo é visível** — e toda estatística nasce em Python determinístico, nunca na IA.
 Ainda não entra aqui: comparação com nota de corte (depende de dado oficial que a plataforma não tem) e fila unificada de revisão com tópicos e vocabulário.
 
-## FASE 10 — Comercial
-Planos, features/entitlements, assinaturas, trial, cupons, upgrade/downgrade, Mercado Pago + webhooks idempotentes, limites de consumo de IA, faturamento, dashboard SaaS (MRR, churn, ARPU, custo de IA). **Aceite:** ciclo completo assinar → cobrar → limitar → cancelar, com limites vindos do banco.
+## FASE 10 — Comercial  ✅ implementada
+Planos com direitos de uso vindos do banco, assinaturas com teste e tolerância, cupons, upgrade com crédito proporcional e downgrade agendado, porta de pagamento com Mercado Pago e webhook idempotente com assinatura verificada, limites de consumo aplicados nas telas de IA, faturamento e painel de SaaS.
+**Aceite:** ver `docs/25-criterios-aceite-fase10.md`. Regra que sustenta a fase: **limite é dado, não código** — mudar um teto é um `UPDATE`. E cancelar não corta o que já foi pago.
+Ainda não entra aqui: cobrança recorrente automática no adquirente, emissão fiscal e o teste em *sandbox* com credencial real, que é obrigatório antes de produção.
 
 ## Transversais (contínuos)
 Segurança e LGPD (exportação/exclusão de conta desde a Fase 1), observabilidade, performance, PWA, acessibilidade AA, testes E2E a partir da Fase 4.

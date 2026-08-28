@@ -17,6 +17,7 @@ from app.core.logging import get_logger
 from app.core.pagination import Page, PageParams, page_params
 from app.db.session import get_session_factory
 from app.domain import permissions as perms
+from app.domain.billing.plans import FeatureKey
 from app.models.audit import AuditAction
 from app.models.catalog import Subject
 from app.models.tutor import Message, VideoResource, VocabularyTerm
@@ -40,6 +41,7 @@ from app.schemas.tutor import (
     VocabularyRead,
 )
 from app.services.audit import AuditService
+from app.services.entitlements import EntitlementService
 from app.services.tutor import TutorReply, TutorService, TutorStage
 from app.services.vocabulary import VocabularyService
 
@@ -154,7 +156,12 @@ async def archive_conversation(public_id: str, user: CurrentUser, db: DbSession)
     dependencies=[Depends(rate_limit("60/hour", scope="tutor:ask"))],
 )
 async def ask(public_id: str, payload: AskInput, user: CurrentUser, db: DbSession) -> AskResultRead:
-    """Resposta completa, já com as citações conferidas."""
+    """Resposta completa, já com as citações conferidas.
+
+    O limite do plano é debitado **antes** da chamada de IA: cobrar do candidato
+    uma pergunta que não chegou a ser feita seria o erro oposto, e mais caro.
+    """
+    await EntitlementService(db).consume(user, FeatureKey.AI_TUTOR)
     reply = await TutorService(db).ask(user, public_id, payload.question)
     return AskResultRead(
         message=_message_read(reply.message),

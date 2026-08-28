@@ -94,5 +94,10 @@ export const queryKeys = {
   analyticsOverview: ['analytics', 'overview'] as const,
   analyticsMasterScore: ['analytics', 'master-score'] as const,
   analyticsScoreHistory: (days: number) => ['analytics', 'master-score', days] as const,
+  billingPlans: ['billing', 'plans'] as const,
+  billingSubscription: ['billing', 'subscription'] as const,
+  billingUsage: ['billing', 'usage'] as const,
+  billingInvoices: ['billing', 'invoices'] as const,
+  billingDashboard: ['admin', 'billing', 'dashboard'] as const,
   gameRules: ['admin', 'game', 'rules'] as const,
 }

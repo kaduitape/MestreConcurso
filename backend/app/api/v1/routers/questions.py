@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query, status
 from app.api.deps import CurrentUser, DbSession, RequestCtx, rate_limit, require_permissions
 from app.core.pagination import Page, PageParams, page_params
 from app.domain import permissions as perms
+from app.domain.billing.plans import FeatureKey
 from app.models.question import Question, QuestionStatus, SimulationAttempt
 from app.models.user import User
 from app.repositories.question import QuestionRepository
@@ -38,6 +39,7 @@ from app.schemas.question import (
     SimulationRead,
     SimulationRunRead,
 )
+from app.services.entitlements import EntitlementService
 from app.services.practice import PracticeService
 from app.services.question_bank import QuestionBankService
 from app.services.simulation import SimulationService
@@ -404,6 +406,8 @@ def _run_read(attempt: SimulationAttempt, answers: dict[str, str | None]) -> Sim
 async def create_simulation(
     payload: SimulationCreate, user: CurrentUser, db: DbSession, ctx: RequestCtx
 ) -> SimulationRead:
+    # O limite do plano é debitado na montagem, não na entrega do resultado.
+    await EntitlementService(db).consume(user, FeatureKey.SIMULATIONS)
     simulation = await SimulationService(db).create(
         user,
         kind=payload.kind,

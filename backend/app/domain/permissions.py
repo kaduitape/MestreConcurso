@@ -40,6 +40,8 @@ QUESTIONS_WRITE = "questions:write"
 INTELLIGENCE_WRITE = "intelligence:write"
 AI_SETTINGS_READ = "ai_settings:read"
 AI_SETTINGS_WRITE = "ai_settings:write"
+BILLING_READ = "billing:read"
+BILLING_WRITE = "billing:write"
 
 PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec(USERS_READ, "Listar e visualizar usuários"),
@@ -61,6 +63,8 @@ PERMISSIONS: tuple[PermissionSpec, ...] = (
     ),
     PermissionSpec(AI_SETTINGS_READ, "Ver a configuração de provedores de IA"),
     PermissionSpec(AI_SETTINGS_WRITE, "Configurar provedores, chaves e modelos de IA"),
+    PermissionSpec(BILLING_READ, "Ver planos, assinaturas e indicadores comerciais"),
+    PermissionSpec(BILLING_WRITE, "Editar planos, limites, cupons e o provedor de pagamento"),
 )
 
 
@@ -100,6 +104,7 @@ ROLES: tuple[RoleSpec, ...] = (
             QUESTIONS_READ,
             QUESTIONS_WRITE,
             INTELLIGENCE_WRITE,
+            BILLING_READ,
         ),
     ),
     RoleSpec(

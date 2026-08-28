@@ -95,9 +95,20 @@ A plataforma responde continuamente a uma única pergunta:
   serve**. Toda a estatística — intervalo de Wilson, propagação e arredondamento — nasce em
   Python determinístico: a IA nunca é responsável sozinha por cálculo estatístico.
 
-As demais fases estão especificadas em [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md)
-e ainda **não** foram implementadas — a interface indica explicitamente o que está por vir,
-sem telas ilustrativas nem dados fictícios.
+- **Fase 10:** a camada comercial. Planos cujos **limites vivem no banco** — mudar um teto é
+  um `UPDATE`, não um deploy —, com "sem acesso" e "sem teto" em campos separados para que
+  nenhum recurso pago seja liberado por engano. Nenhum conteúdo de estudo fica atrás do
+  pagamento: no plano gratuito, simulados, desafios e Analytics são limitados, nunca
+  bloqueados. Assinatura com teste e tolerância a cartão recusado, cupons que explicam a
+  recusa, upgrade com crédito proporcional e downgrade agendado. **Cancelar não corta na
+  hora**: quem pagou até o dia 30 tem acesso até o dia 30. O webhook do Mercado Pago tem
+  assinatura verificada e é idempotente — e o status vem de uma consulta à API, nunca do
+  corpo da notificação.
+
+Todas as fases do backlog estão implementadas. O que ainda não existe está declarado em
+[`docs/08-backlog-fases.md`](docs/08-backlog-fases.md), fase a fase, na linha "ainda não
+entra aqui" — e a interface indica o que está por vir, sem telas ilustrativas nem dados
+fictícios.
 
 ### Conectar o ChatGPT (OpenAI)
 
@@ -134,6 +145,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [22 — Critérios de aceite da Gamificação 3](docs/22-criterios-aceite-gamificacao-3.md) | temporadas, ligas por contexto e modos de desafio |
 | [23 — Critérios de aceite da Gamificação 4](docs/23-criterios-aceite-gamificacao-4.md) | duelos, eventos, Modo Guerra e card compartilhável |
 | [24 — Critérios de aceite da Fase 9](docs/24-criterios-aceite-fase9.md) | Mestre Score, projeção, caminho e painéis com decisão |
+| [25 — Critérios de aceite da Fase 10](docs/25-criterios-aceite-fase10.md) | planos, assinaturas, cupons, webhook idempotente e limites |
 
 ## Como executar
 
