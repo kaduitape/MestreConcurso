@@ -205,7 +205,9 @@ class PositionSubject(IdMixin, TimestampMixin, Base):
 
     __tablename__ = "position_subjects"
     __table_args__ = (
-        UniqueConstraint("position_id", "subject_id", name="uq_position_subjects_position_subject"),
+        UniqueConstraint(
+            "position_id", "subject_id", name="uq_position_subjects_position_id_subject_id"
+        ),
     )
 
     position_id: Mapped[int] = mapped_column(

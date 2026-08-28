@@ -21,6 +21,108 @@ import { NotFoundPage } from '@/features/not-found-page'
 const AdminPage = lazy(() =>
   import('@/features/admin/admin-page').then((module) => ({ default: module.AdminPage })),
 )
+const NoticeDetailPage = lazy(() =>
+  import('@/features/admin/notices/notice-detail-page').then((module) => ({
+    default: module.NoticeDetailPage,
+  })),
+)
+const PlanPage = lazy(() =>
+  import('@/features/study/plan-page').then((module) => ({ default: module.PlanPage })),
+)
+const PlanSetupPage = lazy(() =>
+  import('@/features/study/plan-setup-page').then((module) => ({
+    default: module.PlanSetupPage,
+  })),
+)
+const StudyCalendarPage = lazy(() =>
+  import('@/features/study/calendar-page').then((module) => ({
+    default: module.StudyCalendarPage,
+  })),
+)
+const QuestionsPage = lazy(() =>
+  import('@/features/questions/questions-page').then((module) => ({
+    default: module.QuestionsPage,
+  })),
+)
+const SimulationsPage = lazy(() =>
+  import('@/features/simulations/simulations-page').then((module) => ({
+    default: module.SimulationsPage,
+  })),
+)
+const SimulationRunPage = lazy(() =>
+  import('@/features/simulations/simulation-run-page').then((module) => ({
+    default: module.SimulationRunPage,
+  })),
+)
+const SimulationResultPage = lazy(() =>
+  import('@/features/simulations/simulation-result-page').then((module) => ({
+    default: module.SimulationResultPage,
+  })),
+)
+const MissionsPage = lazy(() =>
+  import('@/features/game/missions-page').then((module) => ({ default: module.MissionsPage })),
+)
+const GameProfilePage = lazy(() =>
+  import('@/features/game/profile-page').then((module) => ({
+    default: module.GameProfilePage,
+  })),
+)
+const BoardBattlePage = lazy(() =>
+  import('@/features/game/board-battle-page').then((module) => ({
+    default: module.BoardBattlePage,
+  })),
+)
+const JourneyPage = lazy(() =>
+  import('@/features/game/journey-page').then((module) => ({ default: module.JourneyPage })),
+)
+const SeasonPage = lazy(() =>
+  import('@/features/game/season-page').then((module) => ({ default: module.SeasonPage })),
+)
+const ChallengesPage = lazy(() =>
+  import('@/features/game/challenges-page').then((module) => ({
+    default: module.ChallengesPage,
+  })),
+)
+const BillingPage = lazy(() =>
+  import('@/features/billing/billing-page').then((module) => ({ default: module.BillingPage })),
+)
+const AnalyticsPage = lazy(() =>
+  import('@/features/analytics/analytics-page').then((module) => ({
+    default: module.AnalyticsPage,
+  })),
+)
+const ArenaPage = lazy(() =>
+  import('@/features/game/arena-page').then((module) => ({ default: module.ArenaPage })),
+)
+const PublicCardPage = lazy(() =>
+  import('@/features/game/public-card-page').then((module) => ({
+    default: module.PublicCardPage,
+  })),
+)
+const DeckPage = lazy(() =>
+  import('@/features/flashcards/deck-page').then((module) => ({ default: module.DeckPage })),
+)
+const ReviewPage = lazy(() =>
+  import('@/features/flashcards/review-page').then((module) => ({
+    default: module.ReviewPage,
+  })),
+)
+const TutorPage = lazy(() =>
+  import('@/features/tutor/tutor-page').then((module) => ({ default: module.TutorPage })),
+)
+const VocabularyPage = lazy(() =>
+  import('@/features/tutor/vocabulary-page').then((module) => ({
+    default: module.VocabularyPage,
+  })),
+)
+const BoardIntelPage = lazy(() =>
+  import('@/features/intelligence/board-intel-page').then((module) => ({
+    default: module.BoardIntelPage,
+  })),
+)
+const ErrorsPage = lazy(() =>
+  import('@/features/errors/errors-page').then((module) => ({ default: module.ErrorsPage })),
+)
 const CompetitionsPage = lazy(() =>
   import('@/features/competitions/competitions-page').then((module) => ({
     default: module.CompetitionsPage,
@@ -57,6 +159,8 @@ export const router = createBrowserRouter([
     ],
   },
   { path: '/verificar-email', element: <VerifyEmailPage /> },
+  // Card compartilhado: link público, sem sessão.
+  { path: '/card/:token', element: lazyRoute(<PublicCardPage />) },
   { path: '/redefinir-senha', element: <ResetPasswordPage /> },
   {
     element: <ProtectedRoute />,
@@ -66,12 +170,43 @@ export const router = createBrowserRouter([
         children: [
           { path: '/', element: <Navigate to="/hoje" replace /> },
           { path: '/hoje', element: <TodayPage /> },
+          { path: '/plano', element: lazyRoute(<PlanPage />) },
+          { path: '/plano/novo', element: lazyRoute(<PlanSetupPage />) },
+          { path: '/calendario', element: lazyRoute(<StudyCalendarPage />) },
+          { path: '/questoes', element: lazyRoute(<QuestionsPage />) },
+          { path: '/simulados', element: lazyRoute(<SimulationsPage />) },
+          {
+            path: '/simulados/resultado/:attemptId',
+            element: lazyRoute(<SimulationResultPage />),
+          },
+          { path: '/simulados/:attemptId', element: lazyRoute(<SimulationRunPage />) },
+          { path: '/inteligencia', element: lazyRoute(<BoardIntelPage />) },
+          { path: '/meus-erros', element: lazyRoute(<ErrorsPage />) },
+          { path: '/mestre-ia', element: lazyRoute(<TutorPage />) },
+          { path: '/vocabulario', element: lazyRoute(<VocabularyPage />) },
+          { path: '/flashcards', element: lazyRoute(<DeckPage />) },
+          { path: '/revisao', element: lazyRoute(<ReviewPage />) },
+          { path: '/missoes', element: lazyRoute(<MissionsPage />) },
+          { path: '/progresso', element: lazyRoute(<GameProfilePage />) },
+          { path: '/voce-vs-banca', element: lazyRoute(<BoardBattlePage />) },
+          { path: '/jornada', element: lazyRoute(<JourneyPage />) },
+          { path: '/temporada', element: lazyRoute(<SeasonPage />) },
+          { path: '/desafios', element: lazyRoute(<ChallengesPage />) },
+          { path: '/arena', element: lazyRoute(<ArenaPage />) },
+          { path: '/analytics', element: lazyRoute(<AnalyticsPage />) },
+          { path: '/plano-e-cobranca', element: lazyRoute(<BillingPage />) },
           { path: '/concursos', element: lazyRoute(<CompetitionsPage />) },
           { path: '/concursos/:publicId', element: lazyRoute(<CompetitionDetailPage />) },
           { path: '/conta', element: <AccountPage /> },
           {
             element: <RequirePermission permission="admin_dashboard:read" />,
-            children: [{ path: '/admin', element: lazyRoute(<AdminPage />) }],
+            children: [
+              { path: '/admin', element: lazyRoute(<AdminPage />) },
+              {
+                path: '/admin/editais/:publicId',
+                element: lazyRoute(<NoticeDetailPage />),
+              },
+            ],
           },
         ],
       },

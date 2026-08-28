@@ -24,6 +24,11 @@ dependencies = [
     "jinja2>=3.1",
     "aiosmtplib>=4.0",
     "httpx>=0.28",
+    "pymupdf>=1.26",
+    "qdrant-client>=1.15",
+    # OCR opcional: só é usado quando o PDF não tem camada de texto.
+    "pytesseract>=0.3.13",
+    "pillow>=11.0",
 ]
 
 [project.optional-dependencies]
@@ -61,6 +66,11 @@ ignore = ["B008", "S101", "RUF001", "RUF002", "RUF003"]
 "app/models/audit.py" = ["S105"]
 "app/schemas/auth.py" = ["S105"]
 "app/core/config.py" = ["S105"]
+# color_token não é segredo: é o nome do token de cor no design system.
+"app/domain/planner/allocation.py" = ["S105"]
+"app/schemas/study.py" = ["S105"]
+"app/domain/intelligence/priority.py" = ["S105"]
+"app/domain/game/territory.py" = ["S105"]
 "alembic/*" = ["E501"]
 
 [tool.mypy]

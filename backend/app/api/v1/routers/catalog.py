@@ -7,7 +7,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import CurrentUser, DbSession, rate_limit
+from app.core.errors import NotFoundError
 from app.core.pagination import Page, PageParams, page_params
+from app.models.notice import NoticeStatus
+from app.repositories.notice import NoticeRepository
 from app.schemas.board_knowledge import BoardKnowledgeRead
 from app.schemas.catalog import (
     CompetitionRead,
@@ -16,10 +19,11 @@ from app.schemas.catalog import (
     SubjectRead,
     TopicRead,
 )
-from app.schemas.notice import NoticeRead
+from app.schemas.notice import NoticeRead, RadiographyRead
 from app.services.board_knowledge import BoardKnowledgeService
 from app.services.catalog import CatalogService
 from app.services.notice import NoticeService
+from app.services.radiography import RadiographyService
 
 router = APIRouter(prefix="/catalog", tags=["catálogo"])
 
@@ -77,6 +81,20 @@ async def list_competition_notices(
     await CatalogService(db).get_competition(public_id, published_only=True)
     notices = await NoticeService(db).list_for_competition(public_id)
     return [NoticeRead.model_validate(notice) for notice in notices]
+
+
+@router.get(
+    "/notices/{public_id}/radiography",
+    response_model=RadiographyRead,
+    summary="Raio-X de um edital já confirmado",
+)
+async def notice_radiography(public_id: str, _: CurrentUser, db: DbSession) -> RadiographyRead:
+    """Só edital confirmado aparece para o candidato: análise não revisada não vira verdade."""
+    notice = await NoticeRepository(db).get_by_public_id(public_id)
+    if notice is None or notice.status != NoticeStatus.CONFIRMED:
+        raise NotFoundError("Raio-X indisponível para este edital.")
+    result = await RadiographyService(db).build(notice)
+    return RadiographyRead.model_validate(result, from_attributes=True)
 
 
 @router.get("/boards", response_model=Page[ExamBoardRead], summary="Bancas ativas")

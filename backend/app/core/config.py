@@ -71,6 +71,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
     celery_broker_url: str = "redis://redis:6379/1"
     celery_result_backend: str = "redis://redis:6379/2"
+    # Em desenvolvimento/teste executa a tarefa na própria requisição, sem broker.
+    celery_task_always_eager: bool = False
     cache_default_ttl: int = 300
 
     # --- Rate limit --------------------------------------------------------
@@ -99,6 +101,11 @@ class Settings(BaseSettings):
     storage_local_path: str = "/var/lib/mestre/uploads"
     max_upload_size_mb: int = 30
     max_pdf_pages: int = 400
+
+    # --- Vetores / RAG -----------------------------------------------------
+    qdrant_url: str = "http://qdrant:6333"
+    qdrant_api_key: str = ""
+    embedding_dimensions: int = 1536
 
     # --- Bootstrap ---------------------------------------------------------
     bootstrap_admin_email: EmailStr = "admin@mestreconcurso.com.br"

@@ -43,6 +43,7 @@ class AIFeature(StrEnum):
 
     NOTICE_EXTRACTION = "notice.extraction"
     QUESTION_CLASSIFY = "question.classify"
+    ERROR_CLASSIFY = "error.classify"
     BOARD_PROFILE = "board.profile"
     CHAT_TUTOR = "chat.tutor"
     FLASHCARD_GENERATION = "flashcard.generation"

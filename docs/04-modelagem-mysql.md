@@ -110,22 +110,46 @@ document_chunks(id, document_id→documents ON DELETE CASCADE, chunk_index,
 ```
 exams(id, competition_id, position_id, exam_board_id, year, phase, name,
       questions_count, duration_minutes, source_url, is_official)
-questions(id, public_id, exam_id NULL, exam_board_id, subject_id, topic_id,
-      subtopic_id, year, position_id, statement MEDIUMTEXT, kind[MC|TF|DISCURSIVE],
-      correct_alternative_id, difficulty[EASY|MEDIUM|HARD], difficulty_score,
-      origin[OFFICIAL|AI_GENERATED|EDITORIAL], status, explanation MEDIUMTEXT,
-      trap_pattern_id NULL, tags JSON, checksum UNIQUE, created_at)
-  IDX (subject_id, topic_id), (exam_board_id, year), (origin, status)
+questions(id, public_id, exam_id NULL, exam_board_id, subject_id, topic_id, year,
+      statement MEDIUMTEXT, kind[MC|TF|DISCURSIVE], difficulty[EASY|MEDIUM|HARD],
+      origin[OFFICIAL|AI_GENERATED|EDITORIAL], status, explanation MEDIUMTEXT, source_note,
+      tags JSON, ai_suggestion JSON, reviewed_by_user_id, reviewed_at,
+      checksum UNIQUE, created_at)
+  IDX (subject_id, topic_id), (exam_board_id, year), (status, origin)
+  Reservados para a Fase 6 (ainda **não** criados): `difficulty_score` e `trap_pattern_id`,
+  que dependem do Radar de Pegadinhas.
+  `ai_suggestion` guarda a classificação sugerida pelo modelo **sem aplicá-la**; ela só vira
+  classificação quando `reviewed_by_user_id` é preenchido. O gabarito vive em
+  `alternatives.is_correct` — não há ponteiro duplicado na questão para sair de sincronia.
 alternatives(id, question_id→questions ON DELETE CASCADE, letter, content TEXT, is_correct, feedback TEXT)
-question_stats(question_id PK→questions, attempts, correct_attempts, avg_time_seconds,
-      accuracy DECIMAL(5,4), updated_at)
-trap_patterns(id, slug UNIQUE, name, category, description, detection_hint, example)
-topic_incidence(id, exam_board_id, subject_id, topic_id, position_scope,
-      period_start_year, period_end_year, exams_count, questions_count,
-      incidence_pct DECIMAL(5,4), trend DECIMAL(6,3), confidence DECIMAL(4,3), computed_at)
-  UNIQUE (exam_board_id, subject_id, topic_id, position_scope, period_start_year, period_end_year)
-board_profile_metrics(id, exam_board_id, subject_id NULL, metric_slug, value DECIMAL(6,3),
-      sample_exams, sample_questions, period_start_year, period_end_year, confidence, computed_at)
+question_stats(question_id PK→questions, attempts, correct_attempts, total_time_seconds,
+      last_attempt_at, updated_at)
+  A taxa de acerto e o tempo médio são derivados na leitura, não guardados: um percentual
+  gravado envelhece; abaixo de 20 respostas ele nem é exibido (`accuracy = NULL`).
+trap_patterns(id, public_id, slug UNIQUE, name, category, description, detection_hint,
+      example, is_active)
+  Categorias de técnica de prova, curadas por pessoas. **Não** são afirmações sobre uma
+  banca: quantas vezes alguém caiu em cada padrão é conta sobre os erros da própria pessoa.
+topic_incidence(id, scope_key UNIQUE, exam_board_id, subject_id, topic_id NULL,
+      subject_name, topic_name, period_start_year, period_end_year, exams_count,
+      questions_count, board_questions_count, incidence_pct DECIMAL(5,4),
+      trend DECIMAL(6,4) NULL, confidence DECIMAL(4,3), computed_at)
+  IDX (exam_board_id, subject_id)
+  `scope_key` ("banca:12|disciplina:3|assunto:0|2019-2024") dá identidade estável ao
+  recorte, evitando o UNIQUE composto com colunas anuláveis — no MySQL, NULL não colide.
+  `trend` é nulo quando a amostra não cobre dois anos: gravar zero seria dizer "estável".
+  Recorte sem amostra mínima **não é gravado**.
+board_profile_metrics(id, scope_key UNIQUE, exam_board_id, subject_id NULL, metric_slug,
+      label, value DECIMAL(6,3), unit, detail JSON, sample_exams, sample_questions,
+      period_start_year, period_end_year, confidence DECIMAL(4,3), computed_at)
+  IDX (exam_board_id, metric_slug)
+user_priorities(id, user_id, study_plan_id NULL, scope_key, subject_id NULL, topic_id NULL,
+      label, color_token, score SMALLINT /* 0..100 */, contributions JSON,
+      coverage DECIMAL(4,3), missing_signals JSON, computed_at)
+  UNIQUE (user_id, scope_key) · IDX (user_id, score)
+  `contributions` guarda as parcelas que **somam exatamente** `score`; `missing_signals`
+  nomeia os sinais que ainda não existem e valeram zero. É o "POR QUÊ?" da interface,
+  gravado junto com o número — não um texto montado depois.
 ```
 
 > `topic_incidence` e `board_profile_metrics` são **sempre** calculadas por Python a partir de `questions`; guardam tamanho da amostra e período — sem amostra, o front exibe "dados insuficientes", nunca um número.
@@ -142,29 +166,57 @@ study_tasks(id, study_plan_id, user_id, scheduled_for DATE, kind[THEORY|QUESTION
   IDX (user_id, scheduled_for, status)
 study_sessions(id, user_id, study_task_id NULL, subject_id, topic_id, started_at, ended_at,
       focus_seconds, pause_seconds, device, notes)
-user_subject_progress(user_id, subject_id) PK composta + coverage_pct, mastery, accuracy,
-      questions_answered, minutes_studied, last_studied_at, updated_at
-user_topic_progress(user_id, topic_id) PK composta + mastery, retention, accuracy,
-      attempts, last_reviewed_at, next_review_at, priority_score, score_breakdown JSON
-  IDX (user_id, next_review_at), (user_id, priority_score DESC)
-question_attempts(id, user_id, question_id, simulation_attempt_id NULL, study_task_id NULL,
-      selected_alternative_id, is_correct, time_seconds, confidence[GUESS|LOW|MEDIUM|HIGH], created_at)
-  IDX (user_id, created_at), (user_id, question_id), (question_id)
-error_analyses(id, question_attempt_id UNIQUE, user_id, cause[UNKNOWN_CONTENT|INTERPRETATION|
-      CONFUSION|FORGETTING|RUSH|TRAP|ALTERNATIVE_DOUBT], trap_pattern_id NULL,
-      explanation MEDIUMTEXT, source[USER|AI], model_version, created_at)
-flashcards(id, user_id NULL /* NULL = global */, subject_id, topic_id, front, back,
-      extra JSON, origin[AI|USER|QUESTION|NOTICE|LESSON], source_ref, is_active)
-flashcard_reviews(id, flashcard_id, user_id, rating[AGAIN|HARD|GOOD|EASY], reviewed_at,
-      time_seconds, prev_interval_days, next_interval_days, ease_factor, stability, due_at)
-  IDX (user_id, due_at)
+user_subject_progress(id, user_id, subject_key, subject_label, subject_id NULL,
+      color_token, planned_minutes, studied_minutes, tasks_done, tasks_skipped,
+      completion DECIMAL(5,4), is_weak_point, last_studied_at)
+  UNIQUE (user_id, subject_key) · IDX (user_id, last_studied_at)
+  A chave é o `subject_key` do plano (`sub:<slug>` ou `ns:<edital>`), porque o plano pode
+  nascer de um edital analisado cuja disciplina ainda não existe no catálogo canônico.
+  O Priority Score por disciplina vive em `user_priorities` (seção 4.5).
+error_analyses(id, public_id, question_attempt_id UNIQUE, user_id, question_id,
+      subject_id NULL, cause[UNKNOWN_CONTENT|INTERPRETATION|CONFUSION|FORGETTING|RUSH|
+      TRAP|ALTERNATIVE_DOUBT], trap_pattern_id NULL, note MEDIUMTEXT, source[USER|AI],
+      model_slug, prompt_version, rationale MEDIUMTEXT, confirmed_at NULL,
+      resolved_at NULL, created_at)
+  IDX (user_id, cause), (user_id, created_at)
+  Sugestão de IA entra com `source=AI` e `confirmed_at` nulo: aparece como sugestão e
+  **não entra em estatística alguma** até que a pessoa confirme. Todo agregado do Caderno
+  de Erros filtra por `confirmed_at IS NOT NULL`.
+flashcards(id, public_id, user_id NULL /* NULL = global */, subject_id, topic_id,
+      front MEDIUMTEXT, back MEDIUMTEXT, hint MEDIUMTEXT, tags JSON, extra JSON,
+      origin[USER|AI|QUESTION|ERROR|NOTICE|EDITORIAL], source_ref, source_quote MEDIUMTEXT,
+      source_page, source_document, model_slug, prompt_version, checksum, is_active)
+  IDX (user_id, subject_id), (origin, is_active)
+  `origin` governa o selo exibido. Cartão gerado por IA carrega a citação conferida no
+  material — o que não se sustenta é descartado na geração e nunca chega a virar linha.
+flashcard_states(id, user_id, flashcard_id, state[NEW|LEARNING|REVIEW|RELEARNING],
+      ease_factor DECIMAL(4,3), interval_days, repetitions, lapses, step_index,
+      due_on DATE, last_reviewed_at, last_rating, last_breakdown JSON, postponed_count)
+  UNIQUE (user_id, flashcard_id) · IDX (user_id, due_on)
+  Tabela separada do cartão de propósito: um cartão global é revisado por muita gente, e
+  cada pessoa tem seu próprio intervalo. `last_breakdown` guarda o cálculo que produziu o
+  intervalo atual — é o "por quê?" que a interface mostra.
+flashcard_reviews(id, user_id, flashcard_id, rating[AGAIN|HARD|GOOD|EASY], time_seconds,
+      previous_interval_days, next_interval_days, ease_factor, due_on DATE, breakdown JSON)
+  IDX (user_id, created_at), (flashcard_id)
 revision_queue(id, user_id, item_type[TOPIC|FLASHCARD|QUESTION|VOCAB], item_id,
       due_at, priority_score, times_reviewed, last_result, state) IDX (user_id, due_at, state)
-simulations(id, user_id NULL, competition_id NULL, kind[OFFICIAL|BOARD|ERRORS|FINAL_STRETCH|TRAPS|FLASH|CUSTOM|ADAPTIVE],
+  **Ainda não criada.** A Fase 8 entregou a fila de flashcards; unificar tópicos, questões
+  e vocabulário na mesma fila exige decidir como um tópico "vence" — trabalho da Fase 9.
+simulations(id, public_id, user_id NULL, competition_id NULL,
+      kind[OFFICIAL|BOARD|ERRORS|FINAL_STRETCH|FLASH|CUSTOM|ADAPTIVE],
       name, questions_count, duration_minutes, config JSON, is_template, created_by)
+  `config` registra a regra que montou o simulado (e as cotas por disciplina, no oficial):
+  a composição é auditável depois, não uma caixa preta.
 simulation_questions(simulation_id, question_id, order_index) PK composta
-simulation_attempts(id, simulation_id, user_id, started_at, finished_at, status,
-      score DECIMAL(6,2), correct_count, wrong_count, blank_count, time_seconds, analysis JSON)
+simulation_attempts(id, public_id, simulation_id, user_id, started_at, finished_at, paused_at,
+      status[IN_PROGRESS|PAUSED|FINISHED|ABANDONED], score DECIMAL(6,2),
+      correct_count, wrong_count, blank_count, elapsed_seconds, analysis JSON)
+question_attempts(id, public_id, user_id, question_id, simulation_attempt_id NULL,
+      selected_alternative_id NULL, selected_letter, is_correct, is_blank, time_seconds,
+      confidence, subject_id, created_at) IDX (user_id, created_at), (user_id, question_id)
+  Resposta avulsa e resposta dentro de simulado são a mesma tabela: o histórico do candidato
+  é um só, e é dele que sai o "simulado dos erros".
 mestre_scores(id, user_id, computed_at, score SMALLINT /* 0..1000 */, components JSON,
       estimated_min DECIMAL(6,2), estimated_max DECIMAL(6,2), confidence)
   IDX (user_id, computed_at)
@@ -178,18 +230,35 @@ ai_models(id, provider_id, slug, display_name, context_window, input_cost_per_1k
       output_cost_per_1k, supports_tools, supports_json, is_active)
 ai_prompts(id, slug, version, role, template MEDIUMTEXT, variables JSON,
       model_hint, is_active, created_by, created_at) UNIQUE (slug, version)
-ai_conversations(id, public_id, user_id, context_type, context_id, title, created_at, archived_at)
-ai_messages(id, conversation_id, role[SYSTEM|USER|ASSISTANT|TOOL], content MEDIUMTEXT,
-      tool_calls JSON, citations JSON, model_id, prompt_version, created_at)
+chat_conversations(id, public_id, user_id, title, mode[TUTOR|TEACHER], notice_id NULL,
+      subject_id NULL, is_archived, last_message_at, message_count)
+  IDX (user_id, last_message_at)
+chat_messages(id, public_id, conversation_id, user_id, role[USER|ASSISTANT],
+      content MEDIUMTEXT, claims JSON, sources JSON, computed_context JSON,
+      is_refusal, refusal_reason MEDIUMTEXT, grounding_ratio DECIMAL(5,4),
+      model_slug, prompt_version, input_tokens, output_tokens, latency_ms)
+  IDX (conversation_id, id)
+  `claims` guarda cada afirmação com sua situação de origem (CITED/COMPUTED/UNSOURCED),
+  a citação, o trecho e a página. `sources` guarda os trechos que entraram no contexto.
+  Assim qualquer resposta pode ser auditada depois — e a interface mostra de onde cada
+  frase veio, ou diz que ficou sem origem. `grounding_ratio` é a fração de afirmações
+  factuais conferidas: número, não impressão.
 ai_usage(id, user_id NULL, conversation_id NULL, feature_slug, provider_id, model_id,
       input_tokens, output_tokens, cached_tokens, cost_cents DECIMAL(10,4),
       latency_ms, status, error_code, created_at)
   IDX (user_id, created_at), (feature_slug, created_at)
-videos(id, provider[YOUTUBE], external_id UNIQUE, title, channel, duration_seconds,
-      published_at, thumbnail_url, lang, transcript_available)
-video_topics(video_id, topic_id, relevance DECIMAL(4,3), verified_by[AI|ADMIN], verified_at) PK composta
-vocabulary_terms(id, subject_id, topic_id NULL, term, simple_definition, technical_definition,
-      example, exam_usage, related_trap_id, flashcard_id NULL)
+video_resources(id, public_id, title, url UNIQUE, provider, channel, duration_seconds,
+      subject_id NULL, topic_id NULL, summary MEDIUMTEXT, is_active,
+      verified_by_user_id NULL, verified_at NULL)
+  IDX (subject_id, is_active)
+  A plataforma não descobre vídeos sozinha nem inventa links: o catálogo é cadastrado por
+  pessoas, e **só o item com `verified_at` preenchido é sugerido pelo Mestre**.
+vocabulary_terms(id, public_id, user_id, term, term_key, definition MEDIUMTEXT,
+      subject_id NULL, message_id NULL, source_quote MEDIUMTEXT, source_page,
+      source_document, origin[CITED|GENERATED], times_reviewed, last_reviewed_at)
+  UNIQUE (user_id, term_key) · IDX (user_id, created_at)
+  `origin` separa o que veio de trecho citado do que é redação do modelo. A interface não
+  apresenta uma definição gerada como se fosse texto do edital.
 notifications(id, user_id, kind, title, body, action_url, data JSON, read_at, created_at)
   IDX (user_id, read_at, created_at)
 ```
@@ -201,3 +270,46 @@ notifications(id, user_id, kind, title, body, action_url, data JSON, read_at, cr
 - `questions.checksum` (SHA-256 do enunciado normalizado) evita duplicata na ingestão.
 - `topic_incidence` e `board_profile_metrics` são tabelas materializadas recomputadas por job, nunca escritas por LLM.
 - Contadores derivados (`question_stats`, `*_progress`) são atualizados por worker idempotente, não em request path.
+
+## 4.9 Gamificação — camada transversal (G1)
+
+```
+game_rules(id, key UNIQUE, label, xp_value, daily_cap, config JSON, is_enabled,
+      updated_by_user_id)
+  A fonte da verdade das regras de pontuação. O código traz o padrão de fábrica;
+  esta tabela vence. Mudar XP é UPDATE, não deploy.
+gamification_profiles(id, user_id UNIQUE, level, xp_total, rank_slug,
+      rank_score DECIMAL(5,4), rank_components JSON, rank_missing_signals JSON,
+      current_streak, longest_streak, last_active_on DATE, streak_shields_left,
+      streak_shield_renewed_on DATE, missions_completed, achievements_count, computed_at)
+  Leitura rápida. **A verdade é o razão**: `xp_total` é sempre reconstruível somando
+  `xp_transactions`. `rank_components` guarda as parcelas que somam o score exibido.
+xp_transactions(id, public_id, user_id, event_kind, amount SMALLINT, base_amount,
+      multiplier DECIMAL(4,2), reason, reference, metrics JSON, capped, cap_reason, day DATE)
+  UNIQUE (user_id, event_kind, reference) · IDX (user_id, day), (user_id, created_at)
+  Audit trail obrigatório: todo ganho vira linha com o motivo e a métrica que o
+  justificou. O UNIQUE é o que torna a pontuação idempotente — o mesmo simulado não
+  pontua duas vezes. Corte por teto grava `capped=true` com o motivo legível.
+missions(id, public_id, user_id, scope[DAILY|WEEKLY|SPECIAL], kind, title, description,
+      target_metric, target_value, current_value, baseline_value, xp_reward, priority,
+      difficulty, estimated_minutes, status[PENDING|DONE|CLAIMED|EXPIRED],
+      generated_by[RULE|AI], rationale, source JSON, valid_from DATE, valid_until DATE,
+      completed_at, claimed_at)
+  UNIQUE (user_id, kind, valid_from) · IDX (user_id, valid_from, status)
+  `rationale` guarda **por que a missão existe** — o sinal real que a gerou.
+  `baseline_value` congela o contador na criação, para que a missão não nasça cumprida
+  por atividade de ontem. `current_value` é recontado da atividade real, nunca marcado.
+achievements(id, slug UNIQUE, name, description, category, icon, tier, criteria JSON,
+      xp_reward, is_secret, is_active)
+user_achievements(id, user_id, achievement_id, unlocked_at, progress JSON)
+  UNIQUE (user_id, achievement_id) · IDX (user_id, unlocked_at)
+streak_days(id, user_id, day DATE, minutes, tasks_done, mission_completed, qualified,
+      shield_used)
+  UNIQUE (user_id, day) · IDX (user_id, day)
+  Histórico dia a dia. É daqui que saem sequência atual, recorde, média e o sinal de
+  consistência do rank.
+```
+
+Reservadas para G2–G4, ainda **não criadas**: `seasons`, `season_progress`, `leagues`,
+`league_members`, `challenges`, `challenge_attempts`, `rewards`, `user_rewards`,
+`game_events`.

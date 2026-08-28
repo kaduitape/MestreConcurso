@@ -12,6 +12,8 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.security import hash_password
 from app.domain.permissions import PERMISSIONS, ROLE_ADMIN, ROLES
+from app.domain.trap_catalogue import TRAP_PATTERNS
+from app.models.intelligence import TrapPattern
 from app.models.rbac import Permission, Role
 from app.models.user import Profile, User, UserStatus
 
@@ -63,6 +65,43 @@ async def sync_rbac(session: AsyncSession) -> None:
         role.permissions = [existing_permissions[slug] for slug in role_spec.permissions]
     await session.commit()
     logger.info("seed.rbac.synced", roles=len(ROLES), permissions=len(PERMISSIONS))
+
+
+async def sync_trap_patterns(session: AsyncSession) -> int:
+    """Mantém o catálogo editorial de pegadinhas em dia, sem apagar edições feitas
+    no painel: só cria o que falta e atualiza texto de quem veio do catálogo."""
+    existing = {
+        pattern.slug: pattern for pattern in (await session.execute(select(TrapPattern))).scalars()
+    }
+    created = 0
+    for spec in TRAP_PATTERNS:
+        pattern = existing.get(spec.slug)
+        if pattern is None:
+            session.add(
+                TrapPattern(
+                    slug=spec.slug,
+                    name=spec.name,
+                    category=spec.category,
+                    description=spec.description,
+                    detection_hint=spec.detection_hint,
+                    is_active=True,
+                )
+            )
+            created += 1
+    await session.commit()
+    logger.info("seed.traps.synced", total=len(TRAP_PATTERNS), created=created)
+    return created
+
+
+async def sync_gamification(session: AsyncSession) -> tuple[int, int]:
+    """Semeia as regras de pontuação e o catálogo de conquistas."""
+    from app.services.game_engine import GameEngine
+
+    engine = GameEngine(session)
+    rules = await engine.sync_rules()
+    achievements = await engine.sync_achievements()
+    logger.info("seed.game.synced", rules=rules, achievements=achievements)
+    return rules, achievements
 
 
 async def ensure_bootstrap_admin(session: AsyncSession) -> User | None:

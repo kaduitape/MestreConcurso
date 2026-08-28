@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Download, FileText, Plus, Trash2, Upload } from 'lucide-react'
+import { Download, FileText, Plus, Sparkles, Trash2, Upload } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -154,6 +155,11 @@ export function NoticesSection() {
                 </p>
               </div>
               <div className="flex gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link to={`/admin/editais/${notice.public_id}`}>
+                    <Sparkles /> Analisar
+                  </Link>
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

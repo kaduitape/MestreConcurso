@@ -14,7 +14,11 @@ celery_app = Celery(
     "mestre_concurso",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["app.workers.tasks.email", "app.workers.tasks.maintenance"],
+    include=[
+        "app.workers.tasks.email",
+        "app.workers.tasks.maintenance",
+        "app.workers.tasks.documents",
+    ],
 )
 
 celery_app.conf.update(
@@ -31,10 +35,13 @@ celery_app.conf.update(
     broker_connection_retry_on_startup=True,
     result_expires=3600,
     task_default_queue="default",
+    task_always_eager=settings.celery_task_always_eager,
+    task_eager_propagates=settings.celery_task_always_eager,
     task_routes={
         "email.*": {"queue": "notifications"},
         "maintenance.*": {"queue": "default"},
-        # Fases seguintes: documents.* (PDF/OCR), ai.* (LLM), analytics.*
+        "documents.*": {"queue": "documents"},
+        # Fases seguintes: ai.* (LLM dedicado), analytics.*
     },
     beat_schedule={
         "purge-expired-tokens-and-sessions": {

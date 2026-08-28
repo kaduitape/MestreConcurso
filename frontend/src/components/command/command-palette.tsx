@@ -3,12 +3,14 @@ import { Command } from 'cmdk'
 import { useNavigate } from 'react-router-dom'
 import {
   Briefcase,
+  CalendarDays,
   LayoutDashboard,
   LogOut,
   Monitor,
   Moon,
   Shield,
   Sun,
+  Target,
   User,
 } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -59,6 +61,21 @@ export function CommandPalette({
       icon: LayoutDashboard,
       group: 'Navegação',
       run: () => navigate('/hoje'),
+    },
+    {
+      id: 'plano',
+      label: 'Ver meu plano de estudo',
+      hint: 'disciplinas e disponibilidade',
+      icon: Target,
+      group: 'Navegação',
+      run: () => navigate('/plano'),
+    },
+    {
+      id: 'calendario',
+      label: 'Abrir o calendário',
+      icon: CalendarDays,
+      group: 'Navegação',
+      run: () => navigate('/calendario'),
     },
     {
       id: 'concursos',

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import Any
 
 from httpx import AsyncClient
@@ -150,21 +151,26 @@ async def create_competition(
     *,
     organization_public_id: str,
     exam_board_public_id: str | None = None,
-    name: str = "PCDF 2026 — Agente de Polícia",
-    year: int = 2026,
+    name: str = "PCDF — Agente de Polícia",
+    year: int | None = None,
+    exam_date: str | None = None,
     is_published: bool = True,
 ) -> dict[str, Any]:
+    """Concurso com prova no futuro — datas relativas mantêm os testes estáveis."""
+    exam = (
+        date.today() + timedelta(days=200) if exam_date is None else date.fromisoformat(exam_date)
+    )
     response = await client.post(
         "/api/v1/admin/catalog/competitions",
         headers=user.auth_header,
         json={
             "name": name,
-            "year": year,
+            "year": year or exam.year,
             "organization_public_id": organization_public_id,
             "exam_board_public_id": exam_board_public_id,
             "status": "OPEN",
             "vacancies_total": 1200,
-            "exam_date": "2026-03-15",
+            "exam_date": exam.isoformat(),
             "is_published": is_published,
         },
     )
@@ -179,6 +185,159 @@ async def create_subject(
         "/api/v1/admin/catalog/subjects",
         headers=user.auth_header,
         json={"name": name, "area": "Direito", "color_token": "subject-direito"},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+async def configure_ai(
+    client: AsyncClient,
+    admin: RegisteredUser,
+    *,
+    features: tuple[str, ...] = ("notice.extraction",),
+) -> None:
+    """Deixa o provedor de IA pronto e vinculado às funcionalidades informadas."""
+    await client.post(
+        "/api/v1/admin/ai/providers", headers=admin.auth_header, json={"slug": "openai"}
+    )
+    await client.put(
+        "/api/v1/admin/ai/providers/openai/key",
+        headers=admin.auth_header,
+        json={"api_key": "sk-proj-chave-de-teste-1234567890"},
+    )
+    synced = await client.post(
+        "/api/v1/admin/ai/providers/openai/models/sync", headers=admin.auth_header
+    )
+    assert synced.status_code == 200, synced.text
+    activated = await client.patch(
+        "/api/v1/admin/ai/providers/openai",
+        headers=admin.auth_header,
+        json={"is_active": True},
+    )
+    assert activated.status_code == 200, activated.text
+
+    for feature in features:
+        model = "text-embedding-3-small" if feature == "embeddings.default" else "gpt-4o-mini"
+        bound = await client.put(
+            f"/api/v1/admin/ai/features/{feature}",
+            headers=admin.auth_header,
+            json={
+                "provider_slug": "openai",
+                "model_slug": model,
+                "is_enabled": True,
+            },
+        )
+        assert bound.status_code == 200, bound.text
+
+
+async def create_notice_with_pdf(
+    client: AsyncClient,
+    admin: RegisteredUser,
+    *,
+    pdf: bytes,
+    title: str = "Edital nº 1/2026 — Agente de Polícia",
+) -> str:
+    """Cadastra o edital e envia o PDF. Devolve o public_id do edital."""
+    created = await client.post(
+        "/api/v1/admin/notices", headers=admin.auth_header, json={"title": title}
+    )
+    assert created.status_code == 201, created.text
+    notice_id = created.json()["public_id"]
+
+    uploaded = await client.post(
+        f"/api/v1/admin/notices/{notice_id}/files",
+        headers=admin.auth_header,
+        files={"file": ("edital.pdf", pdf, "application/pdf")},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    return str(notice_id)
+
+
+async def create_position_with_subjects(
+    client: AsyncClient,
+    admin: RegisteredUser,
+    *,
+    subjects: tuple[tuple[str, str, int], ...] = (
+        ("Direito Penal", "3.00", 20),
+        ("Português", "2.00", 20),
+        ("Informática", "1.00", 8),
+    ),
+) -> dict[str, Any]:
+    """Cria concurso + cargo + disciplinas vinculadas. Devolve o cargo criado."""
+    organization = await create_organization(client, admin)
+    board = await create_board(client, admin)
+    competition = await create_competition(
+        client,
+        admin,
+        organization_public_id=organization["public_id"],
+        exam_board_public_id=board["public_id"],
+    )
+    created = await client.post(
+        f"/api/v1/admin/catalog/competitions/{competition['public_id']}/positions",
+        headers=admin.auth_header,
+        json={"name": "Agente de Polícia", "questions_count": 120},
+    )
+    assert created.status_code == 201, created.text
+    position = created.json()
+
+    for name, weight, questions in subjects:
+        subject = await create_subject(client, admin, name=name)
+        linked = await client.put(
+            f"/api/v1/admin/catalog/positions/{position['public_id']}/subjects",
+            headers=admin.auth_header,
+            json={
+                "subject_public_id": subject["public_id"],
+                "weight": weight,
+                "questions_count": questions,
+            },
+        )
+        assert linked.status_code == 200, linked.text
+
+    return position
+
+
+WEEKDAY_AVAILABILITY = {"0": 120, "1": 120, "2": 120, "3": 120, "4": 120, "5": 240}
+
+
+def question_payload(
+    *,
+    statement: str,
+    correct: str = "A",
+    letters: tuple[str, ...] = ("A", "B", "C", "D"),
+    difficulty: str = "MEDIUM",
+    **extra: Any,
+) -> dict[str, Any]:
+    """Monta o corpo de uma questão de múltipla escolha com um gabarito só."""
+    payload: dict[str, Any] = {
+        "statement": statement,
+        "difficulty": difficulty,
+        "alternatives": [
+            {
+                "letter": letter,
+                "content": f"Alternativa {letter} de: {statement[:40]}",
+                "is_correct": letter == correct,
+                "feedback": f"Comentário da alternativa {letter}.",
+            }
+            for letter in letters
+        ],
+    }
+    payload.update(extra)
+    return payload
+
+
+async def create_question(
+    client: AsyncClient,
+    admin: RegisteredUser,
+    *,
+    statement: str,
+    correct: str = "A",
+    difficulty: str = "MEDIUM",
+    **extra: Any,
+) -> dict[str, Any]:
+    response = await client.post(
+        "/api/v1/admin/questions",
+        headers=admin.auth_header,
+        json=question_payload(statement=statement, correct=correct, difficulty=difficulty, **extra),
     )
     assert response.status_code == 201, response.text
     return response.json()
