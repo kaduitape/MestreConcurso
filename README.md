@@ -54,6 +54,12 @@ A plataforma responde continuamente a uma única pergunta:
   aviso. O motor de repetição espaçada reage a acerto, erro e velocidade, e **a fila nunca
   explode**: o que passa do teto diário é redistribuído, com o motivo dito em texto.
 
+- **Gamificação (G1):** o **Mestre Game Engine** — XP com razão contábil auditável (todo
+  ganho vira transação com motivo, e todo corte por teto é explicado), níveis, rank que
+  mede **desempenho real** e não acúmulo (XP não entra na fórmula), sequência com proteção
+  e sem linguagem de ameaça, missões diárias que nascem de sinal real e carregam o número
+  que as gerou, e conquistas avaliadas sobre dados reais.
+
 As demais fases estão especificadas em [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md)
 e ainda **não** foram implementadas — a interface indica explicitamente o que está por vir,
 sem telas ilustrativas nem dados fictícios.
@@ -87,6 +93,8 @@ ambiente é necessária: a configuração é dado, não código.
 | [16 — Critérios de aceite da Fase 6](docs/16-criterios-aceite-fase6.md) | incidência, DNA da banca, Priority Score e erros |
 | [17 — Critérios de aceite da Fase 7](docs/17-criterios-aceite-fase7.md) | Mestre IA, citações conferidas e vocabulário |
 | [18 — Critérios de aceite da Fase 8](docs/18-criterios-aceite-fase8.md) | flashcards, repetição espaçada e fila de revisão |
+| [19 — Gamificação: arquitetura](docs/19-gamificacao-arquitetura.md) | Mestre Game Engine, XP, ranks, missões e wireframes |
+| [20 — Critérios de aceite da Gamificação 1](docs/20-criterios-aceite-gamificacao-1.md) | XP auditável, antiabuso, rank, sequência e missões |
 
 ## Como executar
 

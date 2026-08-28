@@ -8,7 +8,12 @@ import sys
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.db.session import dispose_engine, get_session_factory
-from app.services.seed import ensure_bootstrap_admin, sync_rbac, sync_trap_patterns
+from app.services.seed import (
+    ensure_bootstrap_admin,
+    sync_gamification,
+    sync_rbac,
+    sync_trap_patterns,
+)
 
 logger = get_logger(__name__)
 
@@ -18,6 +23,7 @@ async def _seed() -> None:
     async with factory() as session:
         await sync_rbac(session)
         await sync_trap_patterns(session)
+        await sync_gamification(session)
         await ensure_bootstrap_admin(session)
     await dispose_engine()
 

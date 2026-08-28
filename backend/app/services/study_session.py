@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.errors import ConflictError, NotFoundError
 from app.core.logging import get_logger
+from app.domain.game import GameEvent, GameEventKind
 from app.models.study import (
     StudySession,
     StudySessionStatus,
@@ -25,6 +26,7 @@ from app.repositories.study import (
     StudyTaskRepository,
     UserSubjectProgressRepository,
 )
+from app.services.game_engine import GameEngine
 
 logger = get_logger(__name__)
 
@@ -142,6 +144,19 @@ class StudySessionService:
                 await self._add_progress(task, minutes)
 
         await self.session.commit()
+
+        # A gamificação é notificada do fato consumado; a regra de pontuação
+        # vive no motor, não aqui.
+        await GameEngine(self.session).award(
+            user,
+            GameEvent(
+                GameEventKind.STUDY_SESSION,
+                {"focus_minutes": float(minutes)},
+                reference=record.public_id,
+            ),
+        )
+        await GameEngine(self.session).touch_day(user, minutes=minutes)
+
         logger.info(
             "study_session.finished",
             user=user.public_id,

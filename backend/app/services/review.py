@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError
 from app.core.logging import get_logger
+from app.domain.game import GameEvent, GameEventKind
 from app.domain.srs import (
     DEFAULT_DAILY_LIMIT,
     DEFAULT_NEW_PER_DAY,
@@ -40,6 +41,7 @@ from app.repositories.flashcard import (
     FlashcardRepository,
     FlashcardReviewRepository,
 )
+from app.services.game_engine import GameEngine
 
 logger = get_logger(__name__)
 
@@ -286,6 +288,16 @@ class ReviewService:
                 if item.flashcard_id != card.id
             ]
         )
+        await GameEngine(self.session).award(
+            user,
+            GameEvent(
+                GameEventKind.FLASHCARDS_REVIEWED,
+                {"cards": 1.0},
+                reference=f"{card.public_id}:{reference.isoformat()}",
+            ),
+            today=reference,
+        )
+
         logger.info(
             "review.answered",
             user=user.public_id,

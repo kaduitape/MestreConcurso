@@ -23,7 +23,7 @@ from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from app.core.redis import close_redis
 from app.db.session import dispose_engine, get_session_factory
-from app.services.seed import sync_rbac, sync_trap_patterns
+from app.services.seed import sync_gamification, sync_rbac, sync_trap_patterns
 
 logger = get_logger(__name__)
 
@@ -45,6 +45,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         async with factory() as session:
             await sync_rbac(session)
             await sync_trap_patterns(session)
+            await sync_gamification(session)
     except Exception as exc:
         logger.warning("app.seed_sync_skipped", error=str(exc))
     yield

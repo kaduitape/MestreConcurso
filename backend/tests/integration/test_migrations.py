@@ -69,6 +69,13 @@ EXPECTED_TABLES = {
     "flashcards",
     "flashcard_states",
     "flashcard_reviews",
+    "game_rules",
+    "gamification_profiles",
+    "xp_transactions",
+    "missions",
+    "achievements",
+    "user_achievements",
+    "streak_days",
 }
 
 

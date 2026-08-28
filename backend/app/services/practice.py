@@ -6,10 +6,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
 from app.core.logging import get_logger
+from app.domain.game import GameEvent, GameEventKind, valid_questions
+from app.domain.game.xp import MIN_SECONDS_PER_QUESTION
 from app.models.question import (
     Alternative,
     Question,
@@ -22,6 +25,7 @@ from app.repositories.question import (
     QuestionRepository,
     QuestionStatsRepository,
 )
+from app.services.game_engine import GameEngine
 
 logger = get_logger(__name__)
 
@@ -94,6 +98,8 @@ class PracticeService:
         await self._update_stats(question, is_correct=is_correct, time_seconds=attempt.time_seconds)
         await self.session.commit()
 
+        await self._award_xp(user, question, attempt)
+
         logger.info(
             "practice.answered",
             user=user.public_id,
@@ -107,6 +113,58 @@ class PracticeService:
             correct_feedback=correct.feedback if correct else None,
             selected_feedback=selected.feedback if selected else None,
             explanation=question.explanation,
+        )
+
+    async def _award_xp(self, user: User, question: Question, attempt: QuestionAttempt) -> None:
+        """Notifica o motor de gamificação da resposta.
+
+        A referência inclui o dia, o que implementa a regra "questão repetida no
+        mesmo dia não repontua" sem nenhuma verificação extra: a segunda tentativa
+        esbarra na própria idempotência do razão.
+        """
+        if attempt.time_seconds < MIN_SECONDS_PER_QUESTION:
+            # Não deu tempo de ler o enunciado: a resposta não entra na contagem.
+            return
+
+        day = datetime.now(UTC).date()
+        today_attempts = list(
+            (
+                await self.session.execute(
+                    select(QuestionAttempt).where(
+                        QuestionAttempt.user_id == user.id,
+                        func.date(QuestionAttempt.created_at) == day,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        _, accuracy, _ = valid_questions(
+            [
+                {
+                    "question_id": float(item.question_id),
+                    "time_seconds": float(item.time_seconds),
+                    "is_correct": bool(item.is_correct),
+                }
+                for item in today_attempts
+            ]
+        )
+
+        metrics: dict[str, float | str] = {
+            "questions": 1.0,
+            "difficulty": question.difficulty,
+        }
+        if accuracy is not None:
+            metrics["accuracy"] = accuracy
+
+        await GameEngine(self.session).award(
+            user,
+            GameEvent(
+                GameEventKind.QUESTIONS_ANSWERED,
+                metrics,
+                reference=f"{question.public_id}:{day.isoformat()}",
+            ),
+            today=day,
         )
 
     async def _update_stats(

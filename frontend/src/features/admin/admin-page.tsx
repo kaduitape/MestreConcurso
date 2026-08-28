@@ -8,6 +8,7 @@ import { AiSection } from './ai/ai-section'
 import { QuestionsSection } from './questions/questions-section'
 import { IntelligenceSection } from './intelligence-section'
 import { VideosSection } from './videos-section'
+import { GameRulesSection } from './game-rules-section'
 import { useAuth } from '@/providers/auth-provider'
 
 export function AdminPage() {
@@ -47,6 +48,7 @@ export function AdminPage() {
             <QuestionsSection />
             {hasPermission('intelligence:write') && <IntelligenceSection />}
             {hasPermission('catalog:write') && <VideosSection />}
+            {hasPermission('intelligence:write') && <GameRulesSection />}
           </div>
         </TabsContent>
         <TabsContent value="inteligencia">

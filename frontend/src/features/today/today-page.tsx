@@ -25,6 +25,7 @@ import { useAuth } from '@/providers/auth-provider'
 import { firstName, greeting } from '@/lib/utils'
 import { MissionPanel } from '@/features/study/mission'
 import { SprintDialog } from '@/features/study/sprint-dialog'
+import { GameHeader } from '@/features/game/components/game-header'
 import { formatMinutes } from '@/features/study/helpers'
 
 function SetupStep({
@@ -92,7 +93,9 @@ export function TodayPage() {
   if (!user) return null
 
   const hasNoPlan =
-    mission.isError && mission.error instanceof ApiError && mission.error.code === 'no_active_plan'
+    mission.isError &&
+    mission.error instanceof ApiError &&
+    mission.error.code === 'no_active_plan'
 
   return (
     <div className="space-y-6">
@@ -106,6 +109,8 @@ export function TodayPage() {
         {mission.isSuccess && <SprintDialog />}
       </header>
 
+      <GameHeader />
+
       {mission.isLoading && <SkeletonList rows={3} />}
 
       {hasNoPlan && (
@@ -113,8 +118,8 @@ export function TodayPage() {
           <CardHeader>
             <CardTitle>Comece pelo seu plano</CardTitle>
             <CardDescription>
-              A missão diária aparece assim que existir um plano — e o plano sai de dados
-              reais, não de suposição.
+              A missão diária aparece assim que existir um plano — e o plano sai de dados reais,
+              não de suposição.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -164,8 +169,8 @@ export function TodayPage() {
           {mission.data.overdue_count > 0 && (
             <Alert tone="warning" title={`${mission.data.overdue_count} tarefa(s) atrasada(s)`}>
               <p>
-                O plano não acumula dívida: o replanejamento redistribui o que couber e
-                declara o que ficou de fora.
+                O plano não acumula dívida: o replanejamento redistribui o que couber e declara
+                o que ficou de fora.
               </p>
               <Button
                 variant="outline"

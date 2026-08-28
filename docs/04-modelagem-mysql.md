@@ -270,3 +270,46 @@ notifications(id, user_id, kind, title, body, action_url, data JSON, read_at, cr
 - `questions.checksum` (SHA-256 do enunciado normalizado) evita duplicata na ingestão.
 - `topic_incidence` e `board_profile_metrics` são tabelas materializadas recomputadas por job, nunca escritas por LLM.
 - Contadores derivados (`question_stats`, `*_progress`) são atualizados por worker idempotente, não em request path.
+
+## 4.9 Gamificação — camada transversal (G1)
+
+```
+game_rules(id, key UNIQUE, label, xp_value, daily_cap, config JSON, is_enabled,
+      updated_by_user_id)
+  A fonte da verdade das regras de pontuação. O código traz o padrão de fábrica;
+  esta tabela vence. Mudar XP é UPDATE, não deploy.
+gamification_profiles(id, user_id UNIQUE, level, xp_total, rank_slug,
+      rank_score DECIMAL(5,4), rank_components JSON, rank_missing_signals JSON,
+      current_streak, longest_streak, last_active_on DATE, streak_shields_left,
+      streak_shield_renewed_on DATE, missions_completed, achievements_count, computed_at)
+  Leitura rápida. **A verdade é o razão**: `xp_total` é sempre reconstruível somando
+  `xp_transactions`. `rank_components` guarda as parcelas que somam o score exibido.
+xp_transactions(id, public_id, user_id, event_kind, amount SMALLINT, base_amount,
+      multiplier DECIMAL(4,2), reason, reference, metrics JSON, capped, cap_reason, day DATE)
+  UNIQUE (user_id, event_kind, reference) · IDX (user_id, day), (user_id, created_at)
+  Audit trail obrigatório: todo ganho vira linha com o motivo e a métrica que o
+  justificou. O UNIQUE é o que torna a pontuação idempotente — o mesmo simulado não
+  pontua duas vezes. Corte por teto grava `capped=true` com o motivo legível.
+missions(id, public_id, user_id, scope[DAILY|WEEKLY|SPECIAL], kind, title, description,
+      target_metric, target_value, current_value, baseline_value, xp_reward, priority,
+      difficulty, estimated_minutes, status[PENDING|DONE|CLAIMED|EXPIRED],
+      generated_by[RULE|AI], rationale, source JSON, valid_from DATE, valid_until DATE,
+      completed_at, claimed_at)
+  UNIQUE (user_id, kind, valid_from) · IDX (user_id, valid_from, status)
+  `rationale` guarda **por que a missão existe** — o sinal real que a gerou.
+  `baseline_value` congela o contador na criação, para que a missão não nasça cumprida
+  por atividade de ontem. `current_value` é recontado da atividade real, nunca marcado.
+achievements(id, slug UNIQUE, name, description, category, icon, tier, criteria JSON,
+      xp_reward, is_secret, is_active)
+user_achievements(id, user_id, achievement_id, unlocked_at, progress JSON)
+  UNIQUE (user_id, achievement_id) · IDX (user_id, unlocked_at)
+streak_days(id, user_id, day DATE, minutes, tasks_done, mission_completed, qualified,
+      shield_used)
+  UNIQUE (user_id, day) · IDX (user_id, day)
+  Histórico dia a dia. É daqui que saem sequência atual, recorde, média e o sinal de
+  consistência do rank.
+```
+
+Reservadas para G2–G4, ainda **não criadas**: `seasons`, `season_progress`, `leagues`,
+`league_members`, `challenges`, `challenge_attempts`, `rewards`, `user_rewards`,
+`game_events`.

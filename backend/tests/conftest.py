@@ -45,7 +45,7 @@ from app.main import create_app  # noqa: E402
 from app.services import auth as auth_service  # noqa: E402
 from app.services import mailer  # noqa: E402
 from app.services.email import EmailMessageData  # noqa: E402
-from app.services.seed import sync_rbac, sync_trap_patterns  # noqa: E402
+from app.services.seed import sync_gamification, sync_rbac, sync_trap_patterns  # noqa: E402
 
 
 class CapturingDispatcher:
@@ -78,6 +78,7 @@ async def app_instance() -> AsyncIterator[Any]:
     async with factory() as session:
         await sync_rbac(session)
         await sync_trap_patterns(session)
+        await sync_gamification(session)
 
     application = create_app()
     yield application

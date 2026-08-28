@@ -93,6 +93,17 @@ async def sync_trap_patterns(session: AsyncSession) -> int:
     return created
 
 
+async def sync_gamification(session: AsyncSession) -> tuple[int, int]:
+    """Semeia as regras de pontuação e o catálogo de conquistas."""
+    from app.services.game_engine import GameEngine
+
+    engine = GameEngine(session)
+    rules = await engine.sync_rules()
+    achievements = await engine.sync_achievements()
+    logger.info("seed.game.synced", rules=rules, achievements=achievements)
+    return rules, achievements
+
+
 async def ensure_bootstrap_admin(session: AsyncSession) -> User | None:
     """Cria o administrador inicial se ainda não existir nenhum superusuário."""
     existing = (

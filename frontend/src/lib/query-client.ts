@@ -68,4 +68,10 @@ export const queryKeys = {
   flashcards: (params: unknown) => ['flashcards', params] as const,
   reviewQueue: (params: unknown) => ['review', 'queue', params] as const,
   reviewStats: ['review', 'stats'] as const,
+  gameProfile: ['game', 'profile'] as const,
+  gameMissions: ['game', 'missions', 'today'] as const,
+  gameAchievements: ['game', 'achievements'] as const,
+  gameStreak: ['game', 'streak'] as const,
+  gameXpHistory: (params: unknown) => ['game', 'xp', params] as const,
+  gameRules: ['admin', 'game', 'rules'] as const,
 }

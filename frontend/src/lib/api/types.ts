@@ -1072,3 +1072,156 @@ export interface CardGeneration {
   model: string | null
   prompt_version: string | null
 }
+
+// --------------------------------------------------------------------------- //
+// Gamificação
+// --------------------------------------------------------------------------- //
+export type RankSlug =
+  'FERRO' | 'BRONZE' | 'PRATA' | 'OURO' | 'PLATINA' | 'DIAMANTE' | 'MESTRE' | 'GRAO_MESTRE'
+export type MissionStatus = 'PENDING' | 'DONE' | 'CLAIMED' | 'EXPIRED'
+export type MissionPriority = 'HIGH' | 'MEDIUM' | 'LOW'
+
+export interface LevelInfo {
+  level: number
+  xp_total: number
+  xp_into_level: number
+  xp_for_next: number | null
+  ratio: number
+  is_max: boolean
+}
+
+export interface RankComponent {
+  key: string
+  label: string
+  weight: number
+  /** Nulo quando o sinal ainda não tem amostra. */
+  value: number | null
+  points: number
+  available: boolean
+  detail: string
+}
+
+export interface RankInfo {
+  slug: RankSlug
+  name: string
+  color_token: string
+  score: number
+  /** As contribuições somam exatamente o score. */
+  components: RankComponent[]
+  missing_signals: string[]
+  coverage: number
+  next_tier: string | null
+  next_tier_name: string | null
+  progress_to_next: number
+}
+
+export interface StreakInfo {
+  current: number
+  longest: number
+  average: number
+  active_days: number
+  shields_left: number
+  last_qualified_on: string | null
+  history: { day: string; qualified: boolean; shielded: boolean }[]
+  /** Texto factual, sem linguagem de ameaça. */
+  message: string
+}
+
+export interface GameProfile {
+  level: LevelInfo
+  rank: RankInfo
+  streak: StreakInfo
+  xp_today: number
+  missions_completed: number
+  achievements_count: number
+  metrics: Record<string, number>
+  computed_at: string | null
+  /** O Mestre Score chega na Fase 9; aqui ele é declarado, não inventado. */
+  master_score: number | null
+  master_score_note: string
+}
+
+export interface Mission {
+  public_id: string
+  scope: string
+  kind: string
+  title: string
+  description: string
+  target_metric: string
+  target_value: number
+  current_value: number
+  progress_ratio: number
+  xp_reward: number
+  priority: MissionPriority
+  difficulty: string
+  estimated_minutes: number
+  status: MissionStatus
+  /** O número real que gerou a missão. */
+  rationale: string
+  valid_from: string
+}
+
+export interface DailyBoard {
+  missions: Mission[]
+  completed: number
+  total: number
+  bonus_xp: number
+  bonus_claimed: boolean
+  all_done: boolean
+  xp_today: number
+  has_plan: boolean
+  empty_reason: string | null
+}
+
+export interface ClaimResult {
+  mission: Mission
+  xp_awarded: number
+  leveled_up: boolean
+  level: number
+  bonus: { amount: number; reason: string } | null
+}
+
+export interface GameAchievement {
+  slug: string
+  name: string
+  description: string
+  category: string
+  icon: string
+  tier: string
+  xp_reward: number
+  is_secret: boolean
+  unlocked: boolean
+  unlocked_at: string | null
+  current: number
+  threshold: number
+  ratio: number | null
+  blocked_reason: string | null
+}
+
+export interface AchievementList {
+  items: GameAchievement[]
+  unlocked_count: number
+  total_visible: number
+  secret_count: number
+  secret_unlocked: number
+}
+
+export interface XPTransaction {
+  public_id: string
+  event_kind: string
+  amount: number
+  reason: string
+  capped: boolean
+  cap_reason: string | null
+  day: string
+  created_at: string
+}
+
+export interface GameRule {
+  key: string
+  label: string
+  xp_value: number
+  daily_cap: number
+  is_enabled: boolean
+  updated_at: string
+}

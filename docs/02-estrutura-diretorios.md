@@ -61,7 +61,8 @@ backend/
 │   │   ├── questions/            (F5)  # correção e seleção de questões
 │   │   ├── intelligence/         (F6)  # incidência, Priority Score, perfil, erros
 │   │   ├── tutor/                (F7)  # preparo da pergunta, fusão, conferência
-│   │   └── srs/                  (F8)  # intervalos e fila de revisão
+│   │   ├── srs/                  (F8)  # intervalos e fila de revisão
+│   │   └── game/                 (G1)  # XP, níveis, ranks, streak, missões
 │   ├── api/
 │   │   ├── deps.py               (F1)  # get_db, current_user, require_perm
 │   │   └── v1/

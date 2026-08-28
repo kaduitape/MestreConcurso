@@ -13,6 +13,7 @@ import {
   Sparkles,
   Target,
   TrendingUp,
+  Trophy,
   User,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -36,6 +37,7 @@ export const navigation: NavGroup[] = [
     title: 'Preparação',
     items: [
       { label: 'Hoje', to: '/hoje', icon: LayoutDashboard },
+      { label: 'Missões', to: '/missoes', icon: Target },
       { label: 'Concursos', to: '/concursos', icon: Briefcase },
       { label: 'Plano de estudo', to: '/plano', icon: Target },
       { label: 'Calendário', to: '/calendario', icon: CalendarDays },
@@ -64,6 +66,7 @@ export const navigation: NavGroup[] = [
   {
     title: 'Conta',
     items: [
+      { label: 'Meu progresso', to: '/progresso', icon: Trophy },
       { label: 'Minha conta', to: '/conta', icon: User },
       {
         label: 'Administração',

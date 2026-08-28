@@ -17,6 +17,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
+from app.domain.game import GameEvent, GameEventKind
 from app.domain.questions import AnswerInput, QuestionInfo, correct_attempt, distribute_by_weight
 from app.models.audit import AuditAction
 from app.models.catalog import Position, PositionSubject
@@ -40,6 +41,7 @@ from app.repositories.question import (
 )
 from app.services.audit import AuditService
 from app.services.auth import RequestContext
+from app.services.game_engine import GameEngine
 from app.services.practice import PracticeService
 
 logger = get_logger(__name__)
@@ -512,6 +514,16 @@ class SimulationService:
             meta={"score": analysis.score, "total": analysis.total},
         )
         await self.session.commit()
+
+        await GameEngine(self.session).award(
+            user,
+            GameEvent(
+                GameEventKind.SIMULATION_FINISHED,
+                {"questions": float(analysis.total), "accuracy": float(analysis.accuracy)},
+                reference=attempt.public_id,
+            ),
+        )
+
         logger.info(
             "simulation.finished",
             user=user.public_id,

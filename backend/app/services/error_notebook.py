@@ -19,6 +19,7 @@ from app.ai.base import ChatMessage, CompletionRequest, ProviderError
 from app.ai.prompts import get_prompt, latest_version
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
+from app.domain.game import GameEvent, GameEventKind
 from app.domain.intelligence import ErrorNotebook, ErrorRecord, build_notebook
 from app.models.ai import AIFeature
 from app.models.intelligence import AnalysisSource, ErrorAnalysis, ErrorCause, TrapPattern
@@ -27,6 +28,7 @@ from app.models.user import User
 from app.repositories.intelligence import ErrorAnalysisRepository, TrapPatternRepository
 from app.services.ai_cache import AICacheService, fingerprint
 from app.services.ai_settings import AISettingsService
+from app.services.game_engine import GameEngine
 
 logger = get_logger(__name__)
 
@@ -125,6 +127,16 @@ class ErrorNotebookService:
 
         stored = await self.analyses.get_for_attempt(attempt.id)
         assert stored is not None
+
+        await GameEngine(self.session).award(
+            user,
+            GameEvent(
+                GameEventKind.ERROR_CLASSIFIED,
+                {"errors": 1.0},
+                reference=stored.public_id,
+            ),
+        )
+
         logger.info("error_notebook.classified", user=user.public_id, cause=cause)
         return stored
 

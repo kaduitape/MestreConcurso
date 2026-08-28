@@ -12,6 +12,7 @@ from app.api.v1.routers import (
     auth,
     catalog,
     flashcards,
+    game,
     intelligence,
     notice_analysis,
     questions,
@@ -29,6 +30,7 @@ api_router.include_router(questions.router)
 api_router.include_router(intelligence.router)
 api_router.include_router(tutor.router)
 api_router.include_router(flashcards.router)
+api_router.include_router(game.router)
 api_router.include_router(admin.router)
 api_router.include_router(admin_ai.router)
 api_router.include_router(admin_catalog.router)

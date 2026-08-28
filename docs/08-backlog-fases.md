@@ -54,3 +54,17 @@ Planos, features/entitlements, assinaturas, trial, cupons, upgrade/downgrade, Me
 
 ## Transversais (contínuos)
 Segurança e LGPD (exportação/exclusão de conta desde a Fase 1), observabilidade, performance, PWA, acessibilidade AA, testes E2E a partir da Fase 4.
+
+---
+
+## GAMIFICAÇÃO — camada transversal
+
+Projeto completo em `docs/19-gamificacao-arquitetura.md`.
+
+### G1 — Motor, XP, níveis, sequência, missões e conquistas  ✅ implementada
+Mestre Game Engine reativo a eventos, XP com razão contábil e antiabuso, níveis, rank de desempenho, sequência com proteção, missões diárias geradas de sinal real, conquistas, Central de Missões, perfil e painel de regras.
+**Aceite:** ver `docs/20-criterios-aceite-gamificacao-1.md`. Regra que sustenta a camada: **XP mede esforço útil, rank mede desempenho, e nenhum dos dois mede cliques.**
+
+### G2 — Ranks na interface comparativa, Você vs Banca, Jornada da Aprovação, Mapa do Edital
+### G3 — Temporadas, ligas, Boss Battle, Sobrevivência, Combo, Contra o Relógio
+### G4 — Desafio entre amigos, card compartilhável, eventos especiais e Modo Guerra
