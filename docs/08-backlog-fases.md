@@ -46,8 +46,10 @@ Flashcards com origem declarada (mão, IA com citação conferida, questão erra
 **Aceite:** ver `docs/18-criterios-aceite-fase8.md`. Regra que sustenta a fase: **a fila nunca explode** — o excedente é redistribuído com o motivo declarado, e todo intervalo vem explicado.
 Ainda não entra aqui: fila unificada com tópicos e vocabulário (depende da Fase 9) e curadoria de cartões globais.
 
-## FASE 9 — Analytics
-Mestre Score, "Se a prova fosse hoje", Caminho da Aprovação, dashboards (cobertura, retenção, consistência, evolução), Reta Final / Modo Guerra. **Aceite:** cada gráfico tem uma decisão associada; intervalos de confiança sempre visíveis.
+## FASE 9 — Analytics  ✅ implementada
+Mestre Score de 0 a 1000 com faixa de incerteza, "Se a prova fosse hoje", Caminho da Aprovação e os painéis de acerto, retenção, cobertura e consistência. O Modo Guerra saiu na G4.
+**Aceite:** ver `docs/24-criterios-aceite-fase9.md`. Regra que sustenta a fase: **cada gráfico tem uma decisão associada e todo intervalo é visível** — e toda estatística nasce em Python determinístico, nunca na IA.
+Ainda não entra aqui: comparação com nota de corte (depende de dado oficial que a plataforma não tem) e fila unificada de revisão com tópicos e vocabulário.
 
 ## FASE 10 — Comercial
 Planos, features/entitlements, assinaturas, trial, cupons, upgrade/downgrade, Mercado Pago + webhooks idempotentes, limites de consumo de IA, faturamento, dashboard SaaS (MRR, churn, ARPU, custo de IA). **Aceite:** ciclo completo assinar → cobrar → limitar → cancelar, com limites vindos do banco.

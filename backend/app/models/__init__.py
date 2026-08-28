@@ -9,6 +9,7 @@ from app.models.ai import (
     AIProviderSlug,
     AIUsage,
 )
+from app.models.analytics import MasterScoreSnapshot
 from app.models.audit import AuditLog, ConsentLog
 from app.models.board_knowledge import (
     BoardKnowledgeEntry,
@@ -154,6 +155,7 @@ __all__ = [
     "GamificationProfile",
     "GovernmentSphere",
     "KnowledgeSource",
+    "MasterScoreSnapshot",
     "Message",
     "MessageRole",
     "Mission",

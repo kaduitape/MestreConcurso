@@ -87,6 +87,14 @@ A plataforma responde continuamente a uma única pergunta:
   padrão, estatística sem amostra fica de fora com o motivo à vista, verificação literal
   contra qualquer promessa de aprovação, conteúdo congelado na publicação e link revogável.
 
+- **Fase 9:** o **Mestre Score** de 0 a 1000 — competência real, com **faixa de incerteza
+  desenhada na tela** e XP fora da conta por construção. Junto vêm o "Se a prova fosse
+  hoje", que estima nota com intervalo e declara qual fatia da prova a estimativa cobre
+  (abaixo de metade, nenhum total é afirmado), o **Caminho da Aprovação** com o número real
+  atrás de cada recomendação, e quatro painéis em que **todo gráfico declara a decisão que
+  serve**. Toda a estatística — intervalo de Wilson, propagação e arredondamento — nasce em
+  Python determinístico: a IA nunca é responsável sozinha por cálculo estatístico.
+
 As demais fases estão especificadas em [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md)
 e ainda **não** foram implementadas — a interface indica explicitamente o que está por vir,
 sem telas ilustrativas nem dados fictícios.
@@ -125,6 +133,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [21 — Critérios de aceite da Gamificação 2](docs/21-criterios-aceite-gamificacao-2.md) | histórico de rank, Você vs Banca, jornada e mapa do edital |
 | [22 — Critérios de aceite da Gamificação 3](docs/22-criterios-aceite-gamificacao-3.md) | temporadas, ligas por contexto e modos de desafio |
 | [23 — Critérios de aceite da Gamificação 4](docs/23-criterios-aceite-gamificacao-4.md) | duelos, eventos, Modo Guerra e card compartilhável |
+| [24 — Critérios de aceite da Fase 9](docs/24-criterios-aceite-fase9.md) | Mestre Score, projeção, caminho e painéis com decisão |
 
 ## Como executar
 

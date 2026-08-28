@@ -70,6 +70,10 @@ class ProfileRead(BaseModel):
     computed_at: datetime | None = None
     # O Mestre Score chega na Fase 9; o lugar dele é declarado, não inventado.
     master_score: int | None = None
+    #: A faixa do Mestre Score. Nula enquanto não houver amostra alguma.
+    master_score_low: int | None = None
+    master_score_high: int | None = None
+    master_score_confidence: str | None = None
     master_score_note: str
 
 

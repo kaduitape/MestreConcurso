@@ -1138,6 +1138,9 @@ export interface GameProfile {
   computed_at: string | null
   /** O Mestre Score chega na Fase 9; aqui ele é declarado, não inventado. */
   master_score: number | null
+  master_score_low: number | null
+  master_score_high: number | null
+  master_score_confidence: ConfidenceLevel | null
   master_score_note: string
 }
 
@@ -1603,6 +1606,140 @@ export interface PublishedCard extends ShareCard {
   token: string
   revoked_at: string | null
   created_at: string
+}
+
+// --------------------------------------------------------------------------- //
+// Analytics (Fase 9) — Mestre Score, projeção, caminho e painéis
+// --------------------------------------------------------------------------- //
+export type ConfidenceLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH'
+
+export interface ScoreComponent {
+  key: string
+  label: string
+  weight: number
+  /** Pontos na escala 0–1000. As parcelas somam exatamente o score exibido. */
+  points: number
+  value: number | null
+  low: number | null
+  high: number | null
+  sample: number
+  available: boolean
+  confidence: ConfidenceLevel
+  detail: string
+}
+
+export interface MasterScore {
+  value: number
+  /** A faixa aparece na tela junto do valor, sempre. */
+  low: number
+  high: number
+  band: string
+  band_note: string
+  confidence: ConfidenceLevel
+  available_weight: number
+  components: ScoreComponent[]
+  missing_signals: string[]
+  interval_note: string
+  empty_reason: string | null
+}
+
+export interface ScorePoint {
+  day: string
+  value: number
+  low: number
+  high: number
+  band: string
+  confidence: ConfidenceLevel
+}
+
+export interface ScoreHistory {
+  points: ScorePoint[]
+  delta: number | null
+  empty_reason: string | null
+}
+
+export interface SubjectProjection {
+  subject_id: number | null
+  name: string
+  questions: number
+  weight: number
+  is_eliminatory: boolean
+  accuracy: number | null
+  low: number | null
+  high: number | null
+  expected: number | null
+  expected_low: number | null
+  expected_high: number | null
+  sample: number
+  included: boolean
+  confidence: ConfidenceLevel
+  detail: string
+  risk_note: string | null
+}
+
+export interface ExamProjection {
+  total_questions: number
+  covered_questions: number
+  /** Fatia da prova coberta pela estimativa. Sempre exibida. */
+  coverage: number
+  expected: number | null
+  expected_low: number | null
+  expected_high: number | null
+  expected_percent: number | null
+  subjects: SubjectProjection[]
+  confidence: ConfidenceLevel
+  is_reliable: boolean
+  /** A plataforma não estima chance de aprovação. */
+  disclaimer: string
+  empty_reason: string | null
+}
+
+export type PathActionKind = 'MEASURE' | 'IMPROVE' | 'MAINTAIN'
+
+export interface PathStep {
+  subject_id: number | null
+  subject_name: string
+  kind: PathActionKind
+  label: string
+  action: string
+  /** O número real que gerou a recomendação. */
+  evidence: string
+  questions_at_stake: number
+  is_eliminatory: boolean
+  risk_note: string | null
+}
+
+export interface StudyPath {
+  steps: PathStep[]
+  disclaimer: string
+  empty_reason: string | null
+}
+
+export interface ChartPoint {
+  label: string
+  value: number
+  low: number | null
+  high: number | null
+  sample: number
+  day: string | null
+}
+
+export interface AnalyticsChart {
+  key: string
+  title: string
+  /** Para que serve decidir. Nenhum gráfico entra sem isto. */
+  decision: string
+  unit: string
+  points: ChartPoint[]
+  empty_reason: string | null
+  note: string
+}
+
+export interface AnalyticsOverview {
+  master_score: MasterScore
+  projection: ExamProjection
+  path: StudyPath
+  charts: AnalyticsChart[]
 }
 
 export interface GameRule {

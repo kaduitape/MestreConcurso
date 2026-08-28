@@ -68,7 +68,7 @@ export const navigation: NavGroup[] = [
       { label: 'Inteligência', to: '/inteligencia', icon: Sparkles },
       { label: 'Mestre IA', to: '/mestre-ia', icon: Brain },
       { label: 'Vocabulário', to: '/vocabulario', icon: BookMarked },
-      { label: 'Analytics', icon: TrendingUp, phase: 'Fase 9' },
+      { label: 'Analytics', to: '/analytics', icon: TrendingUp },
     ],
   },
   {

@@ -81,9 +81,12 @@ async def test_new_candidate_starts_at_iron_because_there_is_nothing_to_measure(
         assert component["available"] is False
         assert component["detail"]
 
-    # O Mestre Score não é inventado: o lugar dele é declarado.
+    # O Mestre Score existe desde a Fase 9, mas não é inventado: sem amostra,
+    # o perfil mostra a ausência e o que falta para medi-la.
     assert body["master_score"] is None
-    assert "Fase 9" in body["master_score_note"]
+    assert body["master_score_low"] is None
+    assert body["master_score_confidence"] == "NONE"
+    assert "amostra mínima" in body["master_score_note"]
 
 
 async def test_rank_components_sum_exactly_to_the_displayed_score(

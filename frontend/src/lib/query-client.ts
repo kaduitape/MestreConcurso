@@ -91,5 +91,8 @@ export const queryKeys = {
   gameWar: ['game', 'war'] as const,
   gameWarHistory: ['game', 'war', 'history'] as const,
   gameCards: ['game', 'cards'] as const,
+  analyticsOverview: ['analytics', 'overview'] as const,
+  analyticsMasterScore: ['analytics', 'master-score'] as const,
+  analyticsScoreHistory: (days: number) => ['analytics', 'master-score', days] as const,
   gameRules: ['admin', 'game', 'rules'] as const,
 }

@@ -72,6 +72,7 @@ from app.schemas.game import (
     XPTransactionRead,
 )
 from app.schemas.question import SaveAnswerInput
+from app.services.analytics import AnalyticsService
 from app.services.audit import AuditService
 from app.services.game_challenges import ChallengeService, RunView
 from app.services.game_engine import GameEngine
@@ -87,11 +88,11 @@ admin_router = APIRouter(prefix="/admin/game", tags=["admin · gamificação"])
 GameAdmin = Annotated[User, Depends(require_permissions(perms.INTELLIGENCE_WRITE))]
 PageDep = Annotated[PageParams, Depends(page_params)]
 
-# O Mestre Score pertence à Fase 9 e ainda não existe. Declaramos isso em vez de
-# exibir um número inventado no lugar dele.
+# O Mestre Score é calculado em Analytics (Fase 9). O perfil apenas o exibe —
+# e repete a regra que o define, porque é ela que o separa do XP ao lado.
 MASTER_SCORE_NOTE = (
-    "O Mestre Score chega na Fase 9 (Analytics). Ele medirá competência real e "
-    "não será alimentado por XP."
+    "O Mestre Score mede competência real, de 0 a 1000, e vem com faixa de "
+    "incerteza. XP não entra nesta conta."
 )
 
 
@@ -207,6 +208,8 @@ def _participation_read(record: SeasonParticipation, season_name: str) -> Season
 @game_router.get("/profile", response_model=ProfileRead, summary="Meu perfil de progresso")
 async def profile(user: CurrentUser, db: DbSession) -> ProfileRead:
     snapshot = await GameEngine(db).snapshot(user)
+    # O Mestre Score vive em Analytics; aqui ele é lido, nunca recalculado.
+    score = await AnalyticsService(db).master_score(user)
     level = snapshot["level"]
     rank = snapshot["rank"]
     streak = snapshot["streak"]
@@ -259,8 +262,11 @@ async def profile(user: CurrentUser, db: DbSession) -> ProfileRead:
         achievements_count=stored.achievements_count,
         metrics=snapshot["metrics"],
         computed_at=stored.computed_at,
-        master_score=None,
-        master_score_note=MASTER_SCORE_NOTE,
+        master_score=score.value if score.empty_reason is None else None,
+        master_score_low=score.low if score.empty_reason is None else None,
+        master_score_high=score.high if score.empty_reason is None else None,
+        master_score_confidence=score.confidence,
+        master_score_note=score.empty_reason or MASTER_SCORE_NOTE,
     )
 
 
