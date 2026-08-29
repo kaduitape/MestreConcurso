@@ -64,6 +64,7 @@ jobs:
           git pull --ff-only origin master
 
           compose="docker compose --env-file .env -f docker-compose.yml -f docker-compose.production.yml"
+          $compose config -q
           $compose up -d --build --remove-orphans
           $compose exec -T api alembic upgrade head
 

@@ -1,6 +1,13 @@
 # Sobreposição usada exclusivamente na VPS. Nunca execute junto do override de
 # desenvolvimento, que monta o código local e habilita recarga automática.
 services:
+  # Internal services must not be published directly from the VPS.
+  mysql:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
   api:
     build:
       target: runtime
@@ -9,6 +16,11 @@ services:
       ENVIRONMENT: production
       DEBUG: "false"
       RUN_SEED: "true"
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?set a strong VPS .env password}
+    ports: !reset []
+
+  qdrant:
+    ports: !reset []
 
   worker:
     build:
@@ -28,7 +40,11 @@ services:
     build:
       target: web
       args:
-        VITE_API_URL: ${VITE_API_URL:?defina a URL pública da API no .env da VPS}
+        # "/" makes the client use /api/v1, proxied by nginx to the API.
+        VITE_API_URL: ${VITE_API_URL:-/}
     environment: !reset []
     ports: !reset
       - "${FRONTEND_PORT:-80}:80"
+
+  mailhog:
+    ports: !reset []
