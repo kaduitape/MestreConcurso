@@ -46,7 +46,7 @@ RUN sed -i 's/\r$//' docker/entrypoint.sh \
     # Diretório de uploads criado com dono correto: o volume nomeado herda estas
     # permissões e o processo (uid 1000) consegue gravar.
     && mkdir -p /var/lib/mestre/uploads \
-    && chown -R app:app /var/lib/mestre
+    && chown -R app:app /app /var/lib/mestre
 
 USER app
 EXPOSE 8000
