@@ -1,7 +1,19 @@
 # Ajustes de desenvolvimento: código montado do host e recarga automática.
 # Carregado automaticamente pelo `docker compose up`.
 services:
+  # As portas abaixo existem apenas no ambiente local. A VPS usa
+  # docker-compose.production.yml, que mantem os servicos de dados privados.
+  mysql:
+    ports:
+      - "${MYSQL_EXTERNAL_PORT:-3306}:3306"
+
+  redis:
+    ports:
+      - "${REDIS_EXTERNAL_PORT:-6379}:6379"
+
   api:
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./backend:/app
       - uploads_data:/var/lib/mestre/uploads
@@ -23,9 +35,19 @@ services:
       LOG_FORMAT: console
 
   frontend:
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
+
+  qdrant:
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+
+  mailhog:
+    ports:
+      - "${MAILHOG_UI_PORT:-8025}:8025"
 
 volumes:
   uploads_data:

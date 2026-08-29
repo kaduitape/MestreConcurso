@@ -38,8 +38,6 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?defina MYSQL_PASSWORD no .env}
     volumes:
       - mysql_data:/var/lib/mysql
-    ports:
-      - "${MYSQL_EXTERNAL_PORT:-3306}:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
@@ -53,8 +51,6 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
-    ports:
-      - "${REDIS_EXTERNAL_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -68,8 +64,6 @@ services:
       target: ${BACKEND_TARGET:-dev}
     command: ["api-reload"]
     environment: *backend-env
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - uploads_data:/var/lib/mestre/uploads
     depends_on:
@@ -83,8 +77,6 @@ services:
     image: qdrant/qdrant:latest
     volumes:
       - qdrant_data:/qdrant/storage
-    ports:
-      - "${QDRANT_PORT:-6333}:6333"
     restart: unless-stopped
 
   worker:
@@ -130,16 +122,12 @@ services:
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
       VITE_APP_NAME: ${VITE_APP_NAME:-Game of Concursos}
-    ports:
-      - "${FRONTEND_PORT:-5173}:5173"
     depends_on:
       - api
     restart: unless-stopped
 
   mailhog:
     image: mailhog/mailhog:latest
-    ports:
-      - "${MAILHOG_UI_PORT:-8025}:8025"
     restart: unless-stopped
 
 volumes:
