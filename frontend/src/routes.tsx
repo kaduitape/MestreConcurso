@@ -133,6 +133,16 @@ const CompetitionDetailPage = lazy(() =>
     default: module.CompetitionDetailPage,
   })),
 )
+const TrainingLibraryPage = lazy(() =>
+  import('@/features/training/training-library-page').then((module) => ({
+    default: module.TrainingLibraryPage,
+  })),
+)
+const TrainingPlayerPage = lazy(() =>
+  import('@/features/training/training-player-page').then((module) => ({
+    default: module.TrainingPlayerPage,
+  })),
+)
 
 function lazyRoute(element: ReactNode): ReactNode {
   return (
@@ -197,6 +207,8 @@ export const router = createBrowserRouter([
           { path: '/plano-e-cobranca', element: lazyRoute(<BillingPage />) },
           { path: '/concursos', element: lazyRoute(<CompetitionsPage />) },
           { path: '/concursos/:publicId', element: lazyRoute(<CompetitionDetailPage />) },
+          { path: '/treinamentos', element: lazyRoute(<TrainingLibraryPage />) },
+          { path: '/dia-de-treinamento/:publicId', element: lazyRoute(<TrainingPlayerPage />) },
           { path: '/conta', element: <AccountPage /> },
           {
             element: <RequirePermission permission="admin_dashboard:read" />,

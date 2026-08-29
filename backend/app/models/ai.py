@@ -36,6 +36,7 @@ class AIProviderSlug(StrEnum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
+    AISA = "aisa"
 
 
 class AIFeature(StrEnum):
@@ -49,6 +50,7 @@ class AIFeature(StrEnum):
     FLASHCARD_GENERATION = "flashcard.generation"
     EMBEDDINGS = "embeddings.default"
     RERANK = "rerank.default"
+    TRAINING_SCRIPT = "training.script"
 
 
 class AIProviderConfig(IdMixin, TimestampMixin, Base):

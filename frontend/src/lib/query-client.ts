@@ -100,4 +100,8 @@ export const queryKeys = {
   billingInvoices: ['billing', 'invoices'] as const,
   billingDashboard: ['admin', 'billing', 'dashboard'] as const,
   gameRules: ['admin', 'game', 'rules'] as const,
+  adminTraining: (params: unknown) => ['admin', 'training', params] as const,
+  adminTrainingLesson: (publicId: string) => ['admin', 'training', publicId] as const,
+  training: (params: unknown) => ['training', params] as const,
+  trainingLesson: (publicId: string) => ['training', publicId] as const,
 }

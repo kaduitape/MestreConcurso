@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, KeyRound, PlugZap, RefreshCw, ShieldAlert, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -20,9 +20,22 @@ function formatDate(value: string | null): string {
 export function ProviderCard({ provider }: { provider: AIProvider }) {
   const queryClient = useQueryClient()
   const [apiKey, setApiKey] = useState('')
+  const [baseUrl, setBaseUrl] = useState(provider.base_url ?? '')
   const [check, setCheck] = useState<ConnectionCheck | null>(null)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'ai'] })
+
+  useEffect(() => setBaseUrl(provider.base_url ?? ''), [provider.base_url])
+
+  const saveEndpoint = useMutation({
+    mutationFn: () => aiApi.updateProvider(provider.slug, { base_url: baseUrl.trim() || null }),
+    onSuccess: () => {
+      toast.success('Endpoint salvo.')
+      invalidate()
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof ApiError ? error.message : 'Não foi possível salvar o endpoint.'),
+  })
 
   const saveKey = useMutation({
     mutationFn: () => aiApi.setKey(provider.slug, apiKey.trim()),
@@ -145,6 +158,33 @@ export function ProviderCard({ provider }: { provider: AIProvider }) {
             {provider.last_test_message}
           </Alert>
         )}
+
+        <form
+          className="flex flex-col gap-2 sm:flex-row sm:items-end"
+          onSubmit={(event) => {
+            event.preventDefault()
+            saveEndpoint.mutate()
+          }}
+        >
+          <Field
+            className="flex-1"
+            label="Base URL"
+            htmlFor={`base-url-${provider.slug}`}
+            hint="Para AISA.one, use https://api.aisa.one/v1."
+          >
+            <Input
+              id={`base-url-${provider.slug}`}
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              value={baseUrl}
+              onChange={(event) => setBaseUrl(event.target.value)}
+            />
+          </Field>
+          <Button type="submit" variant="outline" loading={saveEndpoint.isPending}>
+            Salvar endpoint
+          </Button>
+        </form>
 
         <form
           className="space-y-3"
