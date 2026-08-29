@@ -162,7 +162,7 @@ const card: ShareCard = {
   ],
   omitted: ['Taxa de acerto fica de fora: são precisas 30 respostas e há 12.'],
   footer:
-    'Números do meu progresso no Concurso Mestre IA. Medem estudo e desempenho, não resultado em prova.',
+    'Números do meu progresso no Game of Concursos. Medem estudo e desempenho, não resultado em prova.',
 }
 
 describe('ShareCardPreview', () => {

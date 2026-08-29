@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { GameButton } from '@/components/game/game-button'
 import { ApiError } from '@/lib/api/client'
 import { studyApi } from '@/lib/api/study'
 import { queryKeys } from '@/lib/query-client'
@@ -72,9 +73,9 @@ export function StudyTimer({ taskPublicId }: { taskPublicId?: string }) {
 
   if (!current) {
     return (
-      <Button onClick={() => start.mutate()} loading={start.isPending}>
-        <Play /> Começar estudo
-      </Button>
+      <GameButton size="lg" onClick={() => start.mutate()} loading={start.isPending}>
+        <Play /> Começar missão
+      </GameButton>
     )
   }
 
@@ -96,11 +97,21 @@ export function StudyTimer({ taskPublicId }: { taskPublicId?: string }) {
 
         <div className="flex gap-2">
           {isRunning ? (
-            <Button variant="outline" size="sm" onClick={() => pause.mutate()} loading={pause.isPending}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => pause.mutate()}
+              loading={pause.isPending}
+            >
               <Pause /> Pausar
             </Button>
           ) : (
-            <Button variant="outline" size="sm" onClick={() => resume.mutate()} loading={resume.isPending}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => resume.mutate()}
+              loading={resume.isPending}
+            >
               <Play /> Retomar
             </Button>
           )}

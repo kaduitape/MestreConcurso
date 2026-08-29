@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     )
 
     # --- Aplicação ---------------------------------------------------------
-    app_name: str = "Concurso Mestre IA"
+    app_name: str = "Game of Concursos"
     environment: Environment = "development"
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
@@ -83,7 +83,7 @@ class Settings(BaseSettings):
 
     # --- E-mail ------------------------------------------------------------
     email_backend: Literal["console", "smtp"] = "console"
-    email_from: str = "Concurso Mestre IA <nao-responda@mestreconcurso.com.br>"
+    email_from: str = "Game of Concursos <nao-responda@mestreconcurso.com.br>"
     smtp_host: str = "mailhog"
     smtp_port: int = 1025
     smtp_user: str = ""

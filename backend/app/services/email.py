@@ -90,7 +90,7 @@ def build_verification_email(to: str, name: str, token: str) -> EmailMessageData
     hours = settings.email_verification_expire_hours
     return EmailMessageData(
         to=to,
-        subject="Confirme seu e-mail — Concurso Mestre IA",
+        subject="Confirme seu e-mail — Game of Concursos",
         text_body=(
             f"Olá, {name}!\n\nConfirme seu e-mail para ativar sua conta:\n{url}\n\n"
             f"O link expira em {hours} horas.\n"
@@ -111,7 +111,7 @@ def build_password_reset_email(to: str, name: str, token: str) -> EmailMessageDa
     minutes = settings.password_reset_expire_minutes
     return EmailMessageData(
         to=to,
-        subject="Redefinição de senha — Concurso Mestre IA",
+        subject="Redefinição de senha — Game of Concursos",
         text_body=(
             f"Olá, {name}!\n\nRecebemos um pedido para redefinir sua senha:\n{url}\n\n"
             f"O link expira em {minutes} minutos e só pode ser usado uma vez.\n"
@@ -132,7 +132,7 @@ def build_password_changed_email(to: str, name: str) -> EmailMessageData:
     url = f"{settings.frontend_url}/entrar"
     return EmailMessageData(
         to=to,
-        subject="Sua senha foi alterada — Concurso Mestre IA",
+        subject="Sua senha foi alterada — Game of Concursos",
         text_body=(
             f"Olá, {name}!\n\nA senha da sua conta foi alterada e todas as outras sessões "
             "foram encerradas.\nSe não foi você, redefina sua senha imediatamente: "

@@ -71,7 +71,7 @@ class ShareCard:
     #: O que ficou de fora, com o motivo — o card não esconde as lacunas.
     omitted: list[str] = field(default_factory=list)
     footer: str = (
-        "Números do meu progresso no Concurso Mestre IA. Medem estudo e desempenho, "
+        "Números do meu progresso no Game of Concursos. Medem estudo e desempenho, "
         "não resultado em prova."
     )
 

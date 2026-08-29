@@ -1,4 +1,4 @@
-# Frontend — Concurso Mestre IA
+# Frontend — Game of Concursos
 
 SPA em React + TypeScript + Vite, com design system próprio em Tailwind CSS 4.
 

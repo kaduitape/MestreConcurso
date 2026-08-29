@@ -1,4 +1,4 @@
-"""Ponto de entrada da API do Concurso Mestre IA."""
+"""Ponto de entrada da API do Game of Concursos."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from app.services.seed import sync_gamification, sync_rbac, sync_trap_patterns
 logger = get_logger(__name__)
 
 DESCRIPTION = """
-API do **Concurso Mestre IA** — plataforma de preparação inteligente para concursos.
+API do **Game of Concursos** — plataforma de preparação inteligente para concursos.
 
 Fase 1 (fundação): autenticação, contas, sessões/dispositivos, RBAC, auditoria,
 LGPD e painel administrativo. Os módulos de edital, estudo, questões e IA entram
@@ -78,7 +78,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         lifespan=lifespan,
-        contact={"name": "Concurso Mestre IA"},
+        contact={"name": "Game of Concursos"},
     )
 
     app.add_middleware(SecurityHeadersMiddleware)

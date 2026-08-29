@@ -35,7 +35,7 @@ export function PublicCardPage() {
         <>
           <ShareCardPreview card={card.data} />
           <p className="text-center text-xs text-subtle">
-            Concurso Mestre IA — preparação medida por dados reais.
+            Game of Concursos — preparação medida por dados reais.
           </p>
         </>
       )}

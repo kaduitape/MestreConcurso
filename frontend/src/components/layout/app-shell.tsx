@@ -20,11 +20,11 @@ export function AppShell() {
   }, [])
 
   return (
-    <div className="flex min-h-dvh bg-background">
+    <div className="game-shell dark relative flex min-h-dvh bg-background text-foreground">
       <Sidebar collapsed={collapsed} onToggle={toggleSidebar} />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col">
         <Topbar onOpenCommand={() => setCommandOpen(true)} />
-        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 lg:px-8 lg:py-8">
+        <main className="mx-auto w-full max-w-[1780px] flex-1 px-4 pt-5 pb-28 lg:px-6 lg:py-7">
           <Outlet />
         </main>
       </div>

@@ -1,7 +1,7 @@
 [project]
 name = "mestre-concurso-api"
 version = "0.1.0"
-description = "Concurso Mestre IA — API (FastAPI)"
+description = "Game of Concursos — API (FastAPI)"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.118",

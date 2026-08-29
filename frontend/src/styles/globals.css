@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* ==========================================================================
-   Design System — Concurso Mestre IA
+   Design System — Game of Concursos
    Um único lugar define cor, raio, sombra e tipografia. Componentes usam
    apenas tokens semânticos (bg-surface, text-muted…), nunca cores soltas.
    ========================================================================== */
@@ -9,6 +9,22 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  /* Game of Concursos */
+  --game-bg: #050816;
+  --game-bg-secondary: #090d1c;
+  --game-surface: #0d1326;
+  --game-surface-hover: #121a33;
+  --game-purple: #7c3aed;
+  --game-purple-light: #a855f7;
+  --game-blue: #2563eb;
+  --game-cyan: #06b6d4;
+  --game-gold: #f59e0b;
+  --game-orange: #f97316;
+  --game-success: #22c55e;
+  --game-danger: #ef4444;
+  --game-glow-purple: 0 0 24px rgb(124 58 237 / 0.32);
+  --game-glow-gold: 0 0 24px rgb(245 158 11 / 0.24);
+
   /* Superfícies */
   --background: oklch(0.985 0.003 250);
   --surface: oklch(1 0 0);
@@ -57,34 +73,34 @@
 }
 
 .dark {
-  --background: oklch(0.19 0.02 265);
-  --surface: oklch(0.23 0.022 265);
-  --surface-muted: oklch(0.26 0.022 265);
-  --surface-elevated: oklch(0.27 0.024 265);
-  --border: oklch(0.32 0.02 265);
-  --border-strong: oklch(0.4 0.025 265);
+  --background: #050816;
+  --surface: #0d1326;
+  --surface-muted: #121a33;
+  --surface-elevated: #151e3b;
+  --border: rgb(148 163 184 / 0.13);
+  --border-strong: rgb(168 85 247 / 0.3);
 
-  --foreground: oklch(0.96 0.005 250);
-  --foreground-muted: oklch(0.75 0.015 255);
-  --foreground-subtle: oklch(0.63 0.015 255);
+  --foreground: #f8fafc;
+  --foreground-muted: #94a3b8;
+  --foreground-subtle: #64748b;
 
-  --primary: oklch(0.65 0.17 262);
-  --primary-hover: oklch(0.7 0.17 262);
-  --primary-foreground: oklch(0.16 0.02 265);
-  --primary-soft: oklch(0.32 0.06 262);
+  --primary: #7c3aed;
+  --primary-hover: #8b5cf6;
+  --primary-foreground: #ffffff;
+  --primary-soft: rgb(124 58 237 / 0.18);
 
-  --secondary: oklch(0.68 0.17 292);
-  --secondary-foreground: oklch(0.16 0.02 265);
-  --secondary-soft: oklch(0.32 0.06 292);
+  --secondary: #2563eb;
+  --secondary-foreground: #ffffff;
+  --secondary-soft: rgb(37 99 235 / 0.18);
 
-  --success: oklch(0.72 0.15 152);
-  --success-soft: oklch(0.3 0.06 152);
-  --warning: oklch(0.8 0.14 78);
-  --warning-soft: oklch(0.33 0.06 78);
-  --danger: oklch(0.68 0.18 25);
-  --danger-soft: oklch(0.32 0.07 25);
-  --info: oklch(0.72 0.13 232);
-  --info-soft: oklch(0.3 0.06 232);
+  --success: #22c55e;
+  --success-soft: rgb(34 197 94 / 0.15);
+  --warning: #f59e0b;
+  --warning-soft: rgb(245 158 11 / 0.15);
+  --danger: #ef4444;
+  --danger-soft: rgb(239 68 68 / 0.15);
+  --info: #06b6d4;
+  --info-soft: rgb(6 182 212 / 0.15);
 
   --ring: oklch(0.65 0.17 262 / 0.5);
   --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px oklch(0 0 0 / 0.35);
@@ -121,6 +137,17 @@
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
 
+  --color-game-bg: var(--game-bg);
+  --color-game-bg-secondary: var(--game-bg-secondary);
+  --color-game-surface: var(--game-surface);
+  --color-game-surface-hover: var(--game-surface-hover);
+  --color-game-purple: var(--game-purple);
+  --color-game-purple-light: var(--game-purple-light);
+  --color-game-blue: var(--game-blue);
+  --color-game-cyan: var(--game-cyan);
+  --color-game-gold: var(--game-gold);
+  --color-game-orange: var(--game-orange);
+
   --color-subject-portugues: var(--subject-portugues);
   --color-subject-direito: var(--subject-direito);
   --color-subject-raciocinio: var(--subject-raciocinio);
@@ -156,6 +183,11 @@
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
     -webkit-font-smoothing: antialiased;
     min-height: 100dvh;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
   }
 
   :focus-visible {
@@ -198,6 +230,79 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow-soft);
+  }
+
+  .game-shell {
+    background:
+      radial-gradient(circle at 64% -8%, rgb(124 58 237 / 0.15), transparent 30rem),
+      radial-gradient(circle at 100% 42%, rgb(37 99 235 / 0.08), transparent 26rem),
+      var(--game-bg);
+  }
+
+  .game-shell::before {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    content: '';
+    opacity: 0.22;
+    background-image:
+      linear-gradient(rgb(148 163 184 / 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(148 163 184 / 0.045) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: linear-gradient(to bottom, black, transparent 72%);
+  }
+
+  .game-panel {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgb(148 163 184 / 0.13);
+    background: linear-gradient(145deg, rgb(18 26 51 / 0.92), rgb(9 13 28 / 0.94));
+    box-shadow: 0 18px 48px rgb(0 0 0 / 0.24);
+  }
+
+  .game-panel::after {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    content: '';
+    background: linear-gradient(120deg, rgb(255 255 255 / 0.035), transparent 28%);
+  }
+
+  .game-label {
+    color: #94a3b8;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .game-number {
+    color: #f8fafc;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .game-gradient-text {
+    background-image: linear-gradient(135deg, #c4b5fd, #60a5fa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .game-scrollbar {
+    scrollbar-color: rgb(124 58 237 / 0.5) transparent;
+    scrollbar-width: thin;
+  }
+
+  .game-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .game-scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgb(124 58 237 / 0.5);
   }
 }
 
