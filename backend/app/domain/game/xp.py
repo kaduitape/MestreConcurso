@@ -26,6 +26,7 @@ class GameEventKind(StrEnum):
     WEEKLY_MISSION_DONE = "WEEKLY_MISSION_DONE"
     ACHIEVEMENT_UNLOCKED = "ACHIEVEMENT_UNLOCKED"
     CHALLENGE_FINISHED = "CHALLENGE_FINISHED"
+    TRAINING_FINISHED = "TRAINING_FINISHED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +50,7 @@ DEFAULT_RULES: tuple[XPRule, ...] = (
     XPRule(GameEventKind.WEEKLY_MISSION_DONE, "Missão da semana", 500, 500),
     XPRule(GameEventKind.ACHIEVEMENT_UNLOCKED, "Conquista desbloqueada", 0, 1000),
     XPRule(GameEventKind.CHALLENGE_FINISHED, "Rodada de desafio concluída", 0, 500),
+    XPRule(GameEventKind.TRAINING_FINISHED, "Missão de treinamento concluída", 150, 300),
 )
 
 RULES_BY_KEY: dict[str, XPRule] = {rule.key: rule for rule in DEFAULT_RULES}
@@ -227,6 +229,12 @@ def _base_for(event: GameEvent, rule: XPRule) -> tuple[int, float, str, str | No
             return 0, 0.0, "", "Rodada encerrada sem resposta alguma."
         amount = int(metrics.get("xp", 0))
         return amount, 1.0, str(metrics.get("label", "Rodada de desafio concluída.")), None
+
+    if event.kind == GameEventKind.TRAINING_FINISHED:
+        minutes = float(metrics.get("focus_minutes", 0))
+        if minutes < MIN_FOCUS_MINUTES:
+            return 0, 0.0, "", f"Missões exigem ao menos {MIN_FOCUS_MINUTES} minutos de foco para pontuar."
+        return rule.xp_value, 1.0, f"Missão de treinamento concluída com {round(minutes)} minutos de foco.", None
 
     # Missões: o valor é o da própria regra.
     return rule.xp_value, 1.0, rule.label + ".", None

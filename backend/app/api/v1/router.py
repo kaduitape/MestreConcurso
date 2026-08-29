@@ -19,6 +19,7 @@ from app.api.v1.routers import (
     notice_analysis,
     questions,
     study,
+    training,
     tutor,
     users,
 )
@@ -28,6 +29,7 @@ api_router.include_router(auth.router)
 api_router.include_router(users.router)
 api_router.include_router(catalog.router)
 api_router.include_router(study.router)
+api_router.include_router(training.training_router)
 api_router.include_router(questions.router)
 api_router.include_router(intelligence.router)
 api_router.include_router(tutor.router)
@@ -39,4 +41,5 @@ api_router.include_router(admin.router)
 api_router.include_router(admin_ai.router)
 api_router.include_router(admin_catalog.router)
 api_router.include_router(admin_notices.router)
+api_router.include_router(training.admin_router)
 api_router.include_router(notice_analysis.router)

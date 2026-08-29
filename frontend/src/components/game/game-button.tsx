@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const gameButtonVariants = cva(
-  'group relative inline-flex min-h-11 items-center justify-center gap-2 overflow-hidden rounded-xl px-5 text-sm font-extrabold tracking-[0.04em] text-white uppercase transition-[transform,filter,box-shadow,border-color] duration-200 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-game-purple-light [&_svg]:size-4 [&_svg]:shrink-0',
+  'group relative inline-flex min-h-11 items-center justify-center gap-2 overflow-hidden rounded-xl px-5 text-sm font-extrabold tracking-[0.04em] text-white uppercase transition-[transform,filter,box-shadow,border-color] duration-200 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-game-purple-light before:pointer-events-none before:absolute before:inset-y-0 before:-left-1/3 before:w-1/4 before:skew-x-[-20deg] before:bg-white/15 before:opacity-0 before:blur-sm before:transition-[left,opacity] before:duration-700 group-hover:before:left-[120%] group-hover:before:opacity-100 [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -51,17 +51,20 @@ export function GameButton({
   children,
   ...props
 }: GameButtonProps) {
-  const Component = asChild ? Slot : 'button'
+  const sharedProps = {
+    className: cn(gameButtonVariants({ variant, size }), className),
+    ...props,
+  }
+
+  if (asChild) {
+    return <Slot {...sharedProps}>{children}</Slot>
+  }
+
   return (
-    <Component
-      className={cn(gameButtonVariants({ variant, size }), className)}
-      disabled={disabled || loading}
-      {...props}
-    >
-      <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/4 skew-x-[-20deg] bg-white/15 opacity-0 blur-sm transition-[left,opacity] duration-700 group-hover:left-[120%] group-hover:opacity-100" />
+    <button {...sharedProps} disabled={disabled || loading}>
       {loading && <Loader2 className="animate-spin" aria-hidden />}
       {children}
-    </Component>
+    </button>
   )
 }
 

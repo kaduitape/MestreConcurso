@@ -578,7 +578,7 @@ export function TodayPage() {
         </Alert>
       ) : null}
 
-      <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,0.78fr)] 2xl:grid-cols-[minmax(0,1.22fr)_minmax(320px,0.86fr)_300px]">
         <div className="min-w-0 space-y-5">
           {mission.isLoading && (
             <GameCard className="p-6">
@@ -649,9 +649,11 @@ export function TodayPage() {
               ))}
             </div>
           </AnimatedGameCard>
+        </div>
 
-          <div className="grid gap-5 xl:grid-cols-2">
-            <GameCard className="p-5 sm:p-6">
+        <div className="min-w-0 space-y-5">
+          <CharacterCard profile={game} />
+          <GameCard className="p-5 sm:p-6">
               <SectionTitle
                 eyebrow="Desempenho real"
                 title="Estatísticas de campanha"
@@ -706,16 +708,13 @@ export function TodayPage() {
                   {weekMinutes.isLoading ? '…' : formatMinutes(weekMinutes.data?.minutes ?? 0)}
                 </span>
               </div>
-            </GameCard>
-            <LeagueCard league={league.data} />
-          </div>
-
+          </GameCard>
           <TerritoryCard map={territory.data} />
         </div>
 
         <aside className="space-y-5 2xl:sticky 2xl:top-[94px]">
-          <CharacterCard profile={game} />
           <NextLevelCard profile={game} board={board.data} />
+          <LeagueCard league={league.data} />
           <StreakCard profile={game} />
           <GameCard tone="blue" className="p-5">
             <SectionTitle

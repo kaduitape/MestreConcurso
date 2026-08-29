@@ -9,6 +9,7 @@ import { QuestionsSection } from './questions/questions-section'
 import { IntelligenceSection } from './intelligence-section'
 import { VideosSection } from './videos-section'
 import { GameRulesSection } from './game-rules-section'
+import { TrainingStudioSection } from './training/training-studio-section'
 import { useAuth } from '@/providers/auth-provider'
 
 export function AdminPage() {
@@ -32,6 +33,7 @@ export function AdminPage() {
           {hasPermission('ai_settings:read') && (
             <TabsTrigger value="inteligencia">Inteligência</TabsTrigger>
           )}
+          {hasPermission('training:read') && <TabsTrigger value="estudio">Estúdio</TabsTrigger>}
           {hasPermission('users:read') && <TabsTrigger value="usuarios">Usuários</TabsTrigger>}
           {hasPermission('audit:read') && (
             <TabsTrigger value="auditoria">Auditoria</TabsTrigger>
@@ -53,6 +55,9 @@ export function AdminPage() {
         </TabsContent>
         <TabsContent value="inteligencia">
           <AiSection />
+        </TabsContent>
+        <TabsContent value="estudio">
+          <TrainingStudioSection />
         </TabsContent>
         <TabsContent value="usuarios">
           <UsersSection />

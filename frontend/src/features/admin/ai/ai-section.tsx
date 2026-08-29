@@ -14,6 +14,7 @@ import { FeatureBindings } from './feature-bindings'
 import { CacheCard } from './cache-card'
 
 const PROVIDER_LABELS: Record<string, string> = {
+  aisa: 'AISA.one',
   openai: 'OpenAI (ChatGPT)',
   anthropic: 'Anthropic (Claude)',
   gemini: 'Google (Gemini)',
@@ -55,11 +56,16 @@ export function AiSection() {
         <EmptyState
           icon={Sparkles}
           title="Nenhum provedor de IA conectado"
-          description="Conecte sua conta da OpenAI para habilitar a análise de edital, o Mestre IA e a leitura do estilo da banca nas próximas fases."
+          description="Conecte um provedor para habilitar recursos de IA. AISA.one também permite usar modelos OpenAI, Claude e Gemini com uma única chave."
           action={
-            <Button loading={connect.isPending} onClick={() => connect.mutate('openai')}>
-              <Plug /> Conectar OpenAI (ChatGPT)
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button loading={connect.isPending} onClick={() => connect.mutate('aisa')}>
+                <Plug /> Conectar AISA.one
+              </Button>
+              <Button variant="outline" loading={connect.isPending} onClick={() => connect.mutate('openai')}>
+                <Plug /> Conectar OpenAI
+              </Button>
+            </div>
           }
         />
       )}
