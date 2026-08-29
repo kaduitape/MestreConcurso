@@ -14,6 +14,8 @@ x-backend-env: &backend-env
   CELERY_RESULT_BACKEND: redis://redis:6379/2
   CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+  BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
   EMAIL_BACKEND: ${EMAIL_BACKEND:-smtp}
   SMTP_HOST: mailhog
   SMTP_PORT: 1025
