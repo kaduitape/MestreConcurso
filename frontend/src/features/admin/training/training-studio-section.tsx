@@ -47,7 +47,11 @@ const selectClass =
   'h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground shadow-xs transition focus:border-primary focus:outline-2 focus:outline-offset-1 focus:outline-primary'
 
 function scriptOf(lesson: Training): TrainingScript {
-  return { objectives: [], scenes: [], ...lesson.script }
+  return {
+    ...lesson.script,
+    objectives: lesson.script.objectives ?? [],
+    scenes: lesson.script.scenes ?? [],
+  }
 }
 
 export function TrainingStudioSection() {
@@ -181,7 +185,7 @@ function TrainingEditor({ lesson, generating, onGenerate, onSaved }: { lesson: T
   const pipeline = useMemo(() => STEPS, [])
   const updateScene = (index: number, patch: Partial<TrainingScene>) => setScript((current) => ({ ...current, scenes: current.scenes.map((scene, sceneIndex) => sceneIndex === index ? { ...scene, ...patch } : scene) }))
   const save = useMutation({
-    mutationFn: () => trainingApi.saveScript(lesson.public_id, { title, script: script as Record<string, unknown> }),
+    mutationFn: () => trainingApi.saveScript(lesson.public_id, { title, script: script as unknown as Record<string, unknown> }),
     onSuccess: (result) => { queryClient.setQueryData(queryKeys.adminTrainingLesson(result.public_id), result); onSaved(); toast.success('Cenas salvas.') },
     onError: (error: unknown) => toast.error(error instanceof ApiError ? error.message : 'Não foi possível salvar as cenas.'),
   })
