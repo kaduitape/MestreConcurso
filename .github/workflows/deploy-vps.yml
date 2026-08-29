@@ -1,0 +1,80 @@
+name: Deploy VPS
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Atualizar VPS
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_PORT: ${{ secrets.VPS_PORT }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+      VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+      VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+    steps:
+      - name: Validar configuração do deploy
+        run: |
+          test -n "$VPS_HOST"
+          test -n "$VPS_USER"
+          test -n "$VPS_APP_DIR"
+          test -n "$VPS_SSH_PRIVATE_KEY"
+          test -n "$VPS_KNOWN_HOSTS"
+
+      - name: Configurar acesso SSH
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Atualizar aplicação e containers
+        run: |
+          ssh \
+            -i ~/.ssh/id_ed25519 \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -p "${VPS_PORT:-22}" \
+            "$VPS_USER@$VPS_HOST" \
+            "VPS_APP_DIR='$VPS_APP_DIR' bash -s" <<'REMOTE'
+          set -eu
+          test -n "$VPS_APP_DIR"
+          test -d "$VPS_APP_DIR/.git"
+          cd "$VPS_APP_DIR"
+
+          # Falha se alguém editou arquivos diretamente na VPS. O deploy nunca
+          # descarta mudanças locais silenciosamente.
+          test -z "$(git status --porcelain)"
+          git fetch --prune origin master
+          git checkout master
+          git pull --ff-only origin master
+
+          compose="docker compose --env-file .env -f docker-compose.yml -f docker-compose.production.yml"
+          $compose up -d --build --remove-orphans
+          $compose exec -T api alembic upgrade head
+
+          for attempt in $(seq 1 30); do
+            if $compose exec -T api curl -fsS http://localhost:8000/health >/dev/null; then
+              $compose ps
+              exit 0
+            fi
+            sleep 2
+          done
+
+          $compose logs --tail=100 api
+          exit 1
+          REMOTE
