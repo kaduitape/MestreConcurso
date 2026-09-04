@@ -27,8 +27,20 @@ from app.domain.billing.plans import (
 )
 from app.domain.billing.quota import QuotaCheck, check, window_for
 from app.domain.billing.subscription import SubscriptionState as DomainState
-from app.domain.billing.subscription import is_entitled, next_status
-from app.models.billing import Plan, PlanEntitlement, Subscription, UsageCounter
+from app.domain.billing.subscription import (
+    SubscriptionStatus,
+    grace_deadline,
+    is_entitled,
+    next_status,
+    period_end_for,
+)
+from app.models.billing import (
+    Plan,
+    PlanEntitlement,
+    Subscription,
+    SubscriptionEvent,
+    UsageCounter,
+)
 from app.models.user import User
 from app.repositories.billing import PlanRepository, SubscriptionRepository, UsageRepository
 
@@ -130,6 +142,59 @@ class EntitlementService:
             },
         )
 
+    async def apply_scheduled_downgrade(self, subscription: Subscription, *, today: date) -> bool:
+        """Aplica o downgrade agendado quando o período vira. Devolve se aplicou.
+
+        Mora aqui, e não no serviço de assinatura, porque é a mesma categoria de
+        coisa que já acontece nesta função: uma transição que **o tempo produz**.
+        Deixá-la só no caminho de escrita foi o erro que fez a troca agendada
+        nunca chegar a acontecer.
+        """
+        if subscription.scheduled_plan_id is None:
+            return False
+        if subscription.current_period_end is not None and today <= subscription.current_period_end:
+            return False
+
+        target = await self.session.get(Plan, subscription.scheduled_plan_id)
+        if target is None:
+            # O plano agendado sumiu do catálogo: o agendamento morre junto,
+            # em vez de deixar a assinatura apontando para o nada.
+            subscription.scheduled_plan_id = None
+            await self.session.commit()
+            return False
+
+        previous_status = subscription.status
+        subscription.plan_id = target.id
+        subscription.scheduled_plan_id = None
+        subscription.current_period_start = day_start = today
+        subscription.current_period_end = period_end_for(day_start, months=target.months)
+        if target.price_cents == 0:
+            subscription.status = SubscriptionStatus.ACTIVE
+            subscription.grace_ends_on = None
+        else:
+            # Plano pago recém-ativado ainda não foi cobrado. Sem abrir a
+            # tolerância, o candidato perderia acesso na virada sem ter tido
+            # chance de pagar — o mesmo erro de cortar antes da hora.
+            subscription.status = SubscriptionStatus.PAST_DUE
+            subscription.grace_ends_on = grace_deadline(today)
+        self.session.add(
+            SubscriptionEvent(
+                subscription_id=subscription.id,
+                kind="DOWNGRADE_APPLIED",
+                from_status=previous_status,
+                to_status=subscription.status,
+                detail=f"Plano alterado para {target.name} na virada do período.",
+                meta={"to_plan": target.slug},
+            )
+        )
+        await self.session.commit()
+        logger.info(
+            "billing.downgrade_applied",
+            subscription=subscription.public_id,
+            plan=target.slug,
+        )
+        return True
+
     async def access_for(self, user: User, *, today: date | None = None) -> Access:
         """Descobre o plano vigente do candidato — e atualiza o que o tempo mudou."""
         day = today or datetime.now(UTC).date()
@@ -144,6 +209,10 @@ class EntitlementService:
                 status="NONE",
                 anchor=None,
             )
+
+        # A troca agendada vem antes de tudo: ela redefine plano e período, e o
+        # estado precisa ser avaliado sobre o período novo.
+        await self.apply_scheduled_downgrade(subscription, today=day)
 
         state = DomainState(
             status=subscription.status,

@@ -46,6 +46,8 @@
 ## Trocar e cancelar
 32. **Upgrade vale na hora**, com crédito proporcional aos dias já pagos — cobrar o plano novo sem descontar seria cobrar duas vezes pelos mesmos dias.
 33. **Downgrade vale no fim do período**: quem pagou o mês inteiro tem o mês inteiro, sem cobrança nova nem devolução.
+33.1. E a troca agendada **acontece de fato** — na primeira leitura da assinatura depois da virada, ou pela tarefa diária, sem depender de o candidato abrir a tela. A transição fica registrada em `subscription_events`.
+33.2. Ao aplicar um downgrade para plano pago, a tolerância é aberta: o candidato não perde acesso na virada sem ter tido chance de pagar.
 34. Trocar para o mesmo plano é recusado, e não processado silenciosamente.
 35. **Cancelar não corta na hora.** Quem pagou até o dia 30 tem acesso até o dia 30; o estado é `CANCELING` e a tela diz isso.
 36. Todo movimento vira linha em `subscription_events` — quando alguém perguntar "por que meu acesso mudou?", a resposta existe.
@@ -63,6 +65,9 @@
 44. Cobertura: 43 testes de domínio, 23 de integração e 9 de componentes React, todos verdes.
 45. `ruff`, `mypy`, `eslint`, `tsc` e `prettier` limpos nos arquivos da fase.
 46. A migração sobe e desce sem erro, e `alembic check` não detecta desvio.
+
+## Tarefa periódica
+41.1. `billing.refresh_subscriptions` roda uma vez por dia e move o que só depende do calendário: trocas agendadas, testes vencidos e tolerâncias esgotadas. Sem ela, quem parou de acessar ficaria com o estado congelado — e é esse estado que o painel de SaaS soma.
 
 ## O que esta fase **não** entrega
 47. **A integração com o Mercado Pago não foi exercida contra a API real.** O cliente HTTP segue a documentação do provedor e é testado pela porta, com o serviço verificado ponta a ponta; a verificação de assinatura segue o manifesto documentado. Antes de produção é obrigatório um teste em *sandbox* com credencial real: criação de preferência, retorno das `back_urls` e uma notificação verdadeira.

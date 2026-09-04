@@ -18,6 +18,7 @@ celery_app = Celery(
         "app.workers.tasks.email",
         "app.workers.tasks.maintenance",
         "app.workers.tasks.documents",
+        "app.workers.tasks.billing",
     ],
 )
 
@@ -40,6 +41,7 @@ celery_app.conf.update(
     task_routes={
         "email.*": {"queue": "notifications"},
         "maintenance.*": {"queue": "default"},
+        "billing.*": {"queue": "default"},
         "documents.*": {"queue": "documents"},
         # Fases seguintes: ai.* (LLM dedicado), analytics.*
     },
@@ -47,6 +49,12 @@ celery_app.conf.update(
         "purge-expired-tokens-and-sessions": {
             "task": "maintenance.purge_expired",
             "schedule": crontab(minute=15),
+        },
+        # Uma vez por dia, logo depois da virada: trocas agendadas e estados
+        # que dependem só do calendário.
+        "refresh-subscriptions": {
+            "task": "billing.refresh_subscriptions",
+            "schedule": crontab(hour=3, minute=10),
         },
     },
 )

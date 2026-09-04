@@ -486,6 +486,49 @@ async def test_a_downgrade_is_scheduled_and_keeps_the_current_plan(
     assert body["subscription"]["scheduled_plan_slug"] == "mestre"
 
 
+async def test_a_scheduled_downgrade_actually_happens_when_the_period_turns(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """A troca agendada precisa acontecer sozinha — a tela promete isso.
+
+    Este teste existe porque a promessa esteve na tela sem nada por trás: o
+    agendamento era gravado e nunca aplicado.
+    """
+    student = await create_user(client, emails, email="bill23@exemplo.com.br")
+    await _subscribe(client, student, plan="mestre-anual")
+    await client.post(
+        "/api/v1/billing/change-plan",
+        headers=student.auth_header,
+        json={"plan_slug": "mestre"},
+    )
+
+    # O período vira: envelhecemos a assinatura direto na base.
+    from sqlalchemy import select
+
+    from app.db.session import get_session_factory
+    from app.models.billing import Subscription
+
+    factory = get_session_factory()
+    async with factory() as session:
+        record = (
+            await session.execute(select(Subscription).order_by(Subscription.id.desc()).limit(1))
+        ).scalar_one()
+        record.current_period_start = date.today() - timedelta(days=40)
+        record.current_period_end = date.today() - timedelta(days=1)
+        await session.commit()
+
+    body = (await client.get("/api/v1/billing/subscription", headers=student.auth_header)).json()
+
+    assert body["plan_slug"] == "mestre", "o downgrade agendado precisa ter sido aplicado"
+    assert body["scheduled_plan_slug"] is None
+    assert body["current_period_end"] >= date.today().isoformat()
+
+    # E os limites passam a ser os do plano novo, na mesma leitura.
+    usage = (await client.get("/api/v1/billing/usage", headers=student.auth_header)).json()
+    tutor = next(item for item in usage if item["feature"] == "ai.tutor")
+    assert tutor["limit"] == 300
+
+
 async def test_canceling_keeps_access_until_the_end_of_the_paid_period(
     client: AsyncClient, emails: CapturingDispatcher
 ) -> None:

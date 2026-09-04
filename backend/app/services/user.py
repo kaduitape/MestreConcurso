@@ -15,6 +15,7 @@ from app.repositories.user import ProfileRepository, UserRepository
 from app.repositories.user_session import UserSessionRepository
 from app.services.audit import AuditService
 from app.services.auth import RequestContext
+from app.services.data_export import DataExportService
 
 
 class UserService:
@@ -116,6 +117,9 @@ class UserService:
                 for item in logs
             ],
         }
+        # O que a conta gerou usando a plataforma — estudo, questões, memória,
+        # conversas, gamificação, analytics e assinatura.
+        payload.update(await DataExportService(self.session).collect(user))
         await self.audit.record(
             AuditAction.USER_DATA_EXPORTED,
             actor=user,
