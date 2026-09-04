@@ -116,6 +116,12 @@ from app.models.study import (
     UserSubjectProgress,
 )
 from app.models.token import AuthToken, AuthTokenType
+from app.models.training import (
+    TrainingLesson,
+    TrainingProgress,
+    TrainingProgressStatus,
+    TrainingStatus,
+)
 from app.models.tutor import (
     ChatMode,
     Conversation,
@@ -124,7 +130,6 @@ from app.models.tutor import (
     VideoResource,
     VocabularyTerm,
 )
-from app.models.training import TrainingLesson, TrainingProgress, TrainingProgressStatus, TrainingStatus
 from app.models.user import Profile, User, UserStatus
 from app.models.user_session import UserSession
 

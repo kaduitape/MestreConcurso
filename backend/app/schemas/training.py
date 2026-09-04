@@ -15,8 +15,13 @@ class TrainingCreate(BaseModel):
     topic: str = Field(min_length=2, max_length=240)
     character_name: str = Field(min_length=2, max_length=120)
     additional_prompt: str | None = Field(default=None, max_length=4000)
-    level: str = Field(default="INTERMEDIARIO", pattern="^(BASICO|INTERMEDIARIO|AVANCADO|ESPECIALISTA)$")
-    style: str = Field(default="AULA", pattern="^(AULA|HISTORIA|MISSAO|BATALHA|INVESTIGACAO|MILITAR|DESAFIO|REVISAO)$")
+    level: str = Field(
+        default="INTERMEDIARIO", pattern="^(BASICO|INTERMEDIARIO|AVANCADO|ESPECIALISTA)$"
+    )
+    style: str = Field(
+        default="AULA",
+        pattern="^(AULA|HISTORIA|MISSAO|BATALHA|INVESTIGACAO|MILITAR|DESAFIO|REVISAO)$",
+    )
     target_duration_minutes: int = Field(default=10, ge=3, le=60)
     board_name: str | None = Field(default=None, max_length=120)
     competition_public_id: str | None = None

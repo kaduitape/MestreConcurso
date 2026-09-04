@@ -38,7 +38,9 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     frontend_url: str = "http://localhost:5173"
     backend_url: str = "http://localhost:8000"
-    cors_origins: Annotated[list[str], NoDecode, Field(default_factory=lambda: ["http://localhost:5173"])]
+    cors_origins: Annotated[
+        list[str], NoDecode, Field(default_factory=lambda: ["http://localhost:5173"])
+    ]
     allowed_hosts: Annotated[list[str], NoDecode, Field(default_factory=lambda: ["*"])]
 
     # --- Segurança ---------------------------------------------------------

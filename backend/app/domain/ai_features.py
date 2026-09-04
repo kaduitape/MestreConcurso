@@ -58,7 +58,8 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
     FeatureSpec(
         AIFeature.TRAINING_SCRIPT,
         "Roteiro do Estúdio de Treinamento",
-        "Produz o roteiro estruturado em cenas, diálogos, destaques e perguntas para revisão humana antes da publicação.",
+        "Produz o roteiro estruturado em cenas, diálogos, destaques e perguntas "
+        "para revisão humana antes da publicação.",
         "Estúdio de Treinamento",
     ),
     FeatureSpec(

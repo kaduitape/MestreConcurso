@@ -11,17 +11,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.base import ChatMessage, CompletionRequest
 from app.core.errors import NotFoundError, ValidationError
+from app.domain.game import GameEvent, GameEventKind
 from app.models.ai import AIFeature
 from app.models.audit import AuditAction
 from app.models.catalog import Competition
-from app.models.training import TrainingLesson, TrainingProgress, TrainingProgressStatus, TrainingStatus
-from app.domain.game import GameEvent, GameEventKind
-from app.services.game_engine import GameEngine
+from app.models.training import (
+    TrainingLesson,
+    TrainingProgress,
+    TrainingProgressStatus,
+    TrainingStatus,
+)
 from app.models.user import User
 from app.services.ai_cache import AICacheService, fingerprint
 from app.services.ai_settings import AISettingsService
 from app.services.audit import AuditService
 from app.services.auth import RequestContext
+from app.services.game_engine import GameEngine
 
 PROMPT_VERSION = "v1"
 
@@ -42,13 +47,17 @@ def _script_prompt(lesson: TrainingLesson) -> list[ChatMessage]:
         ChatMessage(
             role="system",
             content=(
-                "Você cria roteiros pedagógicos rigorosos para concursos públicos em português do Brasil. "
+                "Você cria roteiros pedagógicos rigorosos para concursos públicos "
+                "em português do Brasil. "
                 "A fantasia é recurso de memorização, nunca substitui precisão acadêmica. "
                 "Retorne somente JSON válido, sem markdown, com title, objectives e scenes. "
-                "Cada scene deve conter id, type, narration, dialogue, screen_text, keywords, emphasis, "
+                "Cada scene deve conter id, type, narration, dialogue, screen_text, "
+                "keywords, emphasis, "
                 "visual_elements, duration, transition e character (emotion, animation, gesture). "
-                "Inclua ao menos uma cena de explicação, um exemplo, uma pegadinha quando aplicável e "
-                "uma pergunta de múltipla escolha com type exatamente igual a 'question', options, correct_option e feedback. "
+                "Inclua ao menos uma cena de explicação, um exemplo, uma pegadinha "
+                "quando aplicável e "
+                "uma pergunta de múltipla escolha com type exatamente igual a "
+                "'question', options, correct_option e feedback. "
                 "keywords deve conter conceitos importantes exatamente como aparecem no diálogo."
             ),
         ),
@@ -58,7 +67,9 @@ def _script_prompt(lesson: TrainingLesson) -> list[ChatMessage]:
 
 def _validate_script(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict) or not isinstance(value.get("scenes"), list):
-        raise ValidationError("A IA não devolveu um roteiro em cenas válido.", code="training_invalid_script")
+        raise ValidationError(
+            "A IA não devolveu um roteiro em cenas válido.", code="training_invalid_script"
+        )
     if not value["scenes"]:
         raise ValidationError("O roteiro gerado não possui cenas.", code="training_empty_script")
     for index, scene in enumerate(value["scenes"], start=1):
@@ -74,7 +85,9 @@ def _validate_script(value: Any) -> dict[str, Any]:
         scene.setdefault("visual_elements", [])
         scene.setdefault("duration", 12)
         scene.setdefault("transition", "fade")
-        scene.setdefault("character", {"emotion": "confident", "animation": "talking", "gesture": "explain"})
+        scene.setdefault(
+            "character", {"emotion": "confident", "animation": "talking", "gesture": "explain"}
+        )
     value.setdefault("objectives", [])
     return value
 
@@ -99,10 +112,20 @@ class TrainingService:
         stmt = select(TrainingLesson)
         if published_only:
             stmt = stmt.where(TrainingLesson.status == TrainingStatus.PUBLISHED)
-        total = int((await self.session.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one())
+        total = int(
+            (
+                await self.session.execute(select(func.count()).select_from(stmt.subquery()))
+            ).scalar_one()
+        )
         rows = (
-            await self.session.execute(stmt.order_by(TrainingLesson.created_at.desc()).limit(limit).offset(offset))
-        ).scalars().all()
+            (
+                await self.session.execute(
+                    stmt.order_by(TrainingLesson.created_at.desc()).limit(limit).offset(offset)
+                )
+            )
+            .scalars()
+            .all()
+        )
         return list(rows), total
 
     async def progress_for(self, lesson: TrainingLesson, user: User) -> TrainingProgress | None:
@@ -158,7 +181,9 @@ class TrainingService:
             return progress
         scene_count = len(lesson.script.get("scenes", []))
         if scene_count == 0 or progress.current_scene < scene_count - 1:
-            raise ValidationError("Percorra todas as cenas antes de concluir a missão.", code="training_not_finished")
+            raise ValidationError(
+                "Percorra todas as cenas antes de concluir a missão.", code="training_not_finished"
+            )
 
         now = datetime.now(UTC)
         progress.focus_seconds = self._focus_seconds(progress, now)
@@ -193,7 +218,13 @@ class TrainingService:
                 select(
                     func.count(TrainingProgress.id),
                     func.coalesce(
-                        func.sum(case((TrainingProgress.status == TrainingProgressStatus.COMPLETED, 1), else_=0)), 0
+                        func.sum(
+                            case(
+                                (TrainingProgress.status == TrainingProgressStatus.COMPLETED, 1),
+                                else_=0,
+                            )
+                        ),
+                        0,
                     ),
                     func.coalesce(func.sum(TrainingProgress.focus_seconds), 0),
                 ).where(TrainingProgress.lesson_id == lesson.id)
@@ -208,7 +239,9 @@ class TrainingService:
             "average_focus_seconds": round(focus_seconds / starts) if starts else 0,
         }
 
-    async def create(self, actor: User, data: dict[str, Any], context: RequestContext) -> TrainingLesson:
+    async def create(
+        self, actor: User, data: dict[str, Any], context: RequestContext
+    ) -> TrainingLesson:
         competition_id: int | None = None
         competition_public_id = data.pop("competition_public_id", None)
         if competition_public_id:
@@ -238,7 +271,9 @@ class TrainingService:
         await self.session.commit()
         return await self.get(lesson.public_id)
 
-    async def generate(self, lesson: TrainingLesson, actor: User, context: RequestContext) -> TrainingLesson:
+    async def generate(
+        self, lesson: TrainingLesson, actor: User, context: RequestContext
+    ) -> TrainingLesson:
         lesson.status = TrainingStatus.GENERATING
         lesson.generation_error = None
         await self.session.commit()
@@ -310,7 +345,13 @@ class TrainingService:
         return await self.get(lesson.public_id)
 
     async def update_script(
-        self, lesson: TrainingLesson, *, title: str, script: dict[str, Any], actor: User, context: RequestContext
+        self,
+        lesson: TrainingLesson,
+        *,
+        title: str,
+        script: dict[str, Any],
+        actor: User,
+        context: RequestContext,
     ) -> TrainingLesson:
         lesson.title = title
         lesson.script = _validate_script(script)
@@ -325,7 +366,9 @@ class TrainingService:
         await self.session.commit()
         return await self.get(lesson.public_id)
 
-    async def publish(self, lesson: TrainingLesson, actor: User, context: RequestContext) -> TrainingLesson:
+    async def publish(
+        self, lesson: TrainingLesson, actor: User, context: RequestContext
+    ) -> TrainingLesson:
         if not lesson.script.get("scenes"):
             raise ValidationError("Gere e revise ao menos uma cena antes de publicar.")
         lesson.status = TrainingStatus.PUBLISHED

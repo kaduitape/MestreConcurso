@@ -40,18 +40,52 @@ def upgrade() -> None:
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("xp_awarded", sa.Integer(), nullable=False),
         sa.Column("id", BIGINT_PK, autoincrement=True, nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
-        sa.ForeignKeyConstraint(["lesson_id"], ["training_lessons.id"], name=op.f("fk_training_progress_lesson_id_training_lessons"), ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], name=op.f("fk_training_progress_user_id_users"), ondelete="CASCADE"),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["lesson_id"],
+            ["training_lessons.id"],
+            name=op.f("fk_training_progress_lesson_id_training_lessons"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_training_progress_user_id_users"),
+            ondelete="CASCADE",
+        ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_training_progress")),
         sa.UniqueConstraint("user_id", "lesson_id", name="uq_training_progress_user_lesson"),
         **MYSQL_OPTS,
     )
-    op.create_index(op.f("ix_training_progress_user_id"), "training_progress", ["user_id"], unique=False)
-    op.create_index(op.f("ix_training_progress_lesson_id"), "training_progress", ["lesson_id"], unique=False)
-    op.create_index("ix_training_progress_lesson_status", "training_progress", ["lesson_id", "status"], unique=False)
-    op.create_index("ix_training_progress_user_updated", "training_progress", ["user_id", "updated_at"], unique=False)
+    op.create_index(
+        op.f("ix_training_progress_user_id"), "training_progress", ["user_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_training_progress_lesson_id"), "training_progress", ["lesson_id"], unique=False
+    )
+    op.create_index(
+        "ix_training_progress_lesson_status",
+        "training_progress",
+        ["lesson_id", "status"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_training_progress_user_updated",
+        "training_progress",
+        ["user_id", "updated_at"],
+        unique=False,
+    )
 
 
 def downgrade() -> None:

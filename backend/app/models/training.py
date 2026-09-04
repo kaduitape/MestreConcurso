@@ -6,7 +6,16 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, PublicIdMixin, TimestampMixin
@@ -36,7 +45,9 @@ class TrainingLesson(IdMixin, PublicIdMixin, TimestampMixin, Base):
     __tablename__ = "training_lessons"
     __table_args__ = (
         Index("ix_training_lessons_status_created_at", "status", "created_at"),
-        Index("ix_training_lessons_created_by_user_id_created_at", "created_by_user_id", "created_at"),
+        Index(
+            "ix_training_lessons_created_by_user_id_created_at", "created_by_user_id", "created_at"
+        ),
     )
 
     created_by_user_id: Mapped[int] = mapped_column(
