@@ -282,7 +282,7 @@ class TestShareCard:
         card = build_card(CardInput(display_name="Marina"))
 
         assert "não resultado em prova" in card.footer
-        assert "Concurso Mestre IA" in card.footer
+        assert "Game of Concursos" in card.footer
 
     def test_estatistica_sem_amostra_nao_entra_e_o_motivo_aparece(self):
         card = build_card(

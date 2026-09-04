@@ -21,12 +21,15 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.production.example
 
 # Uploads e dados locais
 uploads/
 data/
 *.sqlite3
 *.db
+celerybeat-schedule*
+.docker-up.*.log
 
 # Editores / SO
 .vscode/

@@ -182,6 +182,85 @@ export interface AICacheStats {
 }
 
 // --------------------------------------------------------------------------
+// Estúdio de treinamento
+// --------------------------------------------------------------------------
+export interface TrainingScene {
+  id: number
+  type: string
+  narration: string
+  dialogue: string
+  screen_text: string
+  keywords: string[]
+  emphasis: string[]
+  visual_elements: string[]
+  duration: number
+  transition: string
+  character: { emotion?: string; animation?: string; gesture?: string }
+  options?: string[]
+  correct_option?: number
+  feedback?: string
+}
+
+export interface TrainingScript {
+  title?: string
+  objectives?: string[]
+  scenes: TrainingScene[]
+}
+
+export interface Training {
+  public_id: string
+  title: string
+  subject: string
+  topic: string
+  character_name: string
+  additional_prompt: string | null
+  level: string
+  style: string
+  target_duration_minutes: number
+  board_name: string | null
+  research_before_generate: boolean
+  status: 'DRAFT' | 'GENERATING' | 'READY' | 'PUBLISHED' | 'ARCHIVED'
+  script: TrainingScript
+  generation_error: string | null
+  model_slug: string | null
+  generated_at: string | null
+  published_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface TrainingInput {
+  subject: string
+  topic: string
+  character_name: string
+  additional_prompt?: string
+  level: 'BASICO' | 'INTERMEDIARIO' | 'AVANCADO' | 'ESPECIALISTA'
+  style: 'AULA' | 'HISTORIA' | 'MISSAO' | 'BATALHA' | 'INVESTIGACAO' | 'MILITAR' | 'DESAFIO' | 'REVISAO'
+  target_duration_minutes: number
+  board_name?: string
+  research_before_generate: boolean
+}
+
+export interface TrainingProgress {
+  status: 'STARTED' | 'COMPLETED'
+  current_scene: number
+  completed_scenes: number
+  focus_seconds: number
+  started_at: string
+  last_seen_at: string
+  completed_at: string | null
+  xp_awarded: number
+}
+
+export interface TrainingMetrics {
+  starts: number
+  completions: number
+  completion_rate: number
+  total_focus_seconds: number
+  average_focus_seconds: number
+}
+
+// --------------------------------------------------------------------------
 // Catálogo
 // --------------------------------------------------------------------------
 export interface ExamBoard {

@@ -124,6 +124,7 @@ from app.models.tutor import (
     VideoResource,
     VocabularyTerm,
 )
+from app.models.training import TrainingLesson, TrainingProgress, TrainingProgressStatus, TrainingStatus
 from app.models.user import Profile, User, UserStatus
 from app.models.user_session import UserSession
 
@@ -227,6 +228,10 @@ __all__ = [
     "SubscriptionEvent",
     "Topic",
     "TopicIncidence",
+    "TrainingLesson",
+    "TrainingProgress",
+    "TrainingProgressStatus",
+    "TrainingStatus",
     "TrapPattern",
     "UsageCounter",
     "User",

@@ -1,6 +1,6 @@
 <div align="center">
 
-# Concurso Mestre IA
+# Game of Concursos
 
 **Transforme um edital em uma estratégia de preparação — e acompanhe o candidato até a prova.**
 

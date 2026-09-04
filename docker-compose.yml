@@ -1,8 +1,8 @@
 name: mestre-concurso
 
 x-backend-env: &backend-env
-  ENVIRONMENT: ${ENVIRONMENT:-development}
-  DEBUG: ${DEBUG:-true}
+  ENVIRONMENT: development
+  DEBUG: "true"
   SECRET_KEY: ${SECRET_KEY:?defina SECRET_KEY no .env}
   MYSQL_HOST: mysql
   MYSQL_PORT: 3306
@@ -31,7 +31,6 @@ services:
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_0900_ai_ci
-      - --default-authentication-plugin=caching_sha2_password
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?defina MYSQL_ROOT_PASSWORD no .env}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-mestre_concurso}
@@ -105,6 +104,8 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+    healthcheck:
+      disable: true
     restart: unless-stopped
 
   beat:
@@ -118,6 +119,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      disable: true
     restart: unless-stopped
 
   frontend:
@@ -126,7 +129,7 @@ services:
       target: ${FRONTEND_TARGET:-dev}
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
-      VITE_APP_NAME: ${VITE_APP_NAME:-Concurso Mestre IA}
+      VITE_APP_NAME: ${VITE_APP_NAME:-Game of Concursos}
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
     depends_on:

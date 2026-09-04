@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BookMarked,
   Brain,
   Briefcase,
@@ -6,17 +7,16 @@ import {
   ClipboardList,
   CreditCard,
   Crosshair,
-  FileText,
+  Flame,
   LayoutDashboard,
   Layers,
-  ListChecks,
-  Map,
   Medal,
   RefreshCw,
   Shield,
   Sparkles,
   Swords,
   Target,
+  Theater,
   TrendingUp,
   Trophy,
   User,
@@ -28,7 +28,6 @@ export interface NavItem {
   label: string
   to?: string
   icon: LucideIcon
-  /** Itens ainda não entregues aparecem desabilitados, com a fase indicada. */
   phase?: string
   permission?: string
 }
@@ -40,43 +39,37 @@ export interface NavGroup {
 
 export const navigation: NavGroup[] = [
   {
-    title: 'Preparação',
+    title: 'Painel principal',
     items: [
       { label: 'Hoje', to: '/hoje', icon: LayoutDashboard },
       { label: 'Missões', to: '/missoes', icon: Target },
+      { label: 'Conquistas', to: '/progresso', icon: Trophy },
+      { label: 'Batalhas', to: '/arena', icon: Swords },
       { label: 'Concursos', to: '/concursos', icon: Briefcase },
-      { label: 'Plano de estudo', to: '/plano', icon: Target },
+      { label: 'Plano de estudo', to: '/plano', icon: Flame },
       { label: 'Calendário', to: '/calendario', icon: CalendarDays },
-      { label: 'Meu edital', icon: FileText, phase: 'Fase 3' },
     ],
   },
   {
-    title: 'Treino',
+    title: 'Treinamento',
     items: [
-      { label: 'Questões', to: '/questoes', icon: ListChecks },
+      { label: 'Questões', to: '/questoes', icon: Target },
       { label: 'Simulados', to: '/simulados', icon: ClipboardList },
       { label: 'Flashcards', to: '/flashcards', icon: Layers },
+      { label: 'Dia de treinamento', to: '/treinamentos', icon: Theater },
       { label: 'Revisão', to: '/revisao', icon: RefreshCw },
       { label: 'Meus erros', to: '/meus-erros', icon: TrendingUp },
       { label: 'Você vs Banca', to: '/voce-vs-banca', icon: Crosshair },
       { label: 'Desafios', to: '/desafios', icon: Zap },
-      { label: 'Arena', to: '/arena', icon: Swords },
     ],
   },
   {
-    title: 'Inteligência',
+    title: 'Comando',
     items: [
-      { label: 'Inteligência', to: '/inteligencia', icon: Sparkles },
       { label: 'Mestre IA', to: '/mestre-ia', icon: Brain },
+      { label: 'Inteligência', to: '/inteligencia', icon: Sparkles },
+      { label: 'Analytics', to: '/analytics', icon: BarChart3 },
       { label: 'Vocabulário', to: '/vocabulario', icon: BookMarked },
-      { label: 'Analytics', to: '/analytics', icon: TrendingUp },
-    ],
-  },
-  {
-    title: 'Conta',
-    items: [
-      { label: 'Meu progresso', to: '/progresso', icon: Trophy },
-      { label: 'Jornada', to: '/jornada', icon: Map },
       { label: 'Temporada', to: '/temporada', icon: Medal },
       { label: 'Minha conta', to: '/conta', icon: User },
       { label: 'Plano e cobrança', to: '/plano-e-cobranca', icon: CreditCard },

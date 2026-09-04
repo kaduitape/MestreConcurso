@@ -128,7 +128,7 @@ class PaymentService:
         session = await provider.create_checkout(
             CheckoutRequest(
                 reference=payment.reference,
-                title="Assinatura Concurso Mestre IA",
+                title="Assinatura Game of Concursos",
                 amount_cents=payment.amount_cents,
                 payer_email=user.email,
                 success_url=success_url,

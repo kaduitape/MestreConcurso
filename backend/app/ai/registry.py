@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from app.ai.base import AIProvider, ProviderCredentials
+from app.ai.providers.aisa import AisaProvider
 from app.ai.providers.openai import OpenAIProvider
 from app.core.errors import NotFoundError
 
 _PROVIDERS: dict[str, type[AIProvider]] = {
+    AisaProvider.slug: AisaProvider,
     OpenAIProvider.slug: OpenAIProvider,
 }
 

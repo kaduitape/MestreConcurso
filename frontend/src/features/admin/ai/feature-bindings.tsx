@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ScanSearch } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
 import { SkeletonList } from '@/components/ui/skeleton'
@@ -10,6 +12,55 @@ import { aiApi } from '@/lib/api/ai'
 import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/lib/query-client'
 import type { AIProvider } from '@/lib/api/types'
+
+type ModelOption = {
+  value: string
+  label: string
+  kind: 'chat' | 'embedding' | 'rerank'
+  inputCost: number | null
+  outputCost: number | null
+  contextWindow: number | null
+  supportsJson: boolean
+}
+
+const JSON_FEATURES = new Set([
+  'notice.extraction',
+  'question.classify',
+  'error.classify',
+  'flashcard.generation',
+  'training.script',
+])
+
+const MIN_CONTEXT: Record<string, number> = {
+  'notice.extraction': 16_000,
+  'chat.tutor': 16_000,
+  'training.script': 32_000,
+}
+
+function isAllowed(feature: string, option: ModelOption) {
+  if (feature === 'embeddings.default') return option.kind === 'embedding'
+  if (feature === 'rerank.default') return option.kind !== 'embedding'
+  return option.kind === 'chat'
+}
+
+function recommend(feature: string, options: ModelOption[]) {
+  const needsJson = JSON_FEATURES.has(feature)
+  const targetContext = MIN_CONTEXT[feature] ?? 0
+  const compatible = options.filter((option) => isAllowed(feature, option) && (!needsJson || option.supportsJson))
+  if (!compatible.length) return null
+  return [...compatible].sort((left, right) => {
+    const leftKnown = left.inputCost !== null && left.outputCost !== null
+    const rightKnown = right.inputCost !== null && right.outputCost !== null
+    if (leftKnown !== rightKnown) return leftKnown ? -1 : 1
+    const leftFits = !targetContext || (left.contextWindow ?? 0) >= targetContext
+    const rightFits = !targetContext || (right.contextWindow ?? 0) >= targetContext
+    if (leftFits !== rightFits) return leftFits ? -1 : 1
+    const leftCost = (left.inputCost ?? Number.MAX_SAFE_INTEGER) + (left.outputCost ?? Number.MAX_SAFE_INTEGER)
+    const rightCost = (right.inputCost ?? Number.MAX_SAFE_INTEGER) + (right.outputCost ?? Number.MAX_SAFE_INTEGER)
+    if (leftCost !== rightCost) return leftCost - rightCost
+    return (right.contextWindow ?? 0) - (left.contextWindow ?? 0)
+  })[0]
+}
 
 /** Um modelo por funcionalidade — trocável sem tocar em código. */
 export function FeatureBindings({ providers }: { providers: AIProvider[] }) {
@@ -36,13 +87,17 @@ export function FeatureBindings({ providers }: { providers: AIProvider[] }) {
       toast.error(error instanceof ApiError ? error.message : 'Não foi possível salvar.'),
   })
 
-  const options = providers.flatMap((provider) =>
+  const options: ModelOption[] = providers.flatMap((provider) =>
     provider.models
       .filter((model) => model.is_active)
       .map((model) => ({
         value: `${provider.slug}::${model.slug}`,
         label: `${model.slug} · ${provider.display_name}`,
         kind: model.kind,
+        inputCost: model.input_cost_per_1k === null ? null : Number(model.input_cost_per_1k),
+        outputCost: model.output_cost_per_1k === null ? null : Number(model.output_cost_per_1k),
+        contextWindow: model.context_window,
+        supportsJson: model.supports_json,
       })),
   )
 
@@ -66,13 +121,8 @@ export function FeatureBindings({ providers }: { providers: AIProvider[] }) {
             feature.provider_slug && feature.model_slug
               ? `${feature.provider_slug}::${feature.model_slug}`
               : ''
-          const allowed = options.filter((option) =>
-            feature.feature === 'embeddings.default'
-              ? option.kind === 'embedding'
-              : feature.feature === 'rerank.default'
-                ? option.kind !== 'embedding'
-                : option.kind === 'chat',
-          )
+          const allowed = options.filter((option) => isAllowed(feature.feature, option))
+          const suggested = recommend(feature.feature, options)
 
           return (
             <div
@@ -87,7 +137,7 @@ export function FeatureBindings({ providers }: { providers: AIProvider[] }) {
                 <p className="text-sm text-muted">{feature.description}</p>
               </div>
 
-              <div className="flex items-center gap-3 lg:w-96">
+              <div className="flex flex-wrap items-center gap-3 lg:w-[32rem]">
                 <Select
                   aria-label={`Modelo para ${feature.label}`}
                   value={current}
@@ -111,6 +161,25 @@ export function FeatureBindings({ providers }: { providers: AIProvider[] }) {
                     </option>
                   ))}
                 </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!suggested || update.isPending}
+                  title={suggested ? `Selecionar ${suggested.label}` : 'Não há modelo compatível ativo'}
+                  onClick={() => {
+                    if (!suggested) return
+                    const [providerSlug, modelSlug] = suggested.value.split('::')
+                    update.mutate({
+                      feature: feature.feature,
+                      provider_slug: providerSlug,
+                      model_slug: modelSlug,
+                      is_enabled: true,
+                    })
+                  }}
+                >
+                  <ScanSearch /> Detectar
+                </Button>
                 <Toggle
                   checked={feature.is_enabled}
                   disabled={!feature.model_slug || update.isPending}

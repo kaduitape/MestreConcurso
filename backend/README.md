@@ -1,4 +1,4 @@
-# Backend — Concurso Mestre IA
+# Backend — Game of Concursos
 
 API FastAPI da plataforma. Consulte a documentação de arquitetura em `../docs/`.
 

@@ -34,6 +34,10 @@ from app.services.auth import RequestContext
 logger = get_logger(__name__)
 
 PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
+    "aisa": {
+        "display_name": "AISA.one",
+        "base_url": "https://api.aisa.one/v1",
+    },
     "openai": {
         "display_name": "OpenAI (ChatGPT)",
         "base_url": "https://api.openai.com/v1",
