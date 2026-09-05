@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.game import (
     Achievement,
+    BattlePowerUse,
     BattleSetting,
     Duel,
     EventParticipation,
@@ -370,3 +371,15 @@ class BattleSettingRepository(BaseRepository[BattleSetting]):
             .execution_options(populate_existing=True)
         )
         return (await self.session.execute(stmt)).scalars().first()
+
+
+class BattlePowerUseRepository(BaseRepository[BattlePowerUse]):
+    model = BattlePowerUse
+
+    async def for_run(self, run_id: int) -> Sequence[BattlePowerUse]:
+        stmt = (
+            select(BattlePowerUse)
+            .where(BattlePowerUse.game_run_id == run_id)
+            .order_by(BattlePowerUse.id)
+        )
+        return (await self.session.execute(stmt)).scalars().all()

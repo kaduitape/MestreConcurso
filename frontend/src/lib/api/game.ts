@@ -3,6 +3,7 @@ import type {
   AchievementList,
   Battle,
   BattleAnswerResult,
+  BattlePowerKey,
   BattleSetting,
   BattleViewport,
   BoardBattle,
@@ -100,6 +101,9 @@ export const gameApi = {
     input: { question_public_id: string; letter: string | null; time_seconds: number },
   ) =>
     api.post<BattleAnswerResult>(`/game/battle/${publicId}/answer?viewport=${viewport}`, input),
+
+  useBattlePower: (publicId: string, viewport: BattleViewport, power: BattlePowerKey) =>
+    api.post<Battle>(`/game/battle/${publicId}/power?viewport=${viewport}`, { power }),
 
   createDuel: () => api.post<Duel>('/game/duels'),
 

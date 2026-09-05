@@ -1,4 +1,4 @@
-import { LogOut, Swords } from 'lucide-react'
+import { LogOut, Swords, Volume2, VolumeX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Battle } from '@/lib/api/types'
@@ -13,11 +13,15 @@ export function BattleHeader({
   battle,
   onLeave,
   leaving,
+  soundOn,
+  onToggleSound,
   className,
 }: {
   battle: Battle
   onLeave: () => void
   leaving: boolean
+  soundOn: boolean
+  onToggleSound: () => void
   className?: string
 }) {
   return (
@@ -35,10 +39,28 @@ export function BattleHeader({
         )}
       </div>
 
-      <Button variant="ghost" size="sm" onClick={onLeave} disabled={leaving}>
-        <LogOut className="size-4" aria-hidden />
-        Sair da batalha
-      </Button>
+      <div className="flex items-center gap-1">
+        {/* O som começa desligado: a plataforma é usada no trabalho e na
+            biblioteca, e efeito que surpreende faz fechar a aba. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleSound}
+          aria-pressed={soundOn}
+          aria-label={soundOn ? 'Desligar os sons da batalha' : 'Ligar os sons da batalha'}
+        >
+          {soundOn ? (
+            <Volume2 className="size-4" aria-hidden />
+          ) : (
+            <VolumeX className="size-4" aria-hidden />
+          )}
+        </Button>
+
+        <Button variant="ghost" size="sm" onClick={onLeave} disabled={leaving}>
+          <LogOut className="size-4" aria-hidden />
+          Sair da batalha
+        </Button>
+      </div>
     </div>
   )
 }

@@ -13,7 +13,6 @@ from app.core.pagination import Page, PageParams, page_params
 from app.domain import permissions as perms
 from app.domain.billing.plans import FeatureKey
 from app.domain.game import ACHIEVEMENTS_BY_SLUG, MODES, MODES_BY_KEY, ChallengeMode, evaluate
-from app.domain.game.battle import MONSTER_DAMAGE, PLAYER_DAMAGE
 from app.models.audit import AuditAction
 from app.models.game import (
     Duel,
@@ -29,7 +28,10 @@ from app.schemas.game import (
     AchievementListRead,
     AchievementRead,
     BattleAnswerResultRead,
+    BattleCombatSettingsRead,
     BattleLayoutSettingsRead,
+    BattlePowerInput,
+    BattlePowerRead,
     BattleRead,
     BattleSettingRead,
     BattleSettingUpdate,
@@ -560,6 +562,12 @@ def _battle_read(view: BattleView) -> BattleRead:
             victory=status.victory,
             defeat=status.defeat,
             outcome_reason=status.outcome_reason,
+            combo=status.combo,
+            best_combo=status.best_combo,
+            coins=status.coins,
+            coins_earned=status.coins_earned,
+            coins_spent=status.coins_spent,
+            criticals=status.criticals,
         ),
         monsters=[
             MonsterRead(
@@ -588,6 +596,33 @@ def _battle_read(view: BattleView) -> BattleRead:
             chars_per_line_mobile=view.settings.chars_per_line_mobile,
             max_lines_for_arena=view.settings.max_lines_for_arena,
         ),
+        combat=BattleCombatSettingsRead(
+            critical_seconds=view.combat.critical_seconds,
+            critical_bonus_percent=view.combat.critical_bonus_percent,
+            combo_damage_percent=view.combat.combo_damage_percent,
+            max_combo_steps=view.combat.max_combo_steps,
+            coins_per_correct=view.combat.coins_per_correct,
+            coins_per_combo_step=view.combat.coins_per_combo_step,
+            starting_coins=view.combat.starting_coins,
+            shield_cost=view.combat.shield_cost,
+            eliminate_cost=view.combat.eliminate_cost,
+            hint_cost=view.combat.hint_cost,
+        ),
+        powers=[
+            BattlePowerRead(
+                power=item.power,
+                label=item.label,
+                description=item.description,
+                cost=item.cost,
+                affordable=item.affordable,
+                used=item.used,
+                removed_letter=item.removed_letter,
+                hint=item.hint,
+            )
+            for item in view.powers
+        ],
+        removed_letters=view.removed_letters,
+        hint=view.hint,
     )
 
 
@@ -1147,6 +1182,10 @@ async def answer_battle(
     view = await service.view(user, public_id, viewport=viewport)
 
     correct = bool(feedback.attempt.is_correct)
+    # O dano não é recalculado aqui: ele sai do mesmo `evaluate_battle` que
+    # desenhou as barras de vida. Repetir a conta na rota seria a chance de a
+    # tela mostrar um número e o HP contar outra história.
+    outcome = view.status.last_outcome
     return BattleAnswerResultRead(
         battle=_battle_read(view),
         is_correct=correct,
@@ -1154,9 +1193,35 @@ async def answer_battle(
         selected_feedback=feedback.selected_feedback,
         correct_feedback=feedback.correct_feedback,
         explanation=feedback.explanation,
-        damage=PLAYER_DAMAGE if correct else MONSTER_DAMAGE,
-        damage_target="enemy" if correct else "player",
+        damage=outcome.damage if outcome else 0,
+        damage_target=outcome.damage_target if outcome else None,
+        combo=outcome.combo if outcome else 0,
+        is_critical=bool(outcome and outcome.is_critical),
+        shielded=bool(outcome and outcome.shielded),
+        coins=outcome.coins if outcome else 0,
     )
+
+
+@game_router.post(
+    "/battle/{public_id}/power",
+    response_model=BattleRead,
+    summary="Usar um poder da batalha",
+)
+async def use_battle_power(
+    public_id: str,
+    payload: BattlePowerInput,
+    user: CurrentUser,
+    db: DbSession,
+    viewport: Annotated[str, Query(pattern="^(desktop|tablet|mobile)$")] = "desktop",
+) -> BattleRead:
+    """Gasta moedas da própria batalha em Escudo, Eliminar ou Dica.
+
+    As moedas são da rodada e morrem com ela: não há saldo entre batalhas, loja,
+    nem compra com dinheiro. Um poder é uma escolha dentro do combate, e nenhum
+    deles destrava conteúdo de estudo.
+    """
+    view = await BattleService(db).use_power(user, public_id, payload.power, viewport=viewport)
+    return _battle_read(view)
 
 
 # --------------------------------------------------------------------------- #

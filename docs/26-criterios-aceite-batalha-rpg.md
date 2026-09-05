@@ -1,13 +1,17 @@
-# Critérios de Aceite — Batalha RPG (Fase 1)
+# Critérios de Aceite — Batalha RPG (Fases 1 e 2)
 
 > **Regra que governa esta entrega:** é um RPG 2D por cima de uma plataforma
 > séria de concurso. O combate é a **consequência visual** da resposta, nunca a
 > fonte dela. Se a animação e a questão disputarem a tela, a questão ganha.
 
-Escopo desta fase: os dois modelos de tela, a seleção automática entre eles, o
+Escopo da **Fase 1**: os dois modelos de tela, a seleção automática entre eles, o
 guerreiro, os monstros, as barras de vida, a pergunta, as respostas, acerto,
-erro, ataque, dano, explicação e responsividade. **Nada de XP extra de combate,
-combo, moedas, poderes ou som** — isso é Fase 2, e não foi implementado.
+erro, ataque, dano, explicação e responsividade.
+
+Escopo da **Fase 2**: XP, combo, moedas, poderes, sons e críticos.
+
+**Chefes, campanhas, equipamentos, classes e ranking são Fase 3** e não foram
+implementados.
 
 ## Reaproveitamento
 1. A batalha **não é um sistema paralelo**. É o modo `BATTLE` de `GameRun`: mesma
@@ -116,3 +120,64 @@ combo, moedas, poderes ou som** — isso é Fase 2, e não foi implementado.
 40. Fases 2 e 3 (XP de combate, combo, moedas, poderes, som, chefes, evolução)
     **não foram implementadas**, por decisão explícita: a Fase 1 precisa estar
     estável antes.
+
+---
+
+# Fase 2 — combo, crítico, moedas, poderes, som e XP
+
+> **Regra que governa esta fase:** o que a Fase 2 acrescenta continua sendo
+> **derivado das respostas**. Combo, crítico, dano e saldo saem da mesma conta
+> que já desenhava o HP. Nada é sorteado — porque o que é sorteado não pode ser
+> reconstruído, e o que não pode ser reconstruído precisa ser guardado.
+
+## Combo
+41. A sequência é a contagem de acertos consecutivos, derivada da lista de respostas. Errar zera a sequência corrente e preserva a maior da batalha.
+42. O combo aumenta **dano e moedas** — e tem teto. Sem teto, dois acertos derrubariam qualquer inimigo, e o resto da batalha viraria enfeite.
+43. O contador só aparece a partir do segundo acerto seguido: "Combo ×1" não é sequência, e selo permanente em volta do enunciado é ruído.
+
+## Crítico
+44. Um acerto **rápido** é crítico e bate mais forte. O limiar é uma régua do banco, não uma constante.
+45. **O crítico não é sorteado.** Ele é função do tempo que a resposta levou — número que já era registrado em `question_attempts`. Um dado aleatório daria HP diferente a cada leitura da mesma batalha, e aí seria preciso guardar vida em algum lugar.
+46. Resposta sem tempo medido não vira crítico: tempo zero é desconhecido, não instantâneo.
+
+## Moedas
+47. Moedas são ganhas por acerto, com bônus por combo. **Errar não tira moeda** — já custou vida.
+48. O saldo é **derivado**: moedas iniciais + ganhas − gastas, recalculado a cada leitura. Não há campo de saldo em lugar nenhum.
+49. As moedas são **da rodada e morrem com ela**. Não há saldo entre batalhas, loja, nem compra com dinheiro real. Uma moeda persistente viraria economia — e economia dentro de um produto de estudo termina em conteúdo atrás de pagamento (itens 3 e 24 da gamificação).
+50. Não há caixa de recompensa, sorteio de item nem raridade (item 34 da gamificação). O preço de cada poder aparece antes do clique.
+
+## Poderes
+51. São três, e só três: **Escudo** (impede o dano do próximo erro), **Eliminar** (remove uma alternativa incorreta) e **Dica** (mostra uma pista).
+52. Nenhum deles revela a resposta nem destrava conteúdo de estudo. Funcionam nos dois modelos de tela.
+53. **A dica é sempre texto já cadastrado** — a primeira frase da explicação da questão ou do comentário da alternativa correta. Gerar um texto para o poder "funcionar" seria inventar conteúdo.
+54. **Questão sem explicação não tem dica, e não se cobra por isso**: o pedido é recusado com o motivo e nenhuma moeda sai do saldo.
+55. O Eliminar nunca remove a alternativa correta, e a escolha é **estável** (mesmo hash da identidade da questão): sorteio faria a tela mostrar coisas diferentes para a mesma jogada.
+56. A alternativa eliminada sai também **da conta do layout**: decidir a arena por um texto que não vai aparecer daria a resposta errada.
+57. Cada poder vale uma vez por questão, e só na questão em aberto. Poder sem saldo é recusado dizendo **quantas moedas faltam**.
+58. O uso do poder é o **único estado que não dá para derivar** — usar um escudo é uma decisão, não uma consequência. Por isso ele é guardado, junto com o que revelou e o preço pago naquele momento: mudar a tabela de preços não reescreve uma batalha já jogada.
+
+## Escudo e vida
+59. O escudo absorve o golpe inteiro do erro seguinte: o dano vai a zero e ninguém apanha.
+60. **O escudo protege a vida, não o mérito**: o erro continua zerando o combo e continuando errado nas estatísticas.
+
+## XP
+61. O combo da batalha multiplica o XP pela **mesma função já auditada** do modo Combo, com o mesmo teto. Não existe caminho paralelo de XP para o combate.
+62. O XP continua passando pelo razão contábil, pelos tetos diários e pelo antiabuso da G1. O combate não cria moeda de XP nova.
+63. **"Desafio cumprido" continua medido pela taxa de acerto crua**, não pelo dano. Combo e crítico deixam o monstro cair mais cedo — mas não fazem a plataforma dizer que o candidato foi melhor do que foi.
+64. O XP não entra no Mestre Score (item 23 da gamificação). Isso não mudou.
+
+## Som
+65. Sete efeitos curtos — `select`, `sword`, `impact`, `monster_attack`, `correct`, `wrong`, `level_up` — **sintetizados na hora**, sem nenhum arquivo de áudio. Sete MP3 seriam sete downloads antes da primeira questão.
+66. **Não há música**, e nada toca sozinho: o `AudioContext` só nasce depois de um clique.
+67. O som **começa desligado**, com interruptor visível na batalha e escolha gravada por aparelho. A leitura do pedido é que o som deve poder ser desligado; a escolha do padrão é nossa, e vem de onde a plataforma é usada — trabalho, biblioteca, transporte. Fone no ônibus e silêncio no escritório são a mesma pessoa.
+68. Navegador sem áudio não quebra a tela: falhar em tocar um efeito nunca interrompe a batalha.
+
+## Configuração
+69. Dez réguas novas no banco, no mesmo painel das de layout: tempo do crítico, bônus do crítico, dano por degrau de combo, teto de degraus, moedas por acerto, moedas por degrau, saldo inicial e o preço dos três poderes. Nenhuma delas é constante de código.
+70. Régua zerada não derruba a tela: o divisor da estimativa de linhas nunca é zero.
+
+## Qualidade
+71. `domain/game/battle.py` continua puro: combo, crítico, dano e moedas são funções sem I/O.
+72. 46 testes de domínio, 31 de integração e 36 no cliente. Entre eles, a garantia explícita de que **ler a mesma batalha vinte vezes devolve sempre o mesmo HP e o mesmo saldo**.
+73. Migração `battle_power_uses` sobe e desce limpa; `alembic check` sem divergência.
+74. A Fase 3 (chefes, campanhas, equipamentos, classes e ranking) **não foi implementada**.

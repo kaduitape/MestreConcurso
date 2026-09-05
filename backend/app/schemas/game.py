@@ -633,6 +633,39 @@ class BattleStatusRead(BaseModel):
     victory: bool
     defeat: bool
     outcome_reason: str | None = None
+    #: Fase 2 — sequência, moedas e críticos, todos derivados das respostas.
+    combo: int = 0
+    best_combo: int = 0
+    coins: int = 0
+    coins_earned: int = 0
+    coins_spent: int = 0
+    criticals: int = 0
+
+
+class BattleCombatSettingsRead(BaseModel):
+    """As réguas do combate, para a tela explicar o preço em vez de só cobrá-lo."""
+
+    critical_seconds: int
+    critical_bonus_percent: int
+    combo_damage_percent: int
+    max_combo_steps: int
+    coins_per_correct: int
+    coins_per_combo_step: int
+    starting_coins: int
+    shield_cost: int
+    eliminate_cost: int
+    hint_cost: int
+
+
+class BattlePowerRead(BaseModel):
+    power: str
+    label: str
+    description: str
+    cost: int
+    affordable: bool
+    used: bool
+    removed_letter: str | None = None
+    hint: str | None = None
 
 
 class BattleLayoutSettingsRead(BaseModel):
@@ -664,6 +697,11 @@ class BattleRead(BaseModel):
     layout: str
     layout_reason: str
     settings: BattleLayoutSettingsRead
+    combat: BattleCombatSettingsRead
+    powers: list[BattlePowerRead] = Field(default_factory=list)
+    #: Letras já eliminadas nesta questão — a tela não as renderiza.
+    removed_letters: list[str] = Field(default_factory=list)
+    hint: str | None = None
 
 
 class BattleAnswerResultRead(BaseModel):
@@ -675,7 +713,12 @@ class BattleAnswerResultRead(BaseModel):
     explanation: str | None = None
     #: Dano aplicado nesta resposta — quem apanhou depende de quem errou.
     damage: int = 0
-    damage_target: str = "enemy"
+    #: ``None`` quando o escudo absorveu o golpe: ninguém apanhou.
+    damage_target: str | None = "enemy"
+    combo: int = 0
+    is_critical: bool = False
+    shielded: bool = False
+    coins: int = 0
 
 
 class BattleSettingRead(BaseModel):
@@ -685,4 +728,8 @@ class BattleSettingRead(BaseModel):
 
 
 class BattleSettingUpdate(BaseModel):
-    value: int = Field(ge=1, le=400)
+    value: int = Field(ge=0, le=400)
+
+
+class BattlePowerInput(BaseModel):
+    power: str

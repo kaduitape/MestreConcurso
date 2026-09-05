@@ -12,7 +12,7 @@ import { ApiError } from '@/lib/api/client'
 import { gameApi } from '@/lib/api/game'
 import { queryKeys } from '@/lib/query-client'
 import { cn } from '@/lib/utils'
-import type { Battle, BattleAnswerResult, BattleMonster } from '@/lib/api/types'
+import type { Battle, BattleAnswerResult, BattleMonster, BattlePowerKey } from '@/lib/api/types'
 import { selectBattleLayout } from './layout'
 import {
   REDUCED_TIMELINE,
@@ -21,7 +21,10 @@ import {
   initialBattleState,
   type BattleMachineState,
 } from './machine'
+import { useBattleSound } from './use-sound'
 import { useBattleViewport } from './use-viewport'
+import { CriticalBadge } from './components/combo-meter'
+import { HintPanel, PowerBar } from './components/power-bar'
 import { BattleHUD, DamageEffect, SlashEffect } from './components/battle-hud'
 import { BattleHeader } from './components/battle-header'
 import { ExplanationPanel } from './components/explanation-panel'
@@ -86,6 +89,7 @@ export function BattlePage() {
   const [state, dispatch] = useReducer(battleReducer, initialBattleState)
   const [result, setResult] = useState<BattleAnswerResult | null>(null)
   const [showResultModal, setShowResultModal] = useState(false)
+  const sound = useBattleSound()
 
   const battleQuery = useQuery({
     queryKey: queryKeys.gameBattle(viewport),
@@ -114,9 +118,24 @@ export function BattlePage() {
   const questionId = question?.public_id ?? null
 
   // A régua do layout roda no cliente porque só ele conhece a largura real.
+  // A alternativa eliminada sai da conta do layout: decidir a arena por um
+  // texto que não vai aparecer daria a resposta errada.
+  const visibleAlternatives = useMemo(
+    () =>
+      question
+        ? question.alternatives.filter(
+            (item) => !(battle?.removed_letters ?? []).includes(item.letter),
+          )
+        : [],
+    [question, battle?.removed_letters],
+  )
+
   const decision = useMemo(
-    () => (battle && question ? selectBattleLayout(question, viewport, battle.settings) : null),
-    [battle, question, viewport],
+    () =>
+      battle && question
+        ? selectBattleLayout({ alternatives: visibleAlternatives }, viewport, battle.settings)
+        : null,
+    [battle, question, visibleAlternatives, viewport],
   )
   const decisionRef = useRef(decision)
   decisionRef.current = decision
@@ -165,9 +184,20 @@ export function BattlePage() {
         correctLetter: payload.correct_letter,
         damage: payload.damage,
         damageTarget: payload.damage_target,
+        isCritical: payload.is_critical,
+        shielded: payload.shielded,
+        combo: payload.combo,
+        coins: payload.coins,
       })
-      later(() => dispatch({ type: 'IMPACT' }), timeline.attack)
-      later(() => dispatch({ type: 'SHOW_RESULT' }), timeline.attack + timeline.damage)
+      sound.play(payload.is_correct ? 'sword' : 'monster_attack')
+      later(() => {
+        dispatch({ type: 'IMPACT' })
+        sound.play(payload.shielded ? 'select' : 'impact')
+      }, timeline.attack)
+      later(() => {
+        dispatch({ type: 'SHOW_RESULT' })
+        sound.play(payload.is_correct ? 'correct' : 'wrong')
+      }, timeline.attack + timeline.damage)
     },
     onError: (error: unknown) => {
       // Devolver o controle é melhor do que deixar a tela presa em "atacando".
@@ -185,8 +215,22 @@ export function BattlePage() {
     },
   })
 
+  const power = useMutation({
+    mutationFn: (chosen: BattlePowerKey) =>
+      gameApi.useBattlePower(battle!.run.public_id, viewport, chosen),
+    onSuccess: (fresh) => {
+      // O poder muda a questão corrente, não a próxima: escrever direto no cache
+      // evita um recarregamento que piscaria o enunciado sob a leitura.
+      queryClient.setQueryData(queryKeys.gameBattle(viewport), fresh)
+      sound.play('level_up')
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof ApiError ? error.message : 'Não foi possível usar o poder.'),
+  })
+
   const onSelect = (letter: string) => {
     dispatch({ type: 'SELECT', letter })
+    sound.play('select')
     answer.mutate(letter)
   }
 
@@ -255,7 +299,23 @@ export function BattlePage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      <BattleHeader battle={battle} onLeave={() => leave.mutate()} leaving={leave.isPending} />
+      <BattleHeader
+        battle={battle}
+        onLeave={() => leave.mutate()}
+        leaving={leave.isPending}
+        soundOn={sound.enabled}
+        onToggleSound={sound.toggle}
+      />
+
+      <PowerBar
+        powers={battle.powers}
+        coins={status.coins}
+        disabled={state.locked || state.phase !== 'QUESTION'}
+        pending={power.isPending ? power.variables : null}
+        onUse={(chosen) => power.mutate(chosen)}
+      />
+
+      {battle.hint && <HintPanel hint={battle.hint} />}
 
       <GameCard className="space-y-4 p-4 sm:p-5">
         <BattleHUD status={status} enemyName={battle.enemy_name} />
@@ -287,6 +347,10 @@ export function BattlePage() {
                 visible={state.damageTarget === 'enemy' && resolved}
                 className="top-2 left-1/2"
               />
+              <CriticalBadge
+                visible={state.isCritical && resolved}
+                className="-top-2 left-1/2 -translate-x-1/2"
+              />
             </div>
           )}
         </div>
@@ -297,14 +361,14 @@ export function BattlePage() {
       {question &&
         (state.layout === 'monster-arena' ? (
           <ShortAnswerBattle
-            alternatives={question.alternatives}
+            alternatives={visibleAlternatives}
             monsters={battle.monsters}
             state={state}
             onSelect={onSelect}
           />
         ) : (
           <LongAnswerBattle
-            alternatives={question.alternatives}
+            alternatives={visibleAlternatives}
             monsters={battle.monsters}
             state={state}
             onSelect={onSelect}
@@ -313,17 +377,35 @@ export function BattlePage() {
 
       {resolved && result && (
         <div className="space-y-3">
-          <p
-            className={cn(
-              'text-sm font-semibold',
-              result.is_correct ? 'text-success' : 'text-danger',
+          <div className="flex flex-wrap items-center gap-3" role="status">
+            <p
+              className={cn(
+                'text-sm font-semibold',
+                result.is_correct ? 'text-success' : 'text-danger',
+              )}
+            >
+              {result.is_correct
+                ? `Acertou. O ataque tirou ${result.damage} de vida do monstro.`
+                : result.shielded
+                  ? `Errou — era ${result.correct_letter ?? '—'}. O escudo absorveu o golpe.`
+                  : `Errou — era ${result.correct_letter ?? '—'}. O contra-ataque custou ${result.damage} de vida.`}
+            </p>
+            {result.is_critical && (
+              <span className="rounded-full bg-game-gold/15 px-2 py-0.5 text-xs font-black tracking-wide text-game-gold uppercase">
+                Crítico · acerto rápido
+              </span>
             )}
-            role="status"
-          >
-            {result.is_correct
-              ? `Acertou. O ataque tirou ${result.damage} de vida do monstro.`
-              : `Errou — era ${result.correct_letter ?? '—'}. O contra-ataque custou ${result.damage} de vida.`}
-          </p>
+            {result.combo >= 2 && (
+              <span className="rounded-full bg-game-orange/15 px-2 py-0.5 text-xs font-black tracking-wide text-game-orange uppercase">
+                Combo ×{result.combo}
+              </span>
+            )}
+            {result.coins > 0 && (
+              <span className="font-mono text-xs font-bold tabular-nums text-game-gold">
+                +{result.coins} moedas
+              </span>
+            )}
+          </div>
 
           {state.phase === 'EXPLANATION' && <ExplanationPanel result={result} />}
 

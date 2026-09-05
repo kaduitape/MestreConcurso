@@ -501,3 +501,38 @@ class BattleSetting(IdMixin, TimestampMixin, Base):
     updated_by_user_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="SET NULL")
     )
+
+
+class BattlePowerUse(IdMixin, TimestampMixin, Base):
+    """Um poder gasto numa questão da Batalha RPG.
+
+    É o único estado da batalha que **não** dá para derivar das respostas: usar
+    um escudo é uma decisão, não uma consequência. Guardar a decisão mantém o
+    resto derivável — o HP continua saindo da conta entre respostas e escudos,
+    e não de um saldo que poderia divergir.
+
+    O que o poder revelou (a alternativa eliminada, o texto da dica) fica junto:
+    recalcular depois poderia devolver outra alternativa e mudar a questão
+    debaixo de quem já a estava lendo.
+    """
+
+    __tablename__ = "battle_power_uses"
+    __table_args__ = (
+        UniqueConstraint("game_run_id", "question_id", "power", name="uq_battle_power_once"),
+        Index("ix_battle_power_uses_run", "game_run_id"),
+    )
+
+    game_run_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("game_runs.id", ondelete="CASCADE")
+    )
+    question_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("questions.id", ondelete="CASCADE")
+    )
+    power: Mapped[str] = mapped_column(String(16))
+    #: Preço pago, congelado no momento do uso: mudar a tabela de preços não
+    #: pode reescrever o saldo de uma batalha já jogada.
+    cost: Mapped[int] = mapped_column(Integer, default=0)
+    #: Letra removida pelo ELIMINAR, quando for o caso.
+    removed_letter: Mapped[str | None] = mapped_column(String(2))
+    #: Texto da DICA, sempre copiado de conteúdo já cadastrado.
+    hint: Mapped[str | None] = mapped_column(MediumText)

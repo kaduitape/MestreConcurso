@@ -105,7 +105,7 @@ A plataforma responde continuamente a uma única pergunta:
   assinatura verificada e é idempotente — e o status vem de uma consulta à API, nunca do
   corpo da notificação.
 
-- **Batalha RPG (Fase 1):** a mesma rodada de desafio, apresentada como combate 2D. Cada
+- **Batalha RPG (Fases 1 e 2):** a mesma rodada de desafio, apresentada como combate 2D. Cada
   alternativa é um monstro; acertar ataca, errar faz o monstro da alternativa correta
   contra-atacar. A vida dos dois lados é **derivada das respostas** a cada leitura — não há
   contador paralelo que possa divergir do que a pessoa respondeu. A tela escolhe sozinha
@@ -113,7 +113,12 @@ A plataforma responde continuamente a uma única pergunta:
   moram no banco**, por tamanho de tela, e **congela o layout enquanto a questão está
   aberta**. Quatro estados de animação, só `transform` e `opacity`, monstros em SVG inline
   sem download, e "reduzir animações" respeitado. O enunciado não anima: quando a animação
-  e a questão disputam a tela, a questão ganha.
+  e a questão disputam a tela, a questão ganha. A Fase 2 acrescentou combo, **crítico derivado
+  do tempo da resposta — não de dado**, moedas que valem só naquela rodada e três poderes
+  (Escudo, Eliminar, Dica) cujo preço aparece antes do clique. A dica é sempre texto **já
+  cadastrado**: questão sem explicação não tem dica, e não se cobra por isso. Os sete efeitos
+  sonoros são sintetizados na hora, sem nenhum arquivo, não há música, e o som começa
+  desligado.
 
 Todas as fases do backlog estão implementadas. O que ainda não existe está declarado em
 [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md), fase a fase, na linha "ainda não
@@ -156,7 +161,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [23 — Critérios de aceite da Gamificação 4](docs/23-criterios-aceite-gamificacao-4.md) | duelos, eventos, Modo Guerra e card compartilhável |
 | [24 — Critérios de aceite da Fase 9](docs/24-criterios-aceite-fase9.md) | Mestre Score, projeção, caminho e painéis com decisão |
 | [25 — Critérios de aceite da Fase 10](docs/25-criterios-aceite-fase10.md) | planos, assinaturas, cupons, webhook idempotente e limites |
-| [26 — Critérios de aceite da Batalha RPG](docs/26-criterios-aceite-batalha-rpg.md) | dois layouts, combate derivado das respostas e réguas no banco |
+| [26 — Critérios de aceite da Batalha RPG](docs/26-criterios-aceite-batalha-rpg.md) | dois layouts, combate derivado das respostas, combo, moedas e poderes |
 
 ## Como executar
 

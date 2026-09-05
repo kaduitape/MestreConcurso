@@ -9,18 +9,23 @@ from __future__ import annotations
 
 from app.domain.game.battle import (
     BESTIARY,
+    DEFAULT_COMBAT_SETTINGS,
     MONSTER_DAMAGE,
     PLAYER_DAMAGE,
     PLAYER_MAX_HP,
     BattleAnswer,
     BattleLayout,
+    BattlePower,
+    CombatSettings,
     LayoutSettings,
     Viewport,
     enemy_max_hp,
     evaluate_battle,
     monsters_for,
+    player_damage,
     select_battle_layout,
     species_for,
+    stable_choice,
 )
 
 CURTAS = ["São Paulo", "Rio de Janeiro", "Brasília", "Salvador"]
@@ -216,3 +221,138 @@ class TestBestiary:
         }
 
         assert len(variantes) > 1
+
+
+# --------------------------------------------------------------------------- #
+# Fase 2 — combo, crítico, moedas e poderes
+# --------------------------------------------------------------------------- #
+LENTO = 120  # bem acima do limiar de crítico
+RAPIDO = 5
+
+
+class TestCombo:
+    def test_acertos_seguidos_aumentam_a_sequencia(self):
+        status = evaluate_battle([BattleAnswer(True, LENTO) for _ in range(3)], questions=8)
+        assert status.combo == 3
+        assert status.best_combo == 3
+
+    def test_errar_zera_a_sequencia_mas_nao_a_maior(self):
+        answers = [
+            BattleAnswer(True, LENTO),
+            BattleAnswer(True, LENTO),
+            BattleAnswer(False, LENTO),
+        ]
+        status = evaluate_battle(answers, questions=8)
+        assert status.combo == 0
+        assert status.best_combo == 2
+
+    def test_a_sequencia_aumenta_o_dano(self):
+        primeiro = player_damage(streak=1, is_critical=False)
+        quarto = player_damage(streak=4, is_critical=False)
+        assert primeiro == PLAYER_DAMAGE
+        assert quarto > primeiro
+
+    def test_a_sequencia_tem_teto(self):
+        passo = DEFAULT_COMBAT_SETTINGS.max_combo_steps
+        no_teto = player_damage(streak=passo + 1, is_critical=False)
+        muito_alem = player_damage(streak=50, is_critical=False)
+        assert no_teto == muito_alem, "sem teto, dois acertos derrubariam qualquer inimigo"
+
+
+class TestCritical:
+    def test_acerto_rapido_e_critico(self):
+        status = evaluate_battle([BattleAnswer(True, RAPIDO)], questions=8)
+        assert status.criticals == 1
+        assert status.last_outcome is not None
+        assert status.last_outcome.is_critical
+
+    def test_acerto_demorado_nao_e_critico(self):
+        status = evaluate_battle([BattleAnswer(True, LENTO)], questions=8)
+        assert status.criticals == 0
+
+    def test_o_critico_nao_e_sorteado(self):
+        """O mesmo conjunto de respostas produz sempre o mesmo HP.
+
+        É o que permite não guardar vida nenhuma: se houvesse dado, cada leitura
+        da mesma batalha mostraria um número diferente.
+        """
+        answers = [BattleAnswer(True, RAPIDO), BattleAnswer(True, LENTO)]
+        leituras = {evaluate_battle(answers, questions=8).enemy_hp for _ in range(20)}
+        assert len(leituras) == 1
+
+    def test_o_critico_dói_mais(self):
+        assert player_damage(streak=1, is_critical=True) > player_damage(
+            streak=1, is_critical=False
+        )
+
+    def test_o_limiar_do_critico_vem_da_regua(self):
+        regua = CombatSettings(critical_seconds=200)
+        status = evaluate_battle([BattleAnswer(True, LENTO)], questions=8, settings=regua)
+        assert status.criticals == 1
+
+    def test_tempo_zero_nao_vira_critico(self):
+        """Resposta sem tempo medido não é 'instantânea' — é desconhecida."""
+        status = evaluate_battle([BattleAnswer(True, 0)], questions=8)
+        assert status.criticals == 0
+
+
+class TestCoins:
+    def test_a_batalha_comeca_com_o_saldo_de_fabrica(self):
+        status = evaluate_battle([], questions=8)
+        assert status.coins == DEFAULT_COMBAT_SETTINGS.starting_coins
+        assert status.coins_earned == 0
+
+    def test_acertar_rende_moedas_e_a_sequencia_rende_mais(self):
+        um = evaluate_battle([BattleAnswer(True, LENTO)], questions=8)
+        dois = evaluate_battle([BattleAnswer(True, LENTO)] * 2, questions=8)
+        assert um.coins_earned == DEFAULT_COMBAT_SETTINGS.coins_per_correct
+        assert dois.coins_earned > 2 * um.coins_earned - 1
+
+    def test_errar_nao_rende_moeda(self):
+        status = evaluate_battle([BattleAnswer(False, LENTO)], questions=8)
+        assert status.coins_earned == 0
+
+    def test_o_saldo_desconta_o_que_foi_gasto(self):
+        status = evaluate_battle([BattleAnswer(True, LENTO)], questions=8, coins_spent=20)
+        assert status.coins == DEFAULT_COMBAT_SETTINGS.starting_coins + 5 - 20
+        assert status.coins_spent == 20
+
+
+class TestShield:
+    def test_o_escudo_absorve_o_dano_do_erro(self):
+        status = evaluate_battle([BattleAnswer(False, LENTO, shielded=True)], questions=8)
+        assert status.player_hp == PLAYER_MAX_HP
+        assert status.last_outcome is not None
+        assert status.last_outcome.damage == 0
+        assert status.last_outcome.damage_target is None
+        assert status.last_outcome.shielded
+
+    def test_sem_escudo_o_erro_custa_vida(self):
+        status = evaluate_battle([BattleAnswer(False, LENTO)], questions=8)
+        assert status.player_hp == PLAYER_MAX_HP - MONSTER_DAMAGE
+
+    def test_o_escudo_nao_impede_a_perda_da_sequencia(self):
+        answers = [
+            BattleAnswer(True, LENTO),
+            BattleAnswer(False, LENTO, shielded=True),
+        ]
+        status = evaluate_battle(answers, questions=8)
+        assert status.combo == 0, "o escudo protege a vida, não o mérito"
+
+
+class TestPowers:
+    def test_os_tres_poderes_tem_preco(self):
+        regua = DEFAULT_COMBAT_SETTINGS
+        for power in (BattlePower.SHIELD, BattlePower.ELIMINATE, BattlePower.HINT):
+            assert regua.cost_of(power) > 0
+
+    def test_a_escolha_do_eliminar_e_estavel(self):
+        opcoes = ["A", "B", "D"]
+        escolhas = {stable_choice("questao-1:eliminate", opcoes) for _ in range(20)}
+        assert len(escolhas) == 1
+        assert escolhas.pop() in opcoes
+
+    def test_questoes_diferentes_podem_eliminar_letras_diferentes(self):
+        opcoes = ["A", "B", "C", "D"]
+        escolhas = {stable_choice(f"q{i}:eliminate", opcoes) for i in range(30)}
+        assert len(escolhas) > 1

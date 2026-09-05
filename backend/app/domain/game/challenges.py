@@ -314,7 +314,11 @@ def score_run(spec: ModeSpec, state: RunState) -> RunScore:
         share = scoring / spec.questions
         lines.append(ScoreLine("Alvo do desafio", f"{int(BOSS_TARGET_ACCURACY * 100)}% de acerto"))
 
-    multiplier = combo_multiplier(state.best_combo) if spec.mode == ChallengeMode.COMBO else 1.0
+    # A Batalha divide o multiplicador com o modo Combo: o combo dela é a mesma
+    # sequência de acertos, medida do mesmo jeito, e o XP passa pela mesma conta
+    # auditável em vez de ganhar um caminho paralelo.
+    combo_modes = (ChallengeMode.COMBO, ChallengeMode.BATTLE)
+    multiplier = combo_multiplier(state.best_combo) if spec.mode in combo_modes else 1.0
     xp = int(spec.base_xp * min(1.0, share) * multiplier)
 
     lines.append(ScoreLine("XP base do modo", str(spec.base_xp)))

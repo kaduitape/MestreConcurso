@@ -17,8 +17,12 @@ const hit: BattleEvent = {
   type: 'RESOLVED',
   isCorrect: true,
   correctLetter: 'B',
-  damage: 34,
+  damage: 51,
   damageTarget: 'enemy',
+  isCritical: true,
+  shielded: false,
+  combo: 1,
+  coins: 5,
 }
 const miss: BattleEvent = {
   type: 'RESOLVED',
@@ -26,6 +30,10 @@ const miss: BattleEvent = {
   correctLetter: 'C',
   damage: 20,
   damageTarget: 'player',
+  isCritical: false,
+  shielded: false,
+  combo: 0,
+  coins: 0,
 }
 
 describe('máquina da batalha', () => {
@@ -99,5 +107,47 @@ describe('máquina da batalha', () => {
     const state = run([ready, { type: 'SELECT', letter: 'A' }])
     expect(letterTone(state, 'A')).toBe('selected')
     expect(letterTone(state, 'B')).toBe('idle')
+  })
+})
+
+describe('máquina da batalha — Fase 2', () => {
+  it('guarda combo, crítico e moedas da resposta', () => {
+    const state = run([ready, { type: 'SELECT', letter: 'B' }, hit])
+    expect(state.isCritical).toBe(true)
+    expect(state.combo).toBe(1)
+    expect(state.coins).toBe(5)
+  })
+
+  it('o escudo deixa o golpe sem alvo', () => {
+    const shielded: BattleEvent = {
+      type: 'RESOLVED',
+      isCorrect: false,
+      correctLetter: 'C',
+      damage: 0,
+      damageTarget: null,
+      isCritical: false,
+      shielded: true,
+      combo: 0,
+      coins: 0,
+    }
+    const state = run([ready, { type: 'SELECT', letter: 'A' }, shielded])
+    expect(state.phase).toBe('ENEMY_ATTACK')
+    expect(state.damageTarget).toBeNull()
+    expect(state.shielded).toBe(true)
+  })
+
+  it('a questão seguinte limpa combo, crítico e moedas da anterior', () => {
+    const state = run([
+      ready,
+      { type: 'SELECT', letter: 'B' },
+      hit,
+      { type: 'IMPACT' },
+      { type: 'SHOW_RESULT' },
+      { type: 'ADVANCE' },
+      { type: 'QUESTION_READY', layout: 'compact-answer' },
+    ])
+    expect(state.isCritical).toBe(false)
+    expect(state.combo).toBe(0)
+    expect(state.coins).toBe(0)
   })
 })

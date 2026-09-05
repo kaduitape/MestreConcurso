@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import type { BattleStatus } from '@/lib/api/types'
+import { ComboMeter } from './combo-meter'
 
 /** Barra de vida. Só `transform`/`width` numa faixa curta — nada de layout. */
 export function HealthBar({
@@ -138,10 +139,13 @@ export function BattleHUD({
         ratio={status.enemy_hp_ratio}
         tone="enemy"
       />
-      <p className="text-xs text-subtle sm:col-span-2">
-        Questão {Math.min(status.answered + 1, status.questions)} de {status.questions} ·{' '}
-        {status.correct} acerto(s)
-      </p>
+      <div className="flex flex-wrap items-center gap-2 text-xs text-subtle sm:col-span-2">
+        <span>
+          Questão {Math.min(status.answered + 1, status.questions)} de {status.questions} ·{' '}
+          {status.correct} acerto(s)
+        </span>
+        <ComboMeter combo={status.combo} />
+      </div>
     </div>
   )
 }

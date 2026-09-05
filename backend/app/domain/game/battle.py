@@ -62,6 +62,71 @@ class BattleState(StrEnum):
     DEFEAT = "DEFEAT"
 
 
+class BattlePower(StrEnum):
+    """Os três poderes da Fase 2. A lista é curta de propósito.
+
+    Nenhum deles compra conteúdo de estudo nem some com a questão: um bloqueia o
+    próximo dano, outro tira uma alternativa errada, o terceiro mostra uma pista
+    **que já existe cadastrada**. Poder que revelasse a resposta transformaria a
+    batalha num teatro, e o candidato sairia dela achando que sabe.
+    """
+
+    SHIELD = "SHIELD"
+    ELIMINATE = "ELIMINATE"
+    HINT = "HINT"
+
+
+POWER_LABELS: dict[str, str] = {
+    BattlePower.SHIELD: "Escudo",
+    BattlePower.ELIMINATE: "Eliminar",
+    BattlePower.HINT: "Dica",
+}
+
+POWER_DESCRIPTIONS: dict[str, str] = {
+    BattlePower.SHIELD: "Impede o dano do próximo erro.",
+    BattlePower.ELIMINATE: "Remove uma alternativa incorreta.",
+    BattlePower.HINT: "Mostra uma pista tirada da explicação já cadastrada.",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class CombatSettings:
+    """Réguas do combate — combo, crítico, moedas e preço dos poderes.
+
+    Vivem no banco, ao lado das réguas de layout, pela mesma razão: o ponto em
+    que um acerto é "rápido" e o preço de um escudo são decisões de produto que
+    mudam com o uso. Nenhuma delas é constante de código.
+    """
+
+    #: Acerto abaixo deste tempo é crítico. Vinte segundos é o padrão de fábrica,
+    #: não uma verdade: a régua existe justamente para ser calibrada com dados.
+    critical_seconds: int = 20
+    #: Dano extra do crítico e de cada degrau de combo, em porcento.
+    critical_bonus_percent: int = 50
+    combo_damage_percent: int = 10
+    #: Degraus de combo que ainda contam. Sem teto, uma sequência longa
+    #: derrubaria qualquer inimigo com dois acertos.
+    max_combo_steps: int = 5
+    coins_per_correct: int = 5
+    coins_per_combo_step: int = 2
+    #: Moedas com que a batalha começa, para o primeiro poder não depender de
+    #: já ter acertado alguma coisa.
+    starting_coins: int = 30
+    shield_cost: int = 25
+    eliminate_cost: int = 20
+    hint_cost: int = 15
+
+    def cost_of(self, power: str) -> int:
+        if power == BattlePower.SHIELD:
+            return self.shield_cost
+        if power == BattlePower.ELIMINATE:
+            return self.eliminate_cost
+        return self.hint_cost
+
+
+DEFAULT_COMBAT_SETTINGS = CombatSettings()
+
+
 # --------------------------------------------------------------------------- #
 # Escolha de layout
 # --------------------------------------------------------------------------- #
@@ -106,11 +171,13 @@ class LayoutSettings:
         return self.short_average_max
 
     def chars_per_line_for(self, viewport: str) -> int:
+        # Nunca zero: a régua é editável no banco e vira divisor da estimativa de
+        # linhas. Um zero digitado no painel derrubaria a tela de batalha.
         if viewport == Viewport.MOBILE:
-            return self.chars_per_line_mobile
+            return max(1, self.chars_per_line_mobile)
         if viewport == Viewport.TABLET:
-            return self.chars_per_line_tablet
-        return self.chars_per_line_desktop
+            return max(1, self.chars_per_line_tablet)
+        return max(1, self.chars_per_line_desktop)
 
 
 DEFAULT_LAYOUT_SETTINGS = LayoutSettings()
@@ -242,6 +309,16 @@ def _stable_index(seed: str, size: int) -> int:
     return digest[0] % size if size else 0
 
 
+def stable_choice(seed: str, options: list[str]) -> str:
+    """Uma escolha estável dentro de uma lista — leitura pública do mesmo hash.
+
+    A mesma questão elimina sempre a mesma alternativa: se a escolha mudasse a
+    cada uso, o poder viraria sorteio e a tela mostraria coisas diferentes para
+    a mesma jogada.
+    """
+    return options[_stable_index(seed, len(options))]
+
+
 def species_for(seed: str) -> MonsterSpecies:
     return BESTIARY[_stable_index(seed, len(BESTIARY))]
 
@@ -264,6 +341,27 @@ class BattleAnswer:
     """Uma resposta já corrigida, reduzida ao que o combate precisa."""
 
     is_correct: bool
+    #: Tempo real gasto na questão. É o que decide o crítico — e por isso o
+    #: crítico não é sorteado: sorteio daria HP diferente a cada leitura da
+    #: mesma batalha, e o combate deixaria de ser reconstruível.
+    time_seconds: int = 0
+    #: Havia escudo ativo nesta questão quando ela foi respondida.
+    shielded: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class AnswerOutcome:
+    """O que uma resposta produziu no combate, questão a questão."""
+
+    index: int
+    is_correct: bool
+    damage: int
+    #: Quem levou o dano. ``None`` quando o escudo absorveu o golpe.
+    damage_target: str | None
+    combo: int
+    is_critical: bool
+    shielded: bool
+    coins: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -282,6 +380,19 @@ class BattleStatus:
     victory: bool
     defeat: bool
     outcome_reason: str | None = None
+    #: Sequência de acertos em curso e a maior da batalha.
+    combo: int = 0
+    best_combo: int = 0
+    #: Moedas ganhas menos gastas. Também derivadas — não há saldo guardado.
+    coins: int = 0
+    coins_earned: int = 0
+    coins_spent: int = 0
+    criticals: int = 0
+    outcomes: list[AnswerOutcome] = field(default_factory=list)
+
+    @property
+    def last_outcome(self) -> AnswerOutcome | None:
+        return self.outcomes[-1] if self.outcomes else None
 
     @property
     def player_hp_ratio(self) -> float:
@@ -292,15 +403,93 @@ class BattleStatus:
         return round(self.enemy_hp / self.enemy_max_hp, 4) if self.enemy_max_hp else 0.0
 
 
-def evaluate_battle(answers: list[BattleAnswer], *, questions: int) -> BattleStatus:
+def _combo_steps(streak: int, settings: CombatSettings) -> int:
+    """Degraus de combo que ainda contam — a sequência tem teto."""
+    return max(0, min(streak - 1, settings.max_combo_steps))
+
+
+def player_damage(
+    *, streak: int, is_critical: bool, settings: CombatSettings = DEFAULT_COMBAT_SETTINGS
+) -> int:
+    """Dano de um acerto: base, mais combo, mais crítico.
+
+    Tudo aqui é função dos dados da resposta. Não há sorteio em lugar nenhum —
+    o mesmo conjunto de respostas produz sempre o mesmo dano, que é o que
+    permite reconstruir a batalha em toda leitura em vez de guardar HP.
+    """
+    bonus = _combo_steps(streak, settings) * settings.combo_damage_percent
+    if is_critical:
+        bonus += settings.critical_bonus_percent
+    return round(PLAYER_DAMAGE * (100 + bonus) / 100)
+
+
+def coins_for(*, streak: int, settings: CombatSettings = DEFAULT_COMBAT_SETTINGS) -> int:
+    """Moedas de um acerto. Errar não tira moeda: já custou vida."""
+    return (
+        settings.coins_per_correct + _combo_steps(streak, settings) * settings.coins_per_combo_step
+    )
+
+
+def evaluate_battle(
+    answers: list[BattleAnswer],
+    *,
+    questions: int,
+    settings: CombatSettings = DEFAULT_COMBAT_SETTINGS,
+    coins_spent: int = 0,
+) -> BattleStatus:
     """Reconstrói o combate a partir das respostas — a única fonte de verdade."""
-    correct = sum(1 for item in answers if item.is_correct)
-    wrong = len(answers) - correct
-
     max_hp = enemy_max_hp(questions)
-    enemy_hp = max(0, max_hp - correct * PLAYER_DAMAGE)
-    player_hp = max(0, PLAYER_MAX_HP - wrong * MONSTER_DAMAGE)
+    enemy_hp = max_hp
+    player_hp = PLAYER_MAX_HP
 
+    streak = 0
+    best_combo = 0
+    criticals = 0
+    earned = 0
+    outcomes: list[AnswerOutcome] = []
+
+    for index, answer in enumerate(answers):
+        if answer.is_correct:
+            streak += 1
+            best_combo = max(best_combo, streak)
+            critical = answer.time_seconds > 0 and answer.time_seconds <= settings.critical_seconds
+            criticals += 1 if critical else 0
+            damage = player_damage(streak=streak, is_critical=critical, settings=settings)
+            enemy_hp = max(0, enemy_hp - damage)
+            coins = coins_for(streak=streak, settings=settings)
+            earned += coins
+            outcomes.append(
+                AnswerOutcome(
+                    index=index,
+                    is_correct=True,
+                    damage=damage,
+                    damage_target="enemy",
+                    combo=streak,
+                    is_critical=critical,
+                    shielded=False,
+                    coins=coins,
+                )
+            )
+            continue
+
+        streak = 0
+        # O escudo absorve o golpe inteiro — é para isso que ele foi comprado.
+        damage = 0 if answer.shielded else MONSTER_DAMAGE
+        player_hp = max(0, player_hp - damage)
+        outcomes.append(
+            AnswerOutcome(
+                index=index,
+                is_correct=False,
+                damage=damage,
+                damage_target=None if answer.shielded else "player",
+                combo=0,
+                is_critical=False,
+                shielded=answer.shielded,
+                coins=0,
+            )
+        )
+
+    correct = sum(1 for item in answers if item.is_correct)
     victory = enemy_hp == 0
     defeat = player_hp == 0 and not victory
     exhausted = len(answers) >= questions
@@ -320,12 +509,19 @@ def evaluate_battle(answers: list[BattleAnswer], *, questions: int) -> BattleSta
         enemy_max_hp=max_hp,
         answered=len(answers),
         correct=correct,
-        wrong=wrong,
+        wrong=len(answers) - correct,
         questions=questions,
         is_over=victory or defeat or exhausted,
         victory=victory,
         defeat=defeat,
         outcome_reason=reason,
+        combo=streak,
+        best_combo=best_combo,
+        coins=settings.starting_coins + earned - coins_spent,
+        coins_earned=earned,
+        coins_spent=coins_spent,
+        criticals=criticals,
+        outcomes=outcomes,
     )
 
 

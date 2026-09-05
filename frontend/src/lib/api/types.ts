@@ -1980,6 +1980,40 @@ export interface BattleStatus {
   victory: boolean
   defeat: boolean
   outcome_reason: string | null
+  /** Fase 2 — tudo derivado das respostas, como o HP. */
+  combo: number
+  best_combo: number
+  coins: number
+  coins_earned: number
+  coins_spent: number
+  criticals: number
+}
+
+export type BattlePowerKey = 'SHIELD' | 'ELIMINATE' | 'HINT'
+
+/** As réguas do combate: combo, crítico, moedas e preço dos poderes. */
+export interface BattleCombatSettings {
+  critical_seconds: number
+  critical_bonus_percent: number
+  combo_damage_percent: number
+  max_combo_steps: number
+  coins_per_correct: number
+  coins_per_combo_step: number
+  starting_coins: number
+  shield_cost: number
+  eliminate_cost: number
+  hint_cost: number
+}
+
+export interface BattlePowerOffer {
+  power: BattlePowerKey
+  label: string
+  description: string
+  cost: number
+  affordable: boolean
+  used: boolean
+  removed_letter: string | null
+  hint: string | null
 }
 
 /** As réguas que decidem o layout — vêm do banco, ajustáveis sem deploy. */
@@ -2009,6 +2043,11 @@ export interface Battle {
   layout: BattleLayout
   layout_reason: string
   settings: BattleLayoutSettings
+  combat: BattleCombatSettings
+  powers: BattlePowerOffer[]
+  /** Letras eliminadas nesta questão: a tela não as renderiza. */
+  removed_letters: string[]
+  hint: string | null
 }
 
 export interface BattleAnswerResult {
@@ -2018,9 +2057,13 @@ export interface BattleAnswerResult {
   selected_feedback: string | null
   correct_feedback: string | null
   explanation: string | null
-  /** Quem apanhou depende de quem errou. */
+  /** Quem apanhou depende de quem errou. `null` quando o escudo absorveu. */
   damage: number
-  damage_target: 'enemy' | 'player'
+  damage_target: 'enemy' | 'player' | null
+  combo: number
+  is_critical: boolean
+  shielded: boolean
+  coins: number
 }
 
 export interface BattleSetting {

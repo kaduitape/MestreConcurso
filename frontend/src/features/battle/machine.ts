@@ -32,7 +32,14 @@ export interface BattleMachineState {
   correctLetter: string | null
   isCorrect: boolean | null
   damage: number
+  /** `null` também quando o escudo absorveu: houve golpe, ninguém apanhou. */
   damageTarget: 'enemy' | 'player' | null
+  /** Acerto rápido: bate mais forte e a tela diz por quê. */
+  isCritical: boolean
+  /** O escudo comprado absorveu este erro. */
+  shielded: boolean
+  combo: number
+  coins: number
   /** Verdadeiro enquanto nenhuma alternativa deve aceitar clique. */
   locked: boolean
   outcome: 'victory' | 'defeat' | null
@@ -46,7 +53,11 @@ export type BattleEvent =
       isCorrect: boolean
       correctLetter: string | null
       damage: number
-      damageTarget: 'enemy' | 'player'
+      damageTarget: 'enemy' | 'player' | null
+      isCritical: boolean
+      shielded: boolean
+      combo: number
+      coins: number
     }
   | { type: 'IMPACT' }
   | { type: 'SHOW_RESULT' }
@@ -63,6 +74,10 @@ export const initialBattleState: BattleMachineState = {
   isCorrect: null,
   damage: 0,
   damageTarget: null,
+  isCritical: false,
+  shielded: false,
+  combo: 0,
+  coins: 0,
   locked: false,
   outcome: null,
 }
@@ -116,6 +131,10 @@ export function battleReducer(
         correctLetter: event.correctLetter,
         damage: event.damage,
         damageTarget: event.damageTarget,
+        isCritical: event.isCritical,
+        shielded: event.shielded,
+        combo: event.combo,
+        coins: event.coins,
       }
 
     case 'IMPACT':

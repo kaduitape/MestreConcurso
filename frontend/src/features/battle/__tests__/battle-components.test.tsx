@@ -5,7 +5,7 @@ import type { Alternative, BattleMonster, BattleStatus } from '@/lib/api/types'
 import { BattleHUD } from '../components/battle-hud'
 import { LongAnswerBattle } from '../components/long-answer-battle'
 import { ShortAnswerBattle } from '../components/short-answer-battle'
-import { battleReducer, initialBattleState } from '../machine'
+import { battleReducer, initialBattleState, type BattleEvent } from '../machine'
 
 const alternatives: Alternative[] = [
   { public_id: 'a1', letter: 'A', content: 'Sim' },
@@ -27,17 +27,23 @@ const monsters: BattleMonster[] = alternatives.map((item, index) => ({
   variant: index,
 }))
 
-const answered = [
-  { type: 'QUESTION_READY' as const, layout: 'monster-arena' as const },
-  { type: 'SELECT' as const, letter: 'A' },
-  {
-    type: 'RESOLVED' as const,
-    isCorrect: false,
-    correctLetter: 'C',
-    damage: 20,
-    damageTarget: 'player' as const,
-  },
-].reduce(battleReducer, initialBattleState)
+const answered = (
+  [
+    { type: 'QUESTION_READY', layout: 'monster-arena' },
+    { type: 'SELECT', letter: 'A' },
+    {
+      type: 'RESOLVED',
+      isCorrect: false,
+      correctLetter: 'C',
+      damage: 20,
+      damageTarget: 'player',
+      isCritical: false,
+      shielded: false,
+      combo: 0,
+      coins: 0,
+    },
+  ] as BattleEvent[]
+).reduce(battleReducer, initialBattleState)
 
 describe('ShortAnswerBattle', () => {
   it('toda a região da alternativa é o botão: monstro, letra e texto', async () => {
@@ -130,6 +136,12 @@ describe('BattleHUD', () => {
     victory: false,
     defeat: false,
     outcome_reason: null,
+    combo: 3,
+    best_combo: 3,
+    coins: 45,
+    coins_earned: 15,
+    coins_spent: 0,
+    criticals: 1,
   }
 
   it('publica as duas vidas com valor, mínimo e máximo', () => {
