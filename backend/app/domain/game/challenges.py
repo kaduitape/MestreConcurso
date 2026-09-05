@@ -43,6 +43,7 @@ class ChallengeMode(StrEnum):
     DUEL = "DUEL"
     #: Batalha RPG. É uma rodada como as outras — o que muda é a apresentação.
     BATTLE = "BATTLE"
+    BATTLE_BOSS = "BATTLE_BOSS"
 
 
 class RunStatus(StrEnum):
@@ -118,6 +119,22 @@ MODES: tuple[ModeSpec, ...] = (
         rule=(
             "Vence quem derruba o inimigo antes de ficar sem vida. "
             "Três de cada quatro acertos bastam."
+        ),
+    ),
+    ModeSpec(
+        mode=ChallengeMode.BATTLE_BOSS,
+        name="Chefe da Batalha",
+        description=(
+            "A batalha contra uma disciplina fraca sua, escolhida pelo Priority Score "
+            "— e não por sorteio."
+        ),
+        questions=12,
+        lives=None,
+        time_limit_seconds=None,
+        base_xp=160,
+        rule=(
+            "Mesmo alvo da Batalha: três de cada quatro acertos derrubam o chefe. "
+            "Ele aguenta mais golpes."
         ),
     ),
     ModeSpec(
@@ -286,7 +303,7 @@ def score_run(spec: ModeSpec, state: RunState) -> RunScore:
         lines.append(
             ScoreLine("Multiplicador máximo", f"{combo_multiplier(state.best_combo):.1f}×")
         )
-    elif spec.mode == ChallengeMode.BATTLE:
+    elif spec.mode in (ChallengeMode.BATTLE, ChallengeMode.BATTLE_BOSS):
         score = scoring
         # Vencer é derrubar o inimigo, e o HP dele sai da mesma régua.
         achieved = state.correct >= round(spec.questions * ENEMY_HP_ACCURACY_TARGET)
@@ -317,7 +334,7 @@ def score_run(spec: ModeSpec, state: RunState) -> RunScore:
     # A Batalha divide o multiplicador com o modo Combo: o combo dela é a mesma
     # sequência de acertos, medida do mesmo jeito, e o XP passa pela mesma conta
     # auditável em vez de ganhar um caminho paralelo.
-    combo_modes = (ChallengeMode.COMBO, ChallengeMode.BATTLE)
+    combo_modes = (ChallengeMode.COMBO, ChallengeMode.BATTLE, ChallengeMode.BATTLE_BOSS)
     multiplier = combo_multiplier(state.best_combo) if spec.mode in combo_modes else 1.0
     xp = int(spec.base_xp * min(1.0, share) * multiplier)
 

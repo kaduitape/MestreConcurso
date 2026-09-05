@@ -73,7 +73,7 @@ Mestre Game Engine reativo a eventos, XP com razão contábil e antiabuso, níve
 ### G3 — Temporadas, ligas, Boss Battle, Sobrevivência, Combo, Contra o Relógio
 ### G4 — Desafio entre amigos, card compartilhável, eventos especiais e Modo Guerra
 
-### Batalha RPG — Fases 1 e 2  ✅ implementadas
+### Batalha RPG — Fases 1, 2 e 3  ✅ implementadas
 Rodada de desafio no modo `BATTLE` apresentada como combate 2D: dois modelos de tela
 escolhidos automaticamente pelo tamanho das alternativas, guerreiro e monstros com quatro
 estados de animação, vida derivada das respostas e réguas de layout no banco.
@@ -83,4 +83,8 @@ disputam a tela, a questão ganha.
 A Fase 2 acrescentou combo, crítico derivado do tempo de resposta, moedas da própria rodada,
 os três poderes (Escudo, Eliminar, Dica), sons sintetizados sem arquivo e o combo multiplicando
 o XP pela mesma função já auditada do modo Combo.
-Ainda não entra aqui: chefes, campanhas, equipamentos, classes e ranking (Fase 3).
+A Fase 3 acrescentou chefes tirados do Priority Score, campanha derivada das disciplinas
+fracas reais, quatro classes livres, equipamento liberado por conquista e ranking no mesmo
+contexto da liga — tudo sob uma regra só: classe e equipamento mudam o combate, nunca a
+medição.
+Ainda não entra aqui: nada da Batalha RPG. As três fases do pedido estão implementadas.

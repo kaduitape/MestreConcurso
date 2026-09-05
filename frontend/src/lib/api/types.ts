@@ -2005,6 +2005,89 @@ export interface BattleCombatSettings {
   hint_cost: number
 }
 
+export type BattleEquipmentSlot = 'WEAPON' | 'ARMOR' | 'TRINKET'
+
+/** O que uma peça muda no combate — e só no combate. */
+export interface BattleModifiers {
+  damage_percent: number
+  max_hp_percent: number
+  coin_percent: number
+  power_discount_percent: number
+}
+
+export interface BattleClass {
+  slug: string
+  name: string
+  description: string
+  /** A troca declarada: toda classe ganha de um lado e perde do outro. */
+  tradeoff: string
+  modifiers: BattleModifiers
+}
+
+export interface BattleEquipment {
+  slug: string
+  name: string
+  slot: BattleEquipmentSlot
+  description: string
+  modifiers: BattleModifiers
+  is_unlocked: boolean
+  /** Conquista que libera a peça, quando houver. */
+  requirement_label: string | null
+}
+
+export interface BattleLoadout {
+  class_slug: string
+  weapon_slug: string
+  armor_slug: string
+  trinket_slug: string
+  modifiers: BattleModifiers
+}
+
+export interface BattleArmory {
+  loadout: BattleLoadout
+  classes: BattleClass[]
+  equipment: BattleEquipment[]
+}
+
+export interface BattleStage {
+  order: number
+  subject_public_id: string
+  label: string
+  /** O Priority Score real que ordenou o estágio. */
+  priority_score: number
+  battles: number
+  cleared: boolean
+  is_locked: boolean
+  blocked_reason: string | null
+}
+
+export interface BattleCampaign {
+  stages: BattleStage[]
+  cleared: number
+  total: number
+  is_complete: boolean
+  empty_reason: string | null
+}
+
+export interface BattleRankingMember {
+  position: number
+  label: string
+  battles: number
+  wins: number
+  correct: number
+  is_you: boolean
+  is_named: boolean
+}
+
+export interface BattleRanking {
+  context_label: string
+  participants: number
+  members: BattleRankingMember[]
+  your_position: number | null
+  empty_reason: string | null
+  note: string
+}
+
 export interface BattlePowerOffer {
   power: BattlePowerKey
   label: string
@@ -2044,6 +2127,9 @@ export interface Battle {
   layout_reason: string
   settings: BattleLayoutSettings
   combat: BattleCombatSettings
+  /** O loadout congelado desta rodada. */
+  loadout: BattleLoadout | null
+  is_boss: boolean
   powers: BattlePowerOffer[]
   /** Letras eliminadas nesta questão: a tela não as renderiza. */
   removed_letters: string[]

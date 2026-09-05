@@ -68,7 +68,7 @@ class ChallengeService:
     # ------------------------------------------------------------------ #
     # Largada
     # ------------------------------------------------------------------ #
-    async def start(self, user: User, mode: str) -> RunView:
+    async def start(self, user: User, mode: str, *, subject_id: int | None = None) -> RunView:
         spec = MODES_BY_KEY.get(mode)
         if spec is None:
             raise ValidationError("Modo de desafio desconhecido.", code="unknown_mode")
@@ -80,7 +80,7 @@ class ChallengeService:
                 code="run_already_running",
             )
 
-        questions, selection, subject = await self._select(user, spec)
+        questions, selection, subject = await self._select(user, spec, subject_id=subject_id)
         if len(questions) < spec.questions:
             # Sem questões suficientes a rodada não acontece. Repetir enunciado
             # para completar o número seria fabricar desafio.
@@ -109,10 +109,27 @@ class ChallengeService:
         return await self.view(user, run.public_id)
 
     async def _select(
-        self, user: User, spec: ModeSpec
+        self, user: User, spec: ModeSpec, *, subject_id: int | None = None
     ) -> tuple[list[Question], dict[str, Any], Subject | None]:
         """Escolhe as questões da rodada e registra **por que** foram estas."""
-        if spec.mode == ChallengeMode.BOSS:
+        if subject_id is not None:
+            # Estágio de campanha: a disciplina vem do mapa, não do topo da lista.
+            # Sem isso a campanha só teria um estágio jogável — o primeiro.
+            subject = await self.session.get(Subject, subject_id)
+            if subject is None:
+                raise NotFoundError("Disciplina não encontrada.")
+            questions = list(
+                await self.questions.pick_for_simulation(
+                    limit=spec.questions, subject_id=subject_id
+                )
+            )
+            return (
+                questions,
+                {"rule": "estágio de campanha", "subject": subject.name},
+                subject,
+            )
+
+        if spec.mode in (ChallengeMode.BOSS, ChallengeMode.BATTLE_BOSS):
             priority = (
                 (
                     await self.session.execute(

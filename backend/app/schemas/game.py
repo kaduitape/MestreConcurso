@@ -684,6 +684,98 @@ class BattleLayoutSettingsRead(BaseModel):
     max_lines_for_arena: int
 
 
+# --------------------------------------------------------------------------- #
+# Batalha RPG — Fase 3
+# --------------------------------------------------------------------------- #
+class BattleModifiersRead(BaseModel):
+    """O que a peça muda no combate — e só no combate."""
+
+    damage_percent: int = 0
+    max_hp_percent: int = 0
+    coin_percent: int = 0
+    power_discount_percent: int = 0
+
+
+class BattleClassRead(BaseModel):
+    slug: str
+    name: str
+    description: str
+    #: A troca declarada: toda classe ganha de um lado e perde do outro.
+    tradeoff: str
+    modifiers: BattleModifiersRead
+
+
+class BattleEquipmentRead(BaseModel):
+    slug: str
+    name: str
+    slot: str
+    description: str
+    modifiers: BattleModifiersRead
+    is_unlocked: bool
+    #: Conquista que libera a peça, quando houver.
+    requirement_label: str | None = None
+
+
+class BattleLoadoutRead(BaseModel):
+    class_slug: str
+    weapon_slug: str
+    armor_slug: str
+    trinket_slug: str
+    modifiers: BattleModifiersRead
+
+
+class BattleArmoryRead(BaseModel):
+    loadout: BattleLoadoutRead
+    classes: list[BattleClassRead] = Field(default_factory=list)
+    equipment: list[BattleEquipmentRead] = Field(default_factory=list)
+
+
+class BattleLoadoutInput(BaseModel):
+    class_slug: str
+    weapon_slug: str
+    armor_slug: str
+    trinket_slug: str
+
+
+class BattleStageRead(BaseModel):
+    order: int
+    subject_public_id: str
+    label: str
+    #: O Priority Score real que ordenou o estágio.
+    priority_score: float
+    battles: int
+    cleared: bool
+    is_locked: bool
+    blocked_reason: str | None = None
+
+
+class BattleCampaignRead(BaseModel):
+    stages: list[BattleStageRead] = Field(default_factory=list)
+    cleared: int = 0
+    total: int = 0
+    is_complete: bool = False
+    empty_reason: str | None = None
+
+
+class BattleRankingMemberRead(BaseModel):
+    position: int
+    label: str
+    battles: int
+    wins: int
+    correct: int
+    is_you: bool
+    is_named: bool
+
+
+class BattleRankingRead(BaseModel):
+    context_label: str
+    participants: int
+    members: list[BattleRankingMemberRead] = Field(default_factory=list)
+    your_position: int | None = None
+    empty_reason: str | None = None
+    note: str = ""
+
+
 class BattleRead(BaseModel):
     run: RunRead
     enemy_species: str
@@ -702,6 +794,9 @@ class BattleRead(BaseModel):
     #: Letras já eliminadas nesta questão — a tela não as renderiza.
     removed_letters: list[str] = Field(default_factory=list)
     hint: str | None = None
+    #: O loadout congelado desta rodada.
+    loadout: BattleLoadoutRead | None = None
+    is_boss: bool = False
 
 
 class BattleAnswerResultRead(BaseModel):

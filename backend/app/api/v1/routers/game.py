@@ -13,6 +13,7 @@ from app.core.pagination import Page, PageParams, page_params
 from app.domain import permissions as perms
 from app.domain.billing.plans import FeatureKey
 from app.domain.game import ACHIEVEMENTS_BY_SLUG, MODES, MODES_BY_KEY, ChallengeMode, evaluate
+from app.domain.game.battle import Loadout, Modifiers
 from app.models.audit import AuditAction
 from app.models.game import (
     Duel,
@@ -28,13 +29,23 @@ from app.schemas.game import (
     AchievementListRead,
     AchievementRead,
     BattleAnswerResultRead,
+    BattleArmoryRead,
+    BattleCampaignRead,
+    BattleClassRead,
     BattleCombatSettingsRead,
+    BattleEquipmentRead,
     BattleLayoutSettingsRead,
+    BattleLoadoutInput,
+    BattleLoadoutRead,
+    BattleModifiersRead,
     BattlePowerInput,
     BattlePowerRead,
+    BattleRankingMemberRead,
+    BattleRankingRead,
     BattleRead,
     BattleSettingRead,
     BattleSettingUpdate,
+    BattleStageRead,
     BattleStatusRead,
     BoardBattleRead,
     CardStatRead,
@@ -92,7 +103,7 @@ from app.schemas.question import SaveAnswerInput
 from app.services.analytics import AnalyticsService
 from app.services.audit import AuditService
 from app.services.entitlements import EntitlementService
-from app.services.game_battle import BattleService, BattleView
+from app.services.game_battle import ArmoryView, BattleService, BattleView
 from app.services.game_challenges import ChallengeService, RunView
 from app.services.game_engine import GameEngine
 from app.services.game_missions import MissionService
@@ -538,6 +549,53 @@ async def territory_map(user: CurrentUser, db: DbSession) -> TerritoryMapRead:
     )
 
 
+def _modifiers_read(modifiers: Modifiers) -> BattleModifiersRead:
+    return BattleModifiersRead(
+        damage_percent=modifiers.damage_percent,
+        max_hp_percent=modifiers.max_hp_percent,
+        coin_percent=modifiers.coin_percent,
+        power_discount_percent=modifiers.power_discount_percent,
+    )
+
+
+def _loadout_read(loadout: Loadout) -> BattleLoadoutRead:
+    return BattleLoadoutRead(
+        class_slug=loadout.class_slug,
+        weapon_slug=loadout.weapon_slug,
+        armor_slug=loadout.armor_slug,
+        trinket_slug=loadout.trinket_slug,
+        modifiers=_modifiers_read(loadout.modifiers),
+    )
+
+
+def _armory_read(view: ArmoryView) -> BattleArmoryRead:
+    return BattleArmoryRead(
+        loadout=_loadout_read(view.loadout),
+        classes=[
+            BattleClassRead(
+                slug=item.slug,
+                name=item.name,
+                description=item.description,
+                tradeoff=item.tradeoff,
+                modifiers=_modifiers_read(item.modifiers),
+            )
+            for item in view.classes
+        ],
+        equipment=[
+            BattleEquipmentRead(
+                slug=item.spec.slug,
+                name=item.spec.name,
+                slot=item.spec.slot,
+                description=item.spec.description,
+                modifiers=_modifiers_read(item.spec.modifiers),
+                is_unlocked=item.is_unlocked,
+                requirement_label=item.requirement_label,
+            )
+            for item in view.equipment
+        ],
+    )
+
+
 def _battle_read(view: BattleView) -> BattleRead:
     status = view.status
     return BattleRead(
@@ -623,6 +681,8 @@ def _battle_read(view: BattleView) -> BattleRead:
         ],
         removed_letters=view.removed_letters,
         hint=view.hint,
+        loadout=_loadout_read(view.loadout),
+        is_boss=view.is_boss,
     )
 
 
@@ -842,9 +902,9 @@ async def update_league_preferences(
 async def challenge_modes() -> list[ChallengeModeRead]:
     """Os modos que a tela de Desafios sabe jogar.
 
-    A Batalha RPG usa a mesma mecânica de rodada, mas tem tela própria: mostrá-la
-    aqui daria um cartão que começa um combate e o entrega na apresentação
-    errada. Ela fica de fora desta lista de propósito.
+    A Batalha RPG e o Chefe da Batalha usam a mesma mecânica de rodada, mas têm
+    tela própria: mostrá-los aqui daria um cartão que começa um combate e o
+    entrega na apresentação errada. Ficam de fora desta lista de propósito.
     """
     return [
         ChallengeModeRead(
@@ -857,7 +917,7 @@ async def challenge_modes() -> list[ChallengeModeRead]:
             rule=item.rule,
         )
         for item in MODES
-        if item.mode != ChallengeMode.BATTLE
+        if item.mode not in (ChallengeMode.BATTLE, ChallengeMode.BATTLE_BOSS)
     ]
 
 
@@ -1134,10 +1194,99 @@ async def start_battle(
     user: CurrentUser,
     db: DbSession,
     viewport: Annotated[str, Query(pattern="^(desktop|tablet|mobile)$")] = "desktop",
+    boss: bool = False,
+    subject: str | None = None,
 ) -> BattleRead:
-    """Uma rodada de desafio com apresentação de combate — mesma mecânica."""
+    """Uma rodada de desafio com apresentação de combate — mesma mecânica.
+
+    Com ``boss``, as questões vêm da disciplina de maior Priority Score; com
+    ``subject``, do estágio de campanha escolhido. Em nenhum dos dois a
+    dificuldade é inventada: são as questões reais daquela disciplina.
+    """
     await EntitlementService(db).consume(user, FeatureKey.CHALLENGES)
-    return _battle_read(await BattleService(db).start(user, viewport=viewport))
+    view = await BattleService(db).start(
+        user, viewport=viewport, boss=boss, subject_public_id=subject
+    )
+    return _battle_read(view)
+
+
+@game_router.get(
+    "/battle/armory", response_model=BattleArmoryRead, summary="Classes e equipamentos"
+)
+async def battle_armory(user: CurrentUser, db: DbSession) -> BattleArmoryRead:
+    """O arsenal do candidato: classes livres e peças liberadas por conquista."""
+    return _armory_read(await BattleService(db).armory(user))
+
+
+@game_router.put(
+    "/battle/armory", response_model=BattleArmoryRead, summary="Escolher classe e equipamento"
+)
+async def save_battle_loadout(
+    payload: BattleLoadoutInput, user: CurrentUser, db: DbSession
+) -> BattleArmoryRead:
+    """Grava a escolha. Nada aqui muda questão, dificuldade ou acesso a conteúdo."""
+    view = await BattleService(db).set_loadout(
+        user,
+        class_slug=payload.class_slug,
+        weapon_slug=payload.weapon_slug,
+        armor_slug=payload.armor_slug,
+        trinket_slug=payload.trinket_slug,
+    )
+    return _armory_read(view)
+
+
+@game_router.get(
+    "/battle/campaign", response_model=BattleCampaignRead, summary="Campanha de chefes"
+)
+async def battle_campaign(user: CurrentUser, db: DbSession) -> BattleCampaignRead:
+    """Os estágios saem do Priority Score real — não há mapa de fantasia."""
+    campaign = await BattleService(db).campaign(user)
+    return BattleCampaignRead(
+        stages=[
+            BattleStageRead(
+                order=item.order,
+                subject_public_id=item.subject_public_id,
+                label=item.label,
+                priority_score=item.priority_score,
+                battles=item.battles,
+                cleared=item.cleared,
+                is_locked=item.is_locked,
+                blocked_reason=item.blocked_reason,
+            )
+            for item in campaign.stages
+        ],
+        cleared=campaign.cleared,
+        total=campaign.total,
+        is_complete=campaign.is_complete,
+        empty_reason=campaign.empty_reason,
+    )
+
+
+@game_router.get(
+    "/battle/ranking", response_model=BattleRankingRead, summary="Ranking das batalhas"
+)
+async def battle_ranking(user: CurrentUser, db: DbSession) -> BattleRankingRead:
+    """Mesmo contexto da liga, mesma opção de sair, e ordem pelo acerto."""
+    ranking = await BattleService(db).ranking(user)
+    return BattleRankingRead(
+        context_label=ranking.context_label,
+        participants=ranking.participants,
+        members=[
+            BattleRankingMemberRead(
+                position=item.position,
+                label=item.label,
+                battles=item.battles,
+                wins=item.wins,
+                correct=item.correct,
+                is_you=item.is_you,
+                is_named=item.is_named,
+            )
+            for item in ranking.members
+        ],
+        your_position=ranking.your_position,
+        empty_reason=ranking.empty_reason,
+        note=ranking.note,
+    )
 
 
 @game_router.get(

@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { GameButton } from '@/components/game/game-button'
 import { GameCard } from '@/components/game/game-card'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ErrorState } from '@/components/feedback/error-state'
 import { SkeletonList } from '@/components/ui/skeleton'
 import { ApiError } from '@/lib/api/client'
@@ -23,6 +24,9 @@ import {
 } from './machine'
 import { useBattleSound } from './use-sound'
 import { useBattleViewport } from './use-viewport'
+import { ArmoryPanel } from './components/armory'
+import { RankingTable } from './components/battle-ranking'
+import { CampaignMap } from './components/campaign-map'
 import { CriticalBadge } from './components/combo-meter'
 import { HintPanel, PowerBar } from './components/power-bar'
 import { BattleHUD, DamageEffect, SlashEffect } from './components/battle-hud'
@@ -90,6 +94,12 @@ export function BattlePage() {
   const [result, setResult] = useState<BattleAnswerResult | null>(null)
   const [showResultModal, setShowResultModal] = useState(false)
   const sound = useBattleSound()
+  const [loadoutDraft, setLoadoutDraft] = useState({
+    class_slug: 'recruta',
+    weapon_slug: 'espada-simples',
+    armor_slug: 'gibao-de-couro',
+    trinket_slug: 'amuleto-de-latao',
+  })
 
   const battleQuery = useQuery({
     queryKey: queryKeys.gameBattle(viewport),
@@ -156,7 +166,8 @@ export function BattlePage() {
     })
 
   const start = useMutation({
-    mutationFn: () => gameApi.startBattle(viewport),
+    mutationFn: (options: { boss?: boolean; subject?: string } = {}) =>
+      gameApi.startBattle(viewport, options),
     onSuccess: (fresh) => {
       setShowResultModal(false)
       setResult(null)
@@ -166,6 +177,43 @@ export function BattlePage() {
     onError: (error: unknown) =>
       toast.error(
         error instanceof ApiError ? error.message : 'Não foi possível abrir a batalha.',
+      ),
+  })
+
+  const armoryQuery = useQuery({
+    queryKey: queryKeys.gameBattleArmory,
+    queryFn: () => gameApi.battleArmory(),
+  })
+  const campaignQuery = useQuery({
+    queryKey: queryKeys.gameBattleCampaign,
+    queryFn: () => gameApi.battleCampaign(),
+  })
+  const rankingQuery = useQuery({
+    queryKey: queryKeys.gameBattleRanking,
+    queryFn: () => gameApi.battleRanking(),
+  })
+
+  // O rascunho segue o que está salvo até alguém mexer nele.
+  const savedLoadout = armoryQuery.data?.loadout
+  useEffect(() => {
+    if (!savedLoadout) return
+    setLoadoutDraft({
+      class_slug: savedLoadout.class_slug,
+      weapon_slug: savedLoadout.weapon_slug,
+      armor_slug: savedLoadout.armor_slug,
+      trinket_slug: savedLoadout.trinket_slug,
+    })
+  }, [savedLoadout])
+
+  const saveLoadout = useMutation({
+    mutationFn: () => gameApi.saveBattleLoadout(loadoutDraft),
+    onSuccess: (fresh) => {
+      queryClient.setQueryData(queryKeys.gameBattleArmory, fresh)
+      toast.success('Equipamento salvo. Vale a partir da próxima batalha.')
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof ApiError ? error.message : 'Não foi possível salvar o equipamento.',
       ),
   })
 
@@ -257,7 +305,7 @@ export function BattlePage() {
 
   if (!battle) {
     return (
-      <div className="mx-auto max-w-xl">
+      <div className="mx-auto max-w-3xl space-y-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -270,14 +318,71 @@ export function BattlePage() {
               apresentação.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted">
-              A rodada conta como desafio: entra no seu histórico, nas estatísticas e no XP,
-              como qualquer outra prática.
-            </p>
-            <GameButton onClick={() => start.mutate()} loading={start.isPending}>
-              Entrar na batalha
-            </GameButton>
+          <CardContent>
+            <Tabs defaultValue="livre">
+              <TabsList>
+                <TabsTrigger value="livre">Batalha livre</TabsTrigger>
+                <TabsTrigger value="campanha">Campanha</TabsTrigger>
+                <TabsTrigger value="arsenal">Arsenal</TabsTrigger>
+                <TabsTrigger value="ranking">Ranking</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="livre" className="space-y-3">
+                <p className="text-sm text-muted">
+                  A rodada conta como desafio: entra no seu histórico, nas estatísticas e no XP,
+                  como qualquer outra prática.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <GameButton
+                    onClick={() => start.mutate({})}
+                    loading={start.isPending && !start.variables?.boss}
+                  >
+                    Entrar na batalha
+                  </GameButton>
+                  <GameButton
+                    variant="ghost"
+                    onClick={() => start.mutate({ boss: true })}
+                    loading={start.isPending && start.variables?.boss === true}
+                  >
+                    Enfrentar o chefe
+                  </GameButton>
+                </div>
+                <p className="text-xs text-subtle">
+                  O chefe usa as questões da sua disciplina de maior Priority Score — a mesma
+                  que a Inteligência já apontou. A dificuldade não é inventada: são as questões
+                  reais daquela matéria, e o chefe apenas aguenta mais golpes.
+                </p>
+              </TabsContent>
+
+              <TabsContent value="campanha">
+                {campaignQuery.isLoading && <SkeletonList rows={3} />}
+                {campaignQuery.data && (
+                  <CampaignMap
+                    campaign={campaignQuery.data}
+                    pending={start.isPending ? (start.variables?.subject ?? null) : null}
+                    onFight={(subject) => start.mutate({ boss: true, subject })}
+                  />
+                )}
+              </TabsContent>
+
+              <TabsContent value="arsenal">
+                {armoryQuery.isLoading && <SkeletonList rows={4} />}
+                {armoryQuery.data && (
+                  <ArmoryPanel
+                    armory={armoryQuery.data}
+                    draft={loadoutDraft}
+                    onDraft={(next) => setLoadoutDraft((current) => ({ ...current, ...next }))}
+                    onSave={() => saveLoadout.mutate()}
+                    saving={saveLoadout.isPending}
+                  />
+                )}
+              </TabsContent>
+
+              <TabsContent value="ranking">
+                {rankingQuery.isLoading && <SkeletonList rows={4} />}
+                {rankingQuery.data && <RankingTable ranking={rankingQuery.data} />}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
@@ -434,7 +539,7 @@ export function BattlePage() {
           setShowResultModal(false)
           queryClient.setQueryData(queryKeys.gameBattle(viewport), null)
         }}
-        onRestart={() => start.mutate()}
+        onRestart={() => start.mutate({})}
         restarting={start.isPending}
       />
     </div>

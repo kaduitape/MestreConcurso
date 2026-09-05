@@ -14,8 +14,10 @@ from httpx import AsyncClient
 
 from tests.conftest import CapturingDispatcher
 from tests.factories import (
+    WEEKDAY_AVAILABILITY,
     RegisteredUser,
     create_admin,
+    create_position_with_subjects,
     create_question,
     create_user,
 )
@@ -477,7 +479,7 @@ async def test_the_battle_is_not_offered_as_a_challenge_card(
 
     modes = (await client.get("/api/v1/game/challenges/modes", headers=student.auth_header)).json()
 
-    assert "BATTLE" not in {item["mode"] for item in modes}
+    assert {"BATTLE", "BATTLE_BOSS"}.isdisjoint({item["mode"] for item in modes})
 
 
 # --------------------------------------------------------------------------- #
@@ -774,3 +776,318 @@ async def test_the_combat_rules_are_editable_without_deploy(
 
     assert battle["combat"]["starting_coins"] == 200
     assert battle["status"]["coins"] == 200
+
+
+# --------------------------------------------------------------------------- #
+# Fase 3 — classes, equipamentos, chefes, campanha e ranking
+# --------------------------------------------------------------------------- #
+async def _armory(client: AsyncClient, student: RegisteredUser) -> dict[str, Any]:
+    response = await client.get("/api/v1/game/battle/armory", headers=student.auth_header)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+async def test_the_armory_opens_with_a_neutral_class_and_starter_gear(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    student = await create_user(client, emails, email="rpg32@exemplo.com.br")
+
+    armory = await _armory(client, student)
+
+    assert armory["loadout"]["class_slug"] == "recruta"
+    assert armory["loadout"]["modifiers"]["damage_percent"] == 0
+    assert armory["loadout"]["modifiers"]["max_hp_percent"] == 0
+
+    iniciais = [item for item in armory["equipment"] if item["requirement_label"] is None]
+    assert {item["slot"] for item in iniciais} == {"WEAPON", "ARMOR", "TRINKET"}
+    assert all(item["is_unlocked"] for item in iniciais)
+
+
+async def test_every_class_is_free_and_declares_its_tradeoff(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """Classe é estilo de jogo. Nada de destravar por nível, liga ou pagamento."""
+    student = await create_user(client, emails, email="rpg33@exemplo.com.br")
+
+    armory = await _armory(client, student)
+
+    assert len(armory["classes"]) >= 3
+    for item in armory["classes"]:
+        assert item["tradeoff"], "classe sem troca declarada esconde a comparação"
+
+
+async def test_locked_equipment_says_which_achievement_unlocks_it(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    student = await create_user(client, emails, email="rpg34@exemplo.com.br")
+
+    armory = await _armory(client, student)
+    travadas = [item for item in armory["equipment"] if not item["is_unlocked"]]
+
+    assert travadas, "há peças que se conquistam"
+    for item in travadas:
+        assert item["requirement_label"], "peça travada sem caminho é armadilha"
+
+
+async def test_equipping_something_not_earned_is_refused_with_the_reason(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    student = await create_user(client, emails, email="rpg35@exemplo.com.br")
+
+    response = await client.put(
+        "/api/v1/game/battle/armory",
+        headers=student.auth_header,
+        json={
+            "class_slug": "duelista",
+            "weapon_slug": "lamina-do-acerto",
+            "armor_slug": "gibao-de-couro",
+            "trinket_slug": "amuleto-de-latao",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "equipment_locked"
+    assert "conquista" in response.json()["error"]["message"]
+
+
+async def test_choosing_a_class_changes_the_combat_and_is_remembered(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    admin = await create_admin(client, emails, email="rpg36@exemplo.com.br")
+    await _stock(client, admin, total=12, prefix="Classe")
+    student = await create_user(client, emails, email="aluno.rpg36@exemplo.com.br")
+
+    salvo = await client.put(
+        "/api/v1/game/battle/armory",
+        headers=student.auth_header,
+        json={
+            "class_slug": "guardiao",
+            "weapon_slug": "espada-simples",
+            "armor_slug": "gibao-de-couro",
+            "trinket_slug": "amuleto-de-latao",
+        },
+    )
+    assert salvo.status_code == 200, salvo.text
+    assert salvo.json()["loadout"]["class_slug"] == "guardiao"
+
+    battle = await _start(client, student)
+
+    assert battle["loadout"]["class_slug"] == "guardiao"
+    assert battle["status"]["player_max_hp"] > 100, "o Guardião aguenta mais"
+
+
+async def test_the_loadout_is_frozen_on_the_run(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """Trocar de armadura no meio não pode recalcular o dano já causado."""
+    admin = await create_admin(client, emails, email="rpg37@exemplo.com.br")
+    await _stock(client, admin, total=12, prefix="Congelado")
+    student = await create_user(client, emails, email="aluno.rpg37@exemplo.com.br")
+
+    battle = await _start(client, student)
+    vida_inicial = battle["status"]["player_max_hp"]
+
+    await client.put(
+        "/api/v1/game/battle/armory",
+        headers=student.auth_header,
+        json={
+            "class_slug": "guardiao",
+            "weapon_slug": "espada-simples",
+            "armor_slug": "gibao-de-couro",
+            "trinket_slug": "amuleto-de-latao",
+        },
+    )
+
+    depois = (
+        await client.get(
+            f"/api/v1/game/battle/{battle['run']['public_id']}", headers=student.auth_header
+        )
+    ).json()
+
+    assert depois["loadout"]["class_slug"] == "recruta"
+    assert depois["status"]["player_max_hp"] == vida_inicial
+
+
+async def test_the_strategist_pays_less_for_powers(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    admin = await create_admin(client, emails, email="rpg38@exemplo.com.br")
+    await _stock(client, admin, total=12, prefix="Estrategista")
+    student = await create_user(client, emails, email="aluno.rpg38@exemplo.com.br")
+
+    comum = await _start(client, student)
+    preco_comum = next(item["cost"] for item in comum["powers"] if item["power"] == "SHIELD")
+    await client.post(
+        f"/api/v1/game/battle/{comum['run']['public_id']}/finish?abandon=true",
+        headers=student.auth_header,
+    )
+    await client.post(
+        f"/api/v1/game/challenges/runs/{comum['run']['public_id']}/finish?abandon=true",
+        headers=student.auth_header,
+    )
+
+    await client.put(
+        "/api/v1/game/battle/armory",
+        headers=student.auth_header,
+        json={
+            "class_slug": "estrategista",
+            "weapon_slug": "espada-simples",
+            "armor_slug": "gibao-de-couro",
+            "trinket_slug": "amuleto-de-latao",
+        },
+    )
+    dele = await _start(client, student)
+    preco_dele = next(item["cost"] for item in dele["powers"] if item["power"] == "SHIELD")
+
+    assert preco_dele < preco_comum
+
+
+async def test_a_boss_battle_needs_a_priority_score(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    admin = await create_admin(client, emails, email="rpg39@exemplo.com.br")
+    await _stock(client, admin, total=15, prefix="Chefe sem prioridade")
+    student = await create_user(client, emails, email="aluno.rpg39@exemplo.com.br")
+
+    response = await client.post("/api/v1/game/battle?boss=true", headers=student.auth_header)
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "no_priority_score"
+
+
+async def test_without_a_priority_score_there_is_no_campaign_map(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    student = await create_user(client, emails, email="rpg40@exemplo.com.br")
+
+    campaign = (
+        await client.get("/api/v1/game/battle/campaign", headers=student.auth_header)
+    ).json()
+
+    assert campaign["total"] == 0
+    assert campaign["stages"] == []
+    assert "Priority Score" in campaign["empty_reason"]
+
+
+async def test_the_ranking_needs_a_context_and_honors_opting_out(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    student = await create_user(client, emails, email="rpg41@exemplo.com.br")
+
+    sem_cargo = (
+        await client.get("/api/v1/game/battle/ranking", headers=student.auth_header)
+    ).json()
+    assert sem_cargo["members"] == []
+    assert "cargo" in sem_cargo["empty_reason"]
+
+    await client.put(
+        "/api/v1/game/league/preferences",
+        headers=student.auth_header,
+        json={"opt_out": True},
+    )
+    desligado = (
+        await client.get("/api/v1/game/battle/ranking", headers=student.auth_header)
+    ).json()
+
+    assert desligado["members"] == []
+    assert "desligou a comparação" in desligado["empty_reason"]
+
+
+async def test_the_ranking_never_suggests_approval(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    student = await create_user(client, emails, email="rpg42@exemplo.com.br")
+
+    ranking = (await client.get("/api/v1/game/battle/ranking", headers=student.auth_header)).json()
+
+    assert "aprovação" in ranking["note"]
+    assert "Equipamento e classe mudam o combate" in ranking["note"]
+
+
+async def _with_priority(
+    client: AsyncClient, emails: CapturingDispatcher, *, tag: str
+) -> tuple[RegisteredUser, RegisteredUser, dict[str, Any]]:
+    """Aluno com plano, Priority Score calculado e banco abastecido no alvo."""
+    admin = await create_admin(client, emails, email=f"{tag}@exemplo.com.br")
+    position = await create_position_with_subjects(client, admin)
+    student = await create_user(client, emails, email=f"aluno.{tag}@exemplo.com.br")
+
+    await client.post(
+        "/api/v1/study/plan",
+        headers=student.auth_header,
+        json={
+            "position_public_id": position["public_id"],
+            "minutes_by_weekday": WEEKDAY_AVAILABILITY,
+        },
+    )
+    priorities = (
+        await client.post("/api/v1/intelligence/priority/recompute", headers=student.auth_header)
+    ).json()
+    alvo = priorities["items"][0]
+
+    subjects = (
+        await client.get("/api/v1/catalog/subjects?page_size=50", headers=admin.auth_header)
+    ).json()
+    subject = next(item for item in subjects["items"] if item["name"] == alvo["label"])
+    for index in range(14):
+        await create_question(
+            client,
+            admin,
+            statement=f"Chefe {tag} — enunciado {index} com texto suficiente.",
+            subject_public_id=subject["public_id"],
+        )
+    return admin, student, subject
+
+
+async def test_the_campaign_map_comes_from_the_real_priority_score(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    _, student, subject = await _with_priority(client, emails, tag="rpg43")
+
+    campaign = (
+        await client.get("/api/v1/game/battle/campaign", headers=student.auth_header)
+    ).json()
+
+    assert campaign["total"] > 0
+    assert campaign["empty_reason"] is None
+    # A ordem é a do Priority Score, do pior para o menos pior.
+    scores = [item["priority_score"] for item in campaign["stages"]]
+    assert scores == sorted(scores, reverse=True)
+    # Nenhum estágio é trancado por outro: conteúdo não fica atrás de progresso.
+    jogaveis = [item for item in campaign["stages"] if not item["is_locked"]]
+    assert any(item["subject_public_id"] == subject["public_id"] for item in jogaveis)
+    assert campaign["cleared"] == 0
+
+
+async def test_a_boss_battle_fights_the_weakest_subject_and_hits_harder(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    _, student, subject = await _with_priority(client, emails, tag="rpg44")
+
+    response = await client.post("/api/v1/game/battle?boss=true", headers=student.auth_header)
+    assert response.status_code == 201, response.text
+    battle = response.json()
+
+    assert battle["is_boss"] is True
+    assert battle["run"]["mode"] == "BATTLE_BOSS"
+    assert battle["run"]["selection"]["rule"] == "disciplina de maior Priority Score"
+    assert battle["run"]["subject_label"] == subject["name"]
+    # O chefe aguenta mais que um inimigo comum do mesmo tamanho de rodada.
+    assert battle["status"]["enemy_max_hp"] > 12 * 34 * 0.75
+
+
+async def test_a_campaign_stage_picks_its_own_subject(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """Sem isso a campanha só teria um estágio jogável: o primeiro."""
+    _, student, subject = await _with_priority(client, emails, tag="rpg45")
+
+    response = await client.post(
+        f"/api/v1/game/battle?boss=true&subject={subject['public_id']}",
+        headers=student.auth_header,
+    )
+
+    assert response.status_code == 201, response.text
+    battle = response.json()
+    assert battle["run"]["selection"]["rule"] == "estágio de campanha"
+    assert battle["run"]["subject_label"] == subject["name"]

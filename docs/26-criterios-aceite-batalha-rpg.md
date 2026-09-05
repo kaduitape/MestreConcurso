@@ -1,4 +1,4 @@
-# Critérios de Aceite — Batalha RPG (Fases 1 e 2)
+# Critérios de Aceite — Batalha RPG (Fases 1, 2 e 3)
 
 > **Regra que governa esta entrega:** é um RPG 2D por cima de uma plataforma
 > séria de concurso. O combate é a **consequência visual** da resposta, nunca a
@@ -10,8 +10,7 @@ erro, ataque, dano, explicação e responsividade.
 
 Escopo da **Fase 2**: XP, combo, moedas, poderes, sons e críticos.
 
-**Chefes, campanhas, equipamentos, classes e ranking são Fase 3** e não foram
-implementados.
+Escopo da **Fase 3**: chefes, campanhas, equipamentos, classes e ranking.
 
 ## Reaproveitamento
 1. A batalha **não é um sistema paralelo**. É o modo `BATTLE` de `GameRun`: mesma
@@ -180,4 +179,66 @@ implementados.
 71. `domain/game/battle.py` continua puro: combo, crítico, dano e moedas são funções sem I/O.
 72. 46 testes de domínio, 31 de integração e 36 no cliente. Entre eles, a garantia explícita de que **ler a mesma batalha vinte vezes devolve sempre o mesmo HP e o mesmo saldo**.
 73. Migração `battle_power_uses` sobe e desce limpa; `alembic check` sem divergência.
-74. A Fase 3 (chefes, campanhas, equipamentos, classes e ranking) **não foi implementada**.
+74. A Fase 3 é a seção seguinte.
+
+---
+
+# Fase 3 — chefes, campanha, equipamento, classe e ranking
+
+> **Regra que governa esta fase, e que nenhuma peça atravessa:**
+> **classe e equipamento mudam o combate, nunca a medição.**
+>
+> Eles alteram vida, dano, moedas e o preço dos poderes. Não escolhem questão,
+> não mexem na dificuldade, não destravam conteúdo e não entram no XP. O que
+> decide "desafio cumprido", o que limpa um estágio de campanha e o que ordena o
+> ranking continua sendo a **taxa de acerto crua** — a mesma com e sem armadura.
+> Sem essa linha, um equipamento melhor faria a plataforma dizer que o candidato
+> está melhor do que está, que é a única coisa que ela não pode fazer.
+>
+> O pedido lista os cinco itens da Fase 3 sem detalhá-los. O desenho abaixo é
+> nosso, e cada decisão foi tomada contra as proibições que já valiam.
+
+## Classes
+75. Quatro classes: **Recruta** (neutra), **Guardião**, **Duelista** e **Estrategista**.
+76. **Nenhuma é destravada por nível, liga ou pagamento** (itens 3 e 24 da gamificação). Classe é estilo de jogo, e estilo de jogo se escolhe, não se conquista.
+77. A classe de partida é **neutra de propósito**: é contra o combate base que as trocas das outras são declaradas. Um padrão que já desse vantagem esconderia a comparação.
+78. **Toda classe ganha de um lado e perde do outro**, e a troca aparece por escrito no arsenal. Uma classe só melhor que as outras não seria escolha.
+79. Uma régua ruim não cria um guerreiro que morre antes de jogar: a vida nunca cai abaixo de um golpe do monstro.
+
+## Equipamentos
+80. Três espaços — arma, armadura, amuleto — com uma peça inicial em cada. **Ninguém entra na batalha desarmado.**
+81. Toda peça acima da inicial é liberada por uma **conquista que já existia na plataforma**, medida em estudo real. Não há sorteio, raridade, caixa de recompensa nem loja (item 34 da gamificação); moedas não compram equipamento.
+82. Peça travada **diz qual conquista a libera**. Cadeado sem caminho é armadilha, não objetivo.
+83. Equipar algo não conquistado é recusado dizendo o nome da conquista que falta.
+84. Peça desconhecida ou no espaço errado **vira a inicial em vez de virar erro**: um slug inválido no banco não pode impedir alguém de estudar.
+
+## Congelamento
+85. O loadout é **congelado na rodada**, como as questões já eram. Trocar de armadura no meio da batalha e ter o dano já causado recalculado faria o HP mudar sozinho — e o combate deixaria de ser reconstruível a partir das respostas.
+86. Rodada antiga sem loadout gravado usa o combate base, sem quebrar.
+
+## Chefes
+87. Um chefe é a batalha contra uma **disciplina fraca real**, escolhida pelo Priority Score que a Inteligência já calculava — a mesma consulta do Boss Battle da G3, não uma segunda régua.
+88. **A dificuldade não é inventada**: as questões são as reais daquela disciplina. O que muda é que o chefe aguenta mais golpes, por uma régua do banco.
+89. Sem Priority Score não há chefe, e a recusa diz onde calculá-lo.
+
+## Campanha
+90. A campanha é a lista das disciplinas mais frágeis do candidato, na **ordem do Priority Score** — a única ordem que ajuda alguém a passar.
+91. **Não há mapa de fantasia**: sem Priority Score, a tela diz que não há campanha em vez de desenhar progresso inventado.
+92. **Nenhum estágio tranca outro.** Quem quiser começar pelo terceiro começa: matéria de estudo não fica atrás de progresso de jogo (itens 3 e 24).
+93. O que pode faltar é questão no banco — e aí o estágio diz **quantas faltam**, em vez de sumir.
+94. Um estágio é vencido quando existe uma batalha de chefe encerrada nele com **acerto suficiente**. É o mesmo `achieved` que decide o XP: **equipamento não limpa estágio para ninguém**.
+95. A campanha é inteiramente **derivada** — Priority Score mais rodadas encerradas. Não há tabela de progresso a divergir da realidade.
+
+## Ranking
+96. Compara **dentro do mesmo contexto** (o cargo do plano ativo) — a mesma consulta da liga, reusada para que as duas telas não divirjam sobre quem disputa com quem (item 21).
+97. Quem desligou a comparação **some da tabela e não vê a de ninguém**. É um interruptor só, e ele vale aqui também.
+98. **Anonimato por padrão**: só aparece com nome quem escolheu aparecer.
+99. Menos de cinco participantes com batalhas suficientes **não vira tabela**, e a tela diz por quê. Abaixo de três batalhas ninguém é ranqueado — duas partidas não dizem quem vai melhor.
+100. A ordem é **quantas batalhas foram vencidas pelo acerto**, desempatada por acertos somados. Dano, classe e equipamento não movem ninguém de posição.
+101. **Não há percentual de acerto na tabela.** Uma batalha pode terminar antes de as questões acabarem, e dividir por um denominador incerto seria fabricar estatística.
+102. A nota da tabela declara, em texto, que nada ali diz coisa alguma sobre aprovação (item 40).
+
+## Qualidade
+103. `domain/game/battle.py` e `domain/game/battle_campaign.py` continuam puros, sem I/O.
+104. 82 testes de domínio, 45 de integração e 50 no cliente. Entre eles: que o equipamento muda o dano **e não muda o acerto**, que o loadout congelado reproduz sempre a mesma vida, e que poucas batalhas não lideram a tabela.
+105. Migração `battle_loadouts` + `battle_run_loadouts` sobe e desce limpa; `alembic check` sem divergência.

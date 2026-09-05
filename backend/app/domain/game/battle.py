@@ -115,6 +115,8 @@ class CombatSettings:
     shield_cost: int = 25
     eliminate_cost: int = 20
     hint_cost: int = 15
+    #: Vida extra de um chefe, sobre a de um inimigo comum de mesmo tamanho.
+    boss_hp_percent: int = 60
 
     def cost_of(self, power: str) -> int:
         if power == BattlePower.SHIELD:
@@ -125,6 +127,260 @@ class CombatSettings:
 
 
 DEFAULT_COMBAT_SETTINGS = CombatSettings()
+
+
+# --------------------------------------------------------------------------- #
+# Fase 3 — classes e equipamentos
+# --------------------------------------------------------------------------- #
+#
+# A linha que separa o RPG do estudo, e que nenhuma peça atravessa:
+#
+#     classe e equipamento mudam o **combate**, nunca a **medição**.
+#
+# Eles alteram vida, dano, moedas e o preço dos poderes. Não escolhem questão,
+# não mexem na dificuldade, não destravam conteúdo e não entram no XP. O que
+# decide "desafio cumprido", o que limpa um estágio de campanha e o que ordena o
+# ranking continua sendo a taxa de acerto crua — a mesma com e sem armadura.
+# Sem essa linha, um equipamento melhor faria a plataforma dizer que o candidato
+# está melhor do que está, que é a única coisa que ela não pode fazer.
+
+
+@dataclass(frozen=True, slots=True)
+class Modifiers:
+    """O que uma peça muda no combate, em porcento sobre a base."""
+
+    damage_percent: int = 0
+    max_hp_percent: int = 0
+    coin_percent: int = 0
+    #: Desconto no preço dos poderes.
+    power_discount_percent: int = 0
+
+    def __add__(self, other: Modifiers) -> Modifiers:
+        return Modifiers(
+            damage_percent=self.damage_percent + other.damage_percent,
+            max_hp_percent=self.max_hp_percent + other.max_hp_percent,
+            coin_percent=self.coin_percent + other.coin_percent,
+            power_discount_percent=self.power_discount_percent + other.power_discount_percent,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ClassSpec:
+    slug: str
+    name: str
+    description: str
+    #: A troca declarada por escrito. Toda classe ganha de um lado e perde do
+    #: outro: uma classe só melhor que as outras não seria escolha.
+    tradeoff: str
+    modifiers: Modifiers
+
+
+#: Quatro classes, livres para qualquer candidato. **Nenhuma é destravada por
+#: nível, liga ou pagamento** (itens 3 e 24 da gamificação): elas são estilo de
+#: jogo, e estilo de jogo não se conquista, se escolhe.
+#:
+#: A primeira é neutra de propósito. Quem nunca escolheu classe joga o combate
+#: base, e é contra ele que as trocas das outras três são declaradas — um padrão
+#: que já desse vantagem esconderia a comparação.
+CLASSES: tuple[ClassSpec, ...] = (
+    ClassSpec(
+        "recruta",
+        "Recruta",
+        "O combate sem especialização — a régua com que todas as outras se comparam.",
+        "Nenhuma vantagem e nenhuma perda.",
+        Modifiers(),
+    ),
+    ClassSpec(
+        "guardiao",
+        "Guardião",
+        "Aguenta mais erros antes de cair.",
+        "+30% de vida, −15% de dano.",
+        Modifiers(max_hp_percent=30, damage_percent=-15),
+    ),
+    ClassSpec(
+        "duelista",
+        "Duelista",
+        "Derruba o inimigo mais rápido, e erra com mais custo.",
+        "+25% de dano, −20% de vida.",
+        Modifiers(damage_percent=25, max_hp_percent=-20),
+    ),
+    ClassSpec(
+        "estrategista",
+        "Estrategista",
+        "Vive de poderes: mais moedas e preços menores.",
+        "+40% de moedas e −25% no preço dos poderes; vida e dano de base.",
+        Modifiers(coin_percent=40, power_discount_percent=25),
+    ),
+)
+
+CLASSES_BY_SLUG: dict[str, ClassSpec] = {item.slug: item for item in CLASSES}
+DEFAULT_CLASS = CLASSES[0]
+
+
+class EquipmentSlot(StrEnum):
+    WEAPON = "WEAPON"
+    ARMOR = "ARMOR"
+    TRINKET = "TRINKET"
+
+
+@dataclass(frozen=True, slots=True)
+class EquipmentSpec:
+    slug: str
+    name: str
+    slot: str
+    description: str
+    modifiers: Modifiers
+    #: Conquista que libera a peça. ``None`` é o equipamento inicial, que todo
+    #: mundo já tem — ninguém entra na batalha desarmado.
+    requires_achievement: str | None = None
+
+
+#: Equipamento é **conquistado, nunca sorteado nem comprado**: cada peça pede uma
+#: conquista que já existia na plataforma, medida em estudo real. Não há caixa de
+#: recompensa, raridade nem loja (item 34 da gamificação).
+EQUIPMENT: tuple[EquipmentSpec, ...] = (
+    EquipmentSpec(
+        "espada-simples",
+        "Espada simples",
+        EquipmentSlot.WEAPON,
+        "A arma com que todo mundo começa.",
+        Modifiers(),
+    ),
+    EquipmentSpec(
+        "lamina-do-acerto",
+        "Lâmina do Acerto",
+        EquipmentSlot.WEAPON,
+        "Forjada em mil questões respondidas.",
+        Modifiers(damage_percent=10),
+        requires_achievement="mil-questoes",
+    ),
+    EquipmentSpec(
+        "gladio-do-atirador",
+        "Gládio do Atirador",
+        EquipmentSlot.WEAPON,
+        "Recompensa de quem acerta com precisão sustentada.",
+        Modifiers(damage_percent=15, coin_percent=-10),
+        requires_achievement="atirador-de-elite",
+    ),
+    EquipmentSpec(
+        "gibao-de-couro",
+        "Gibão de couro",
+        EquipmentSlot.ARMOR,
+        "A proteção com que todo mundo começa.",
+        Modifiers(),
+    ),
+    EquipmentSpec(
+        "cota-de-ferro",
+        "Cota de Ferro",
+        EquipmentSlot.ARMOR,
+        "Sete dias seguidos de estudo útil viram placas.",
+        Modifiers(max_hp_percent=15),
+        requires_achievement="disciplina-de-ferro",
+    ),
+    EquipmentSpec(
+        "couraca-do-maratonista",
+        "Couraça do Maratonista",
+        EquipmentSlot.ARMOR,
+        "Cem horas de foco acumuladas em aço.",
+        Modifiers(max_hp_percent=25, damage_percent=-5),
+        requires_achievement="cem-horas",
+    ),
+    EquipmentSpec(
+        "amuleto-de-latao",
+        "Amuleto de latão",
+        EquipmentSlot.TRINKET,
+        "O talismã com que todo mundo começa.",
+        Modifiers(),
+    ),
+    EquipmentSpec(
+        "sinete-do-analista",
+        "Sinete do Analista",
+        EquipmentSlot.TRINKET,
+        "De quem volta aos próprios erros em vez de fugir deles.",
+        Modifiers(coin_percent=25),
+        requires_achievement="analista-de-erros",
+    ),
+    EquipmentSpec(
+        "talisma-da-virada",
+        "Talismã da Virada",
+        EquipmentSlot.TRINKET,
+        "Para quem transformou a pior disciplina na melhor.",
+        Modifiers(power_discount_percent=20, max_hp_percent=5),
+        requires_achievement="virada-de-jogo",
+    ),
+)
+
+EQUIPMENT_BY_SLUG: dict[str, EquipmentSpec] = {item.slug: item for item in EQUIPMENT}
+
+#: A peça inicial de cada espaço — a que não pede conquista nenhuma.
+DEFAULT_EQUIPMENT: dict[str, EquipmentSpec] = {
+    slot: next(item for item in EQUIPMENT if item.slot == slot and not item.requires_achievement)
+    for slot in EquipmentSlot
+}
+
+
+@dataclass(frozen=True, slots=True)
+class Loadout:
+    """A classe e as três peças com que uma batalha foi jogada.
+
+    Fica **congelada na rodada**, como as questões. Trocar de armadura no meio da
+    batalha e ter o dano já causado recalculado faria o HP mudar sozinho — e o
+    combate deixaria de ser reconstruível a partir das respostas.
+    """
+
+    class_slug: str = DEFAULT_CLASS.slug
+    weapon_slug: str = "espada-simples"
+    armor_slug: str = "gibao-de-couro"
+    trinket_slug: str = "amuleto-de-latao"
+
+    @property
+    def modifiers(self) -> Modifiers:
+        total = CLASSES_BY_SLUG.get(self.class_slug, DEFAULT_CLASS).modifiers
+        for slug, slot in (
+            (self.weapon_slug, EquipmentSlot.WEAPON),
+            (self.armor_slug, EquipmentSlot.ARMOR),
+            (self.trinket_slug, EquipmentSlot.TRINKET),
+        ):
+            piece = EQUIPMENT_BY_SLUG.get(slug)
+            # Peça desconhecida vira a inicial: um slug inválido no banco não
+            # pode derrubar a batalha de quem está estudando.
+            if piece is None or piece.slot != slot:
+                piece = DEFAULT_EQUIPMENT[slot]
+            total = total + piece.modifiers
+        return total
+
+
+DEFAULT_LOADOUT = Loadout()
+
+
+def resolve_loadout(
+    *,
+    class_slug: str | None,
+    weapon_slug: str | None,
+    armor_slug: str | None,
+    trinket_slug: str | None,
+    unlocked: set[str],
+) -> Loadout:
+    """Monta o loadout válido, trocando por inicial o que ainda não foi conquistado."""
+
+    def piece(slug: str | None, slot: str) -> str:
+        spec = EQUIPMENT_BY_SLUG.get(slug or "")
+        if spec is None or spec.slot != slot:
+            return DEFAULT_EQUIPMENT[slot].slug
+        if spec.requires_achievement and spec.requires_achievement not in unlocked:
+            return DEFAULT_EQUIPMENT[slot].slug
+        return spec.slug
+
+    return Loadout(
+        class_slug=(class_slug if class_slug in CLASSES_BY_SLUG else DEFAULT_CLASS.slug),
+        weapon_slug=piece(weapon_slug, EquipmentSlot.WEAPON),
+        armor_slug=piece(armor_slug, EquipmentSlot.ARMOR),
+        trinket_slug=piece(trinket_slug, EquipmentSlot.TRINKET),
+    )
+
+
+def _scaled(base: int, percent: int, *, minimum: int = 1) -> int:
+    return max(minimum, round(base * (100 + percent) / 100))
 
 
 # --------------------------------------------------------------------------- #
@@ -389,6 +645,8 @@ class BattleStatus:
     coins_spent: int = 0
     criticals: int = 0
     outcomes: list[AnswerOutcome] = field(default_factory=list)
+    #: O loadout com que a batalha foi jogada, congelado na largada.
+    loadout: Loadout = DEFAULT_LOADOUT
 
     @property
     def last_outcome(self) -> AnswerOutcome | None:
@@ -409,25 +667,47 @@ def _combo_steps(streak: int, settings: CombatSettings) -> int:
 
 
 def player_damage(
-    *, streak: int, is_critical: bool, settings: CombatSettings = DEFAULT_COMBAT_SETTINGS
+    *,
+    streak: int,
+    is_critical: bool,
+    settings: CombatSettings = DEFAULT_COMBAT_SETTINGS,
+    loadout: Loadout = DEFAULT_LOADOUT,
 ) -> int:
-    """Dano de um acerto: base, mais combo, mais crítico.
+    """Dano de um acerto: base, mais combo, mais crítico, mais equipamento.
 
-    Tudo aqui é função dos dados da resposta. Não há sorteio em lugar nenhum —
-    o mesmo conjunto de respostas produz sempre o mesmo dano, que é o que
-    permite reconstruir a batalha em toda leitura em vez de guardar HP.
+    Tudo aqui é função dos dados da resposta e do loadout congelado na rodada.
+    Não há sorteio em lugar nenhum — o mesmo conjunto de respostas produz sempre
+    o mesmo dano, que é o que permite reconstruir a batalha em toda leitura em
+    vez de guardar HP.
     """
     bonus = _combo_steps(streak, settings) * settings.combo_damage_percent
     if is_critical:
         bonus += settings.critical_bonus_percent
-    return round(PLAYER_DAMAGE * (100 + bonus) / 100)
+    base = PLAYER_DAMAGE * (100 + bonus) / 100
+    return _scaled(round(base), loadout.modifiers.damage_percent)
 
 
-def coins_for(*, streak: int, settings: CombatSettings = DEFAULT_COMBAT_SETTINGS) -> int:
+def player_max_hp(loadout: Loadout = DEFAULT_LOADOUT) -> int:
+    """Vida do guerreiro depois da classe e da armadura."""
+    return _scaled(PLAYER_MAX_HP, loadout.modifiers.max_hp_percent, minimum=MONSTER_DAMAGE)
+
+
+def coins_for(
+    *,
+    streak: int,
+    settings: CombatSettings = DEFAULT_COMBAT_SETTINGS,
+    loadout: Loadout = DEFAULT_LOADOUT,
+) -> int:
     """Moedas de um acerto. Errar não tira moeda: já custou vida."""
-    return (
+    base = (
         settings.coins_per_correct + _combo_steps(streak, settings) * settings.coins_per_combo_step
     )
+    return _scaled(base, loadout.modifiers.coin_percent, minimum=0)
+
+
+def power_cost(power: str, *, settings: CombatSettings, loadout: Loadout) -> int:
+    """Preço de um poder já com o desconto da classe e do amuleto."""
+    return _scaled(settings.cost_of(power), -loadout.modifiers.power_discount_percent, minimum=0)
 
 
 def evaluate_battle(
@@ -436,11 +716,14 @@ def evaluate_battle(
     questions: int,
     settings: CombatSettings = DEFAULT_COMBAT_SETTINGS,
     coins_spent: int = 0,
+    loadout: Loadout = DEFAULT_LOADOUT,
+    boss_hp_percent: int = 0,
 ) -> BattleStatus:
     """Reconstrói o combate a partir das respostas — a única fonte de verdade."""
-    max_hp = enemy_max_hp(questions)
+    max_hp = _scaled(enemy_max_hp(questions), boss_hp_percent)
     enemy_hp = max_hp
-    player_hp = PLAYER_MAX_HP
+    max_player_hp = player_max_hp(loadout)
+    player_hp = max_player_hp
 
     streak = 0
     best_combo = 0
@@ -454,9 +737,11 @@ def evaluate_battle(
             best_combo = max(best_combo, streak)
             critical = answer.time_seconds > 0 and answer.time_seconds <= settings.critical_seconds
             criticals += 1 if critical else 0
-            damage = player_damage(streak=streak, is_critical=critical, settings=settings)
+            damage = player_damage(
+                streak=streak, is_critical=critical, settings=settings, loadout=loadout
+            )
             enemy_hp = max(0, enemy_hp - damage)
-            coins = coins_for(streak=streak, settings=settings)
+            coins = coins_for(streak=streak, settings=settings, loadout=loadout)
             earned += coins
             outcomes.append(
                 AnswerOutcome(
@@ -504,7 +789,7 @@ def evaluate_battle(
 
     return BattleStatus(
         player_hp=player_hp,
-        player_max_hp=PLAYER_MAX_HP,
+        player_max_hp=max_player_hp,
         enemy_hp=enemy_hp,
         enemy_max_hp=max_hp,
         answered=len(answers),
@@ -522,6 +807,7 @@ def evaluate_battle(
         coins_spent=coins_spent,
         criticals=criticals,
         outcomes=outcomes,
+        loadout=loadout,
     )
 
 

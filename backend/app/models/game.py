@@ -536,3 +536,42 @@ class BattlePowerUse(IdMixin, TimestampMixin, Base):
     removed_letter: Mapped[str | None] = mapped_column(String(2))
     #: Texto da DICA, sempre copiado de conteúdo já cadastrado.
     hint: Mapped[str | None] = mapped_column(MediumText)
+
+
+class BattleLoadout(IdMixin, TimestampMixin, Base):
+    """A classe e o equipamento que o candidato escolheu para a Batalha RPG.
+
+    Uma linha por pessoa: é preferência, não histórico. O que a batalha usou fica
+    congelado na própria rodada (``battle_run_loadouts``) — trocar de armadura no
+    meio do combate e ter o dano já causado recalculado faria o HP mudar sozinho.
+    """
+
+    __tablename__ = "battle_loadouts"
+    __table_args__ = (UniqueConstraint("user_id", name="uq_battle_loadouts_user"),)
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    class_slug: Mapped[str] = mapped_column(String(30), default="recruta")
+    weapon_slug: Mapped[str] = mapped_column(String(40), default="espada-simples")
+    armor_slug: Mapped[str] = mapped_column(String(40), default="gibao-de-couro")
+    trinket_slug: Mapped[str] = mapped_column(String(40), default="amuleto-de-latao")
+
+
+class BattleRunLoadout(IdMixin, TimestampMixin, Base):
+    """O loadout congelado de uma rodada — as questões já eram congeladas assim.
+
+    Sem isso, uma batalha lida amanhã seria recalculada com o equipamento de
+    amanhã, e a vida mostraria um número diferente do que o candidato viu.
+    """
+
+    __tablename__ = "battle_run_loadouts"
+    __table_args__ = (UniqueConstraint("game_run_id", name="uq_battle_run_loadouts_run"),)
+
+    game_run_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("game_runs.id", ondelete="CASCADE")
+    )
+    class_slug: Mapped[str] = mapped_column(String(30), default="recruta")
+    weapon_slug: Mapped[str] = mapped_column(String(40), default="espada-simples")
+    armor_slug: Mapped[str] = mapped_column(String(40), default="gibao-de-couro")
+    trinket_slug: Mapped[str] = mapped_column(String(40), default="amuleto-de-latao")

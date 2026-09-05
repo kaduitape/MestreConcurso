@@ -3,7 +3,10 @@ import type {
   AchievementList,
   Battle,
   BattleAnswerResult,
+  BattleArmory,
+  BattleCampaign,
   BattlePowerKey,
+  BattleRanking,
   BattleSetting,
   BattleViewport,
   BoardBattle,
@@ -86,8 +89,28 @@ export const gameApi = {
 
   runHistory: () => api.get<RunHistoryEntry[]>('/game/challenges/history'),
 
-  startBattle: (viewport: BattleViewport) =>
-    api.post<Battle>(`/game/battle?viewport=${viewport}`),
+  startBattle: (
+    viewport: BattleViewport,
+    options: { boss?: boolean; subject?: string } = {},
+  ) => {
+    const params = new URLSearchParams({ viewport })
+    if (options.boss) params.set('boss', 'true')
+    if (options.subject) params.set('subject', options.subject)
+    return api.post<Battle>(`/game/battle?${params.toString()}`)
+  },
+
+  battleArmory: () => api.get<BattleArmory>('/game/battle/armory'),
+
+  saveBattleLoadout: (input: {
+    class_slug: string
+    weapon_slug: string
+    armor_slug: string
+    trinket_slug: string
+  }) => api.put<BattleArmory>('/game/battle/armory', input),
+
+  battleCampaign: () => api.get<BattleCampaign>('/game/battle/campaign'),
+
+  battleRanking: () => api.get<BattleRanking>('/game/battle/ranking'),
 
   currentBattle: (viewport: BattleViewport) =>
     api.get<Battle | null>(`/game/battle/current?viewport=${viewport}`),

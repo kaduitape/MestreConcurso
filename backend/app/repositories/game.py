@@ -10,7 +10,9 @@ from sqlalchemy.orm import selectinload
 
 from app.models.game import (
     Achievement,
+    BattleLoadout,
     BattlePowerUse,
+    BattleRunLoadout,
     BattleSetting,
     Duel,
     EventParticipation,
@@ -383,3 +385,17 @@ class BattlePowerUseRepository(BaseRepository[BattlePowerUse]):
             .order_by(BattlePowerUse.id)
         )
         return (await self.session.execute(stmt)).scalars().all()
+
+
+class BattleLoadoutRepository(BaseRepository[BattleLoadout]):
+    model = BattleLoadout
+
+    async def for_user(self, user_id: int) -> BattleLoadout | None:
+        return await self.get_by(user_id=user_id)
+
+
+class BattleRunLoadoutRepository(BaseRepository[BattleRunLoadout]):
+    model = BattleRunLoadout
+
+    async def for_run(self, run_id: int) -> BattleRunLoadout | None:
+        return await self.get_by(game_run_id=run_id)
