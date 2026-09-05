@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Flame, Swords, Timer, Zap } from 'lucide-react'
+import { Flame, Sword, Swords, Timer, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,9 @@ const MODE_ICON: Record<ChallengeModeKey, LucideIcon> = {
   SURVIVAL: Flame,
   COMBO: Zap,
   TIME_ATTACK: Timer,
+  // A Batalha RPG não é listada aqui, mas o mapa cobre a chave: um modo sem
+  // ícone quebraria a página inteira em vez de faltar um desenho.
+  BATTLE: Sword,
 }
 
 function RunHeader({ run }: { run: GameRun }) {

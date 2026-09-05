@@ -102,8 +102,7 @@ export function SlashEffect({ visible, className }: { visible: boolean; classNam
         >
           <path
             d="M12 78 Q40 20 88 14"
-            fill="none"
-            stroke="var(--color-game-cyan)"
+            className="fill-none stroke-game-cyan"
             strokeWidth={7}
             strokeLinecap="round"
           />

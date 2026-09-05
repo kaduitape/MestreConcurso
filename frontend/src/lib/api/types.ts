@@ -1492,7 +1492,8 @@ export interface LeaguePreferences {
   display_name: string | null
 }
 
-export type ChallengeModeKey = 'BOSS' | 'SURVIVAL' | 'COMBO' | 'TIME_ATTACK'
+/** `BATTLE` existe no servidor mas não é oferecido em Desafios: tem tela própria. */
+export type ChallengeModeKey = 'BOSS' | 'SURVIVAL' | 'COMBO' | 'TIME_ATTACK' | 'BATTLE'
 
 export interface ChallengeMode {
   mode: ChallengeModeKey

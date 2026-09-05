@@ -14,34 +14,106 @@ import type { BattleMonster } from '@/lib/api/types'
  * O desenho é sóbrio de propósito: fantasia medieval, não mascote fofo.
  */
 
-const SHAPES: Record<string, string> = {
-  // Corpo largo, ombros altos.
-  brute: 'M32 84 L24 52 Q20 34 32 26 Q42 18 50 26 Q62 34 58 52 L50 84 Z',
-  // Vulto alongado, base esgarçada.
-  wisp: 'M41 84 Q26 70 28 46 Q30 22 41 16 Q52 22 54 46 Q56 70 41 84 Z',
-  // Blocos de pedra empilhados.
-  hulk: 'M22 84 L22 46 L30 30 L52 30 L60 46 L60 84 Z',
-  // Espiral que desce.
-  coil: 'M41 84 Q22 74 30 56 Q38 40 26 32 Q34 20 48 26 Q62 34 54 52 Q46 70 58 80 Z',
-  // Asas fechadas sobre o corpo.
-  winged: 'M41 84 L26 62 Q18 44 30 30 Q41 20 52 30 Q64 44 56 62 Z',
+interface Silhouette {
+  /** O corpo — a forma que o olho reconhece de longe. */
+  body: string
+  /** Chifres, asas, rachaduras: o que separa um monstro de uma mancha. */
+  extras: string[]
+  /** Centro da cabeça, de onde os olhos são posicionados. */
+  head: [number, number]
 }
 
-const EYES: Record<number, { cx: number; cy: number }[]> = {
+const SHAPES: Record<string, Silhouette> = {
+  // Bruto: ombros largos, braços pesados, chifres curtos.
+  brute: {
+    body:
+      'M41 13 C33 13 28 19 28 27 L28 33 L20 37 L14 55 L21 58 L26 43 L26 61 L29 88 ' +
+      'L37 88 L38 70 L44 70 L45 88 L53 88 L56 61 L56 43 L61 58 L68 55 L62 37 L54 33 ' +
+      'L54 27 C54 19 49 13 41 13 Z',
+    extras: ['M29 19 L20 7 L32 14 Z', 'M53 19 L62 7 L50 14 Z'],
+    head: [41, 27],
+  },
+  // Espectro: capuz e manto esgarçado, sem pernas.
+  wisp: {
+    body:
+      'M41 10 C31 10 25 19 26 30 L21 60 Q25 76 20 89 L27 79 L31 89 L36 79 L41 89 ' +
+      'L46 79 L51 89 L55 79 L62 89 Q57 76 61 60 L56 30 C57 19 51 10 41 10 Z',
+    extras: [],
+    head: [41, 29],
+  },
+  // Golem: cabeça de pedra sobre ombros largos.
+  hulk: {
+    body: 'M22 88 L22 60 L14 54 L17 40 L30 34 L52 34 L65 40 L68 54 L60 60 L60 88 Z',
+    extras: ['M32 9 L50 9 L52 27 L48 27 L48 35 L34 35 L34 27 L30 27 Z'],
+    head: [41, 19],
+  },
+  // Serpente: capelo aberto sobre o corpo enrolado.
+  coil: {
+    body: 'M41 15 Q25 20 23 35 Q22 45 30 50 L52 50 Q60 45 59 35 Q57 20 41 15 Z',
+    extras: [
+      'M34 50 L48 50 L50 63 Q50 73 40 79 Q32 83 34 89 L23 89 Q21 78 30 70 Q38 64 36 57 Z',
+    ],
+    head: [41, 34],
+  },
+  // Gárgula: corpo agachado entre duas asas abertas.
+  winged: {
+    body: 'M41 89 L33 77 Q29 65 33 53 Q35 43 41 41 Q47 43 49 53 Q53 65 49 77 Z',
+    extras: [
+      'M34 52 L11 31 L16 51 L7 47 L18 68 L33 70 Z',
+      'M48 52 L71 31 L66 51 L75 47 L64 68 L49 70 Z',
+      'M35 44 L31 33 L39 40 Z',
+      'M47 44 L51 33 L43 40 Z',
+    ],
+    head: [41, 52],
+  },
+}
+
+/** Variações de olhar, em deslocamento a partir do centro da cabeça. */
+const EYES: Record<number, [number, number][]> = {
   0: [
-    { cx: 35, cy: 42 },
-    { cx: 47, cy: 42 },
+    [-6, 0],
+    [6, 0],
   ],
   1: [
-    { cx: 34, cy: 40 },
-    { cx: 48, cy: 44 },
+    [-7, -2],
+    [6, 2],
   ],
-  2: [{ cx: 41, cy: 42 }],
+  2: [[0, 0]],
   3: [
-    { cx: 33, cy: 44 },
-    { cx: 41, cy: 38 },
-    { cx: 49, cy: 44 },
+    [-8, 2],
+    [0, -5],
+    [8, 2],
   ],
+}
+
+/**
+ * Cor por token, em classe utilitária e não em `var()` montado em tempo de
+ * execução.
+ *
+ * O Tailwind 4 só emite a variável de tema que ele vê escrita no código. Um
+ * `fill={`var(--color-${token})`}` não é visto por ele — a variável some da
+ * folha publicada e o monstro sai preto. Escrever a classe inteira resolve, e
+ * o mapa deixa explícito qual token o servidor pode mandar.
+ */
+const FILL: Record<string, string> = {
+  'game-purple': 'fill-game-purple',
+  'game-blue': 'fill-game-blue',
+  'game-cyan': 'fill-game-cyan',
+  'game-gold': 'fill-game-gold',
+  'game-orange': 'fill-game-orange',
+  success: 'fill-success',
+  danger: 'fill-danger',
+}
+
+const STROKE: Record<string, string> = {
+  'game-purple': 'stroke-game-purple',
+  'game-purple-light': 'stroke-game-purple-light',
+  'game-blue': 'stroke-game-blue',
+  'game-cyan': 'stroke-game-cyan',
+  'game-gold': 'stroke-game-gold',
+  'game-orange': 'stroke-game-orange',
+  success: 'stroke-success',
+  danger: 'stroke-danger',
 }
 
 export type MonsterMood = 'idle' | 'attack' | 'hurt' | 'dead'
@@ -58,7 +130,8 @@ export function Monster({
   className?: string
 }) {
   const reduce = useReducedMotion()
-  const path = SHAPES[monster.shape] ?? SHAPES.brute
+  const shape = SHAPES[monster.shape] ?? SHAPES.brute
+  const [headX, headY] = shape.head
   const eyes = EYES[monster.variant % 4] ?? EYES[0]
 
   // Só transform e opacity: são as duas propriedades que o navegador anima na
@@ -94,21 +167,29 @@ export function Monster({
       }}
       style={{ willChange: 'transform' }}
     >
-      <path
-        d={path}
-        className={cn('transition-[filter]', mood === 'hurt' && 'brightness-150')}
-        fill={`var(--color-${monster.color_token})`}
-        stroke={`var(--color-${monster.accent_token})`}
+      <g
+        className={cn(
+          'transition-[filter]',
+          FILL[monster.color_token] ?? 'fill-game-purple',
+          STROKE[monster.accent_token] ?? 'stroke-game-cyan',
+          mood === 'hurt' && 'brightness-150',
+        )}
         strokeWidth={2}
         strokeLinejoin="round"
-      />
-      {eyes.map((eye) => (
+        strokeLinecap="round"
+      >
+        {shape.extras.map((extra) => (
+          <path key={extra} d={extra} />
+        ))}
+        <path d={shape.body} />
+      </g>
+      {eyes.map(([dx, dy]) => (
         <circle
-          key={`${eye.cx}-${eye.cy}`}
-          cx={eye.cx}
-          cy={eye.cy}
+          key={`${dx}-${dy}`}
+          cx={headX + dx}
+          cy={headY + dy}
           r={size === 'lg' ? 3 : 3.5}
-          fill="var(--color-game-bg)"
+          className="fill-game-bg"
         />
       ))}
     </motion.svg>
