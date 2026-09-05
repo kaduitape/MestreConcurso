@@ -105,6 +105,7 @@ export const queryKeys = {
   gameBattleRanking: ['game', 'battle-ranking'] as const,
   gameRules: ['admin', 'game', 'rules'] as const,
   battleSettings: ['admin', 'game', 'battle-settings'] as const,
+  battleArt: ['admin', 'game', 'battle-art'] as const,
   adminTraining: (params: unknown) => ['admin', 'training', params] as const,
   adminTrainingLesson: (publicId: string) => ['admin', 'training', publicId] as const,
   training: (params: unknown) => ['training', params] as const,

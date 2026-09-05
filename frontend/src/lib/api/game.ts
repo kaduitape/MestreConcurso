@@ -4,6 +4,7 @@ import type {
   Battle,
   BattleAnswerResult,
   BattleArmory,
+  BattleAssetSlot,
   BattleCampaign,
   BattlePowerKey,
   BattleRanking,
@@ -163,6 +164,19 @@ export const battleSettingsApi = {
 
   update: (key: string, value: number) =>
     api.put<BattleSetting>(`/admin/game/battle-settings/${key}`, { value }),
+}
+
+export const battleArtApi = {
+  list: () => api.get<BattleAssetSlot[]>('/admin/game/battle-art'),
+
+  upload: (kind: string, slug: string, file: File) => {
+    const body = new FormData()
+    body.append('file', file)
+    return api.put<BattleAssetSlot>(`/admin/game/battle-art/${kind}/${slug}`, body)
+  },
+
+  remove: (publicId: string) =>
+    api.delete<BattleAssetSlot>(`/admin/game/battle-art/${publicId}`),
 }
 
 export const gameRulesApi = {

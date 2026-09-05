@@ -14,9 +14,12 @@ export type PlayerMood = 'idle' | 'attack' | 'hurt' | 'dead'
  */
 export function PlayerCharacter({
   mood = 'idle',
+  imageUrl,
   className,
 }: {
   mood?: PlayerMood
+  /** Arte cadastrada no painel. Sem ela, o personagem do produto continua. */
+  imageUrl?: string | null
   className?: string
 }) {
   const reduce = useReducedMotion()
@@ -33,7 +36,7 @@ export function PlayerCharacter({
 
   return (
     <motion.img
-      src={warrior}
+      src={imageUrl || warrior}
       alt="Seu guerreiro"
       draggable={false}
       className={cn(

@@ -49,6 +49,7 @@ function enemyAsMonster(battle: Battle): BattleMonster {
     color_token: battle.enemy_color_token,
     accent_token: battle.enemy_accent_token,
     variant: 0,
+    image_url: battle.enemy_image_url,
   }
 }
 
@@ -427,9 +428,25 @@ export function BattlePage() {
 
         {/* O palco. Só aqui há movimento; o enunciado e as alternativas ficam
             parados. */}
-        <div className="relative flex items-end justify-between gap-4 rounded-xl bg-gradient-to-b from-white/[0.04] to-transparent px-3 pt-2">
+        <div
+          className={cn(
+            'relative flex items-end justify-between gap-4 overflow-hidden rounded-xl px-3 pt-2',
+            !battle.scenery_image_url && 'bg-gradient-to-b from-white/[0.04] to-transparent',
+          )}
+          // O cenário é fundo: entra por trás do combate, sem competir com o
+          // enunciado, e some sozinho quando não há arte cadastrada.
+          style={
+            battle.scenery_image_url
+              ? {
+                  backgroundImage: `linear-gradient(to bottom, rgb(5 8 22 / 0.35), rgb(5 8 22 / 0.85)), url(${battle.scenery_image_url})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }
+              : undefined
+          }
+        >
           <div className="relative">
-            <PlayerCharacter mood={playerMoodOf(state)} />
+            <PlayerCharacter mood={playerMoodOf(state)} imageUrl={battle.player_image_url} />
             <DamageEffect
               amount={state.damage}
               visible={state.damageTarget === 'player' && resolved}

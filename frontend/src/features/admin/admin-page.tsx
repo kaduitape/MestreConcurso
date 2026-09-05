@@ -10,6 +10,7 @@ import { IntelligenceSection } from './intelligence-section'
 import { VideosSection } from './videos-section'
 import { GameRulesSection } from './game-rules-section'
 import { BattleSettingsSection } from './battle-settings-section'
+import { BattleArtSection } from './battle-art-section'
 import { TrainingStudioSection } from './training/training-studio-section'
 import { useAuth } from '@/providers/auth-provider'
 
@@ -53,6 +54,7 @@ export function AdminPage() {
             {hasPermission('catalog:write') && <VideosSection />}
             {hasPermission('intelligence:write') && <GameRulesSection />}
             {hasPermission('intelligence:write') && <BattleSettingsSection />}
+            {hasPermission('intelligence:write') && <BattleArtSection />}
           </div>
         </TabsContent>
         <TabsContent value="inteligencia">

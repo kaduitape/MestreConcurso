@@ -1954,6 +1954,20 @@ export interface SaasDashboard {
 export type BattleLayout = 'monster-arena' | 'compact-answer'
 export type BattleViewport = 'desktop' | 'tablet' | 'mobile'
 
+export interface BattleAssetSlot {
+  kind: 'MONSTER' | 'PLAYER' | 'SCENERY'
+  slug: string
+  label: string
+  /** O que a tela desenha enquanto este lugar estiver vazio. */
+  fallback: string
+  public_id: string | null
+  image_url: string | null
+  mime_type: string | null
+  size_bytes: number | null
+  original_filename: string | null
+  updated_at: string | null
+}
+
 export interface BattleMonster {
   letter: string
   species: string
@@ -1963,6 +1977,8 @@ export interface BattleMonster {
   color_token: string
   accent_token: string
   variant: number
+  /** Arte cadastrada no painel. `null` mantém a silhueta em SVG. */
+  image_url: string | null
 }
 
 export interface BattleStatus {
@@ -2130,6 +2146,10 @@ export interface Battle {
   /** O loadout congelado desta rodada. */
   loadout: BattleLoadout | null
   is_boss: boolean
+  /** Arte cadastrada. Tudo opcional: sem peça, a tela desenha a silhueta. */
+  enemy_image_url: string | null
+  player_image_url: string | null
+  scenery_image_url: string | null
   powers: BattlePowerOffer[]
   /** Letras eliminadas nesta questão: a tela não as renderiza. */
   removed_letters: string[]

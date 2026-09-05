@@ -123,7 +123,10 @@ A plataforma responde continuamente a uma única pergunta:
   livres, equipamento liberado **por conquista — nunca por sorteio, moeda ou pagamento** — e
   ranking no mesmo contexto da liga, com anonimato e opção de sair. Tudo sob uma regra só:
   **classe e equipamento mudam o combate, nunca a medição** — o XP, os estágios e a posição
-  no ranking continuam saindo da taxa de acerto crua.
+  no ranking continuam saindo da taxa de acerto crua. A arte é **cadastrável**: monstros,
+  guerreiro e cenários entram pelo painel administrativo, validados pelos bytes do arquivo, e
+  cada lugar vazio declara o que a tela desenha no lugar dele — a silhueta em SVG é o padrão,
+  não o destino.
 
 Todas as fases do backlog estão implementadas. O que ainda não existe está declarado em
 [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md), fase a fase, na linha "ainda não

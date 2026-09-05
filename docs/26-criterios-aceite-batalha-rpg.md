@@ -242,3 +242,39 @@ Escopo da **Fase 3**: chefes, campanhas, equipamentos, classes e ranking.
 103. `domain/game/battle.py` e `domain/game/battle_campaign.py` continuam puros, sem I/O.
 104. 82 testes de domínio, 45 de integração e 50 no cliente. Entre eles: que o equipamento muda o dano **e não muda o acerto**, que o loadout congelado reproduz sempre a mesma vida, e que poucas batalhas não lideram a tabela.
 105. Migração `battle_loadouts` + `battle_run_loadouts` sobe e desce limpa; `alembic check` sem divergência.
+
+---
+
+# Arte cadastrável — monstros, guerreiro e cenário
+
+> **Regra que governa esta entrega:** a silhueta em SVG sempre foi um **padrão,
+> não um destino**. Ela garante que a batalha funcione no dia um — sem download,
+> sem depender de ninguém desenhar nada. A arte de verdade entra por cima dela, e
+> sai se não prestar, sem deploy.
+>
+> O corolário é que **toda peça é opcional**. Uma tela que só funciona depois de
+> alguém subir dez imagens seria uma tela quebrada esperando favor.
+
+## Catálogo
+106. Os lugares de arte são **derivados do que a batalha já usa**: as cinco espécies do bestiário, o guerreiro (padrão e por classe) e um cenário por espécie, mais o padrão. Nada aqui inventa uma peça que a tela não desenharia.
+107. Chave fora do catálogo é recusada: arte solta ninguém veria, e ocuparia disco para sempre.
+108. O painel lista **todos** os lugares, inclusive os vazios, e cada lugar vazio **diz o que a tela desenha no lugar dele**. Uma lista só do que já foi enviado esconderia exatamente o que falta fazer.
+109. A cadeia de escolha é curta de propósito — peça da espécie, peça padrão, silhueta. Mais níveis tornariam impossível responder "por que apareceu isto?".
+
+## Envio
+110. **O conteúdo do arquivo é o que vale.** Nome e `Content-Type` vêm de quem envia; a validação lê a assinatura real dos bytes (PNG, JPEG, WebP, GIF). Um "monstro.png" que é um executável não entra no disco — e a imagem cadastrada aqui aparece na tela de todo mundo que estuda.
+111. O nome do arquivo no disco é **gerado pela aplicação**, nunca o enviado. O nome original é guardado só para quem administra reconhecer a peça.
+112. Arquivo vazio e acima do limite são recusados com o motivo. O limite da arte é **separado do limite de PDF** e vive em variável de ambiente: um sprite de 30 MB seria uma tela que não carrega no celular de quem estuda no ônibus.
+113. Enviar de novo no mesmo lugar **substitui** a peça anterior, e o arquivo velho sai do disco **depois** do commit — falha no meio deixaria o banco apontando para um arquivo que não existe mais.
+114. Só administrador cadastra arte; toda troca e remoção ficam na auditoria.
+
+## Uso na batalha
+115. Com arte cadastrada, o monstro é a imagem; sem ela, a silhueta. **Os quatro estados de animação são os mesmos** nos dois casos — a arte não ganha movimento novo nem perde o que havia.
+116. O guerreiro sem arte cadastrada continua sendo o personagem que o produto já tinha.
+117. O cenário entra como **fundo**, atrás do combate, com um véu escuro por cima para não competir com o enunciado. Sem cenário, o fundo do tema continua.
+118. Remover uma peça devolve a silhueta **na questão seguinte**, sem deploy e sem reiniciar a batalha.
+119. A imagem é servida por rota **pública**: um `<img>` não carrega o token da aplicação, e desenho de monstro não é dado de ninguém. O cache é longo porque o identificador muda a cada arte enviada.
+
+## Qualidade
+120. 10 testes de integração cobrem catálogo, envio, substituição, remoção, recusa de arquivo que não é imagem, recusa de lugar inexistente e a exigência de administrador. 5 no cliente cobrem a troca silhueta ↔ imagem.
+121. Migração `battle_assets` sobe e desce limpa; `alembic check` sem divergência.

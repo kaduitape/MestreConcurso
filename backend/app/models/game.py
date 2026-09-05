@@ -575,3 +575,36 @@ class BattleRunLoadout(IdMixin, TimestampMixin, Base):
     weapon_slug: Mapped[str] = mapped_column(String(40), default="espada-simples")
     armor_slug: Mapped[str] = mapped_column(String(40), default="gibao-de-couro")
     trinket_slug: Mapped[str] = mapped_column(String(40), default="amuleto-de-latao")
+
+
+class BattleAsset(IdMixin, PublicIdMixin, TimestampMixin, Base):
+    """Arte cadastrada para a Batalha RPG: monstro, guerreiro ou cenário.
+
+    Existe porque a silhueta em SVG é um **padrão honesto, não um destino**: ela
+    garante que a batalha funcione no dia um, sem download e sem depender de
+    ninguém desenhar nada. Quando houver arte de verdade, ela entra por aqui e
+    substitui a silhueta sem tocar em uma linha de código.
+
+    Uma peça por chave (espécie do monstro, classe do guerreiro, cenário). Trocar
+    a arte é enviar outra no mesmo lugar; remover devolve a silhueta.
+    """
+
+    __tablename__ = "battle_assets"
+    __table_args__ = (
+        UniqueConstraint("kind", "slug", name="uq_battle_assets_kind_slug"),
+        Index("ix_battle_assets_kind", "kind"),
+    )
+
+    kind: Mapped[str] = mapped_column(String(20))
+    slug: Mapped[str] = mapped_column(String(40))
+    label: Mapped[str] = mapped_column(String(120), default="")
+
+    storage_key: Mapped[str] = mapped_column(String(255))
+    mime_type: Mapped[str] = mapped_column(String(60), default="image/png")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), default="")
+    original_filename: Mapped[str | None] = mapped_column(String(255))
+
+    uploaded_by_user_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="SET NULL")
+    )

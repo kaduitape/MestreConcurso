@@ -87,4 +87,6 @@ A Fase 3 acrescentou chefes tirados do Priority Score, campanha derivada das dis
 fracas reais, quatro classes livres, equipamento liberado por conquista e ranking no mesmo
 contexto da liga — tudo sob uma regra só: classe e equipamento mudam o combate, nunca a
 medição.
+A arte de monstros, guerreiro e cenários é cadastrável no painel, com a silhueta em SVG como
+padrão de quem ainda não enviou nada.
 Ainda não entra aqui: nada da Batalha RPG. As três fases do pedido estão implementadas.

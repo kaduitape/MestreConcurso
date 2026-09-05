@@ -50,6 +50,7 @@ from app.domain.game.battle import (
     stable_choice,
 )
 from app.domain.game.battle import EQUIPMENT as EQUIPMENT_CATALOGUE
+from app.domain.game.battle_art import AssetKind
 from app.domain.game.battle_campaign import (
     MAX_STAGES,
     BattleRanking,
@@ -81,6 +82,7 @@ from app.repositories.game import (
     BattleRunLoadoutRepository,
     BattleSettingRepository,
 )
+from app.services.battle_art import BattleArtService
 from app.services.game_challenges import ChallengeService, RunView
 from app.services.game_seasons import SeasonService
 
@@ -176,6 +178,11 @@ class BattleView:
     loadout: Loadout = DEFAULT_LOADOUT
     #: Verdadeiro quando a rodada é um chefe de campanha.
     is_boss: bool = False
+    #: Arte cadastrada, quando houver. ``None`` mantém a silhueta em SVG.
+    enemy_image_url: str | None = None
+    player_image_url: str | None = None
+    scenery_image_url: str | None = None
+    monster_image_urls: dict[str, str] = field(default_factory=dict)
 
 
 class BattleService:
@@ -186,6 +193,7 @@ class BattleService:
         self.power_uses = BattlePowerUseRepository(session)
         self.loadouts = BattleLoadoutRepository(session)
         self.run_loadouts = BattleRunLoadoutRepository(session)
+        self.art = BattleArtService(session)
 
     # ------------------------------------------------------------------ #
     # Configuração
@@ -316,6 +324,7 @@ class BattleService:
         combat: CombatSettings,
         uses: Sequence[BattlePowerUse],
         loadout: Loadout,
+        art: dict[tuple[str, str], str],
         *,
         viewport: str,
         question: Question | None,
@@ -355,6 +364,16 @@ class BattleService:
             hint=hint,
             loadout=loadout,
             is_boss=view.run.mode == ChallengeMode.BATTLE_BOSS,
+            enemy_image_url=self.art.resolve_url(art, AssetKind.MONSTER, enemy.slug),
+            player_image_url=self.art.resolve_url(art, AssetKind.PLAYER, loadout.class_slug),
+            scenery_image_url=self.art.resolve_url(art, AssetKind.SCENERY, enemy.slug),
+            # Todo monstro da questão é da espécie do inimigo: uma entrada só,
+            # repetida por letra do lado do cliente, seria mais frágil de ler.
+            monster_image_urls={
+                item.letter: url
+                for item in monsters
+                if (url := self.art.resolve_url(art, AssetKind.MONSTER, item.species))
+            },
         )
 
     async def _assemble(
@@ -365,6 +384,7 @@ class BattleService:
         uses = await self.power_uses.for_run(run_view.run.id)
         loadout = await self.run_loadout(run_view.run.id)
         status = await self._status(run_view, combat, uses, loadout)
+        art = await self.art.url_map()
         return self._build(
             run_view,
             status,
@@ -372,6 +392,7 @@ class BattleService:
             combat,
             uses,
             loadout,
+            art,
             viewport=viewport,
             question=question,
         )

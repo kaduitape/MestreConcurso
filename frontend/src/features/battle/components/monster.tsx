@@ -129,6 +129,76 @@ export function Monster({
   mood?: MonsterMood
   className?: string
 }) {
+  // Arte cadastrada no painel entra no lugar da silhueta, com os mesmos quatro
+  // estados de animação. A silhueta é o padrão, nunca o destino.
+  if (monster.image_url) {
+    return <MonsterArt monster={monster} size={size} mood={mood} className={className} />
+  }
+  return <MonsterSilhouette monster={monster} size={size} mood={mood} className={className} />
+}
+
+/** O mesmo movimento da silhueta, aplicado a uma imagem. */
+function useMonsterMotion(mood: MonsterMood) {
+  const reduce = useReducedMotion()
+  const animation =
+    reduce || mood === 'idle'
+      ? { y: reduce ? 0 : [0, -3, 0] }
+      : mood === 'attack'
+        ? { y: [0, -6, 0], scale: [1, 1.12, 1] }
+        : mood === 'hurt'
+          ? { x: [0, -5, 6, -3, 0] }
+          : { scale: [1, 0.95], opacity: [1, 0] }
+  return {
+    animate: animation,
+    transition: {
+      duration: mood === 'idle' ? 2.2 : mood === 'dead' ? 0.6 : 0.4,
+      repeat: mood === 'idle' && !reduce ? Infinity : 0,
+      ease: 'easeInOut' as const,
+    },
+  }
+}
+
+function MonsterArt({
+  monster,
+  size,
+  mood,
+  className,
+}: {
+  monster: BattleMonster
+  size: 'sm' | 'lg'
+  mood: MonsterMood
+  className?: string
+}) {
+  const motionProps = useMonsterMotion(mood)
+  return (
+    <motion.img
+      src={monster.image_url ?? undefined}
+      alt={monster.letter ? `${monster.name}, alternativa ${monster.letter}` : monster.name}
+      draggable={false}
+      className={cn(
+        'select-none object-contain',
+        size === 'lg' ? 'h-24 w-auto sm:h-28' : 'h-9 w-9',
+        mood === 'hurt' && 'brightness-150',
+        mood === 'dead' && 'pointer-events-none opacity-40 grayscale',
+        className,
+      )}
+      {...motionProps}
+      style={{ willChange: 'transform' }}
+    />
+  )
+}
+
+function MonsterSilhouette({
+  monster,
+  size,
+  mood,
+  className,
+}: {
+  monster: BattleMonster
+  size: 'sm' | 'lg'
+  mood: MonsterMood
+  className?: string
+}) {
   const reduce = useReducedMotion()
   const shape = SHAPES[monster.shape] ?? SHAPES.brute
   const [headX, headY] = shape.head

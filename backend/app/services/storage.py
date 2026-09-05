@@ -21,6 +21,15 @@ logger = get_logger(__name__)
 PDF_MAGIC = b"%PDF-"
 ALLOWED_MIME_TYPES = {"application/pdf"}
 
+#: Assinaturas reais dos formatos de imagem aceitos. A extensão e o
+#: ``Content-Type`` são informados por quem envia — só os bytes valem.
+IMAGE_SIGNATURES: tuple[tuple[str, str, bytes], ...] = (
+    ("image/png", "png", b"\x89PNG\r\n\x1a\n"),
+    ("image/jpeg", "jpg", b"\xff\xd8\xff"),
+    ("image/gif", "gif", b"GIF8"),
+)
+ALLOWED_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+
 
 @dataclass(frozen=True, slots=True)
 class StoredFile:
@@ -44,7 +53,14 @@ class LocalFileStorage:
             raise ValidationError("Caminho de arquivo inválido.", code="invalid_storage_key")
         return path
 
-    def save(self, content: bytes, *, prefix: str, extension: str) -> StoredFile:
+    def save(
+        self,
+        content: bytes,
+        *,
+        prefix: str,
+        extension: str,
+        mime_type: str = "application/pdf",
+    ) -> StoredFile:
         storage_key = f"{prefix}/{new_ulid()}.{extension.lstrip('.')}"
         path = self._resolve(storage_key)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -55,7 +71,7 @@ class LocalFileStorage:
             storage_key=storage_key,
             size_bytes=len(content),
             checksum_sha256=hashlib.sha256(content).hexdigest(),
-            mime_type="application/pdf",
+            mime_type=mime_type,
         )
         logger.info("storage.saved", key=storage_key, size=stored.size_bytes)
         return stored
@@ -92,6 +108,44 @@ def validate_pdf(content: bytes, *, declared_mime: str | None) -> None:
     if not content.startswith(PDF_MAGIC):
         # Extensão e content-type são informados pelo cliente: só o conteúdo vale.
         raise ValidationError("O conteúdo enviado não é um PDF válido.", code="invalid_pdf")
+
+
+def detect_image(content: bytes, *, declared_mime: str | None) -> tuple[str, str]:
+    """Valida uma imagem enviada e devolve ``(mime, extensão)`` pelo **conteúdo**.
+
+    A mesma disciplina do PDF: o nome do arquivo e o ``Content-Type`` vêm de
+    quem envia e não são prova de nada. Um "monstro.png" que na verdade é um
+    executável entraria no disco e sairia num ``<img>`` de todo mundo.
+
+    O WebP é verificado à parte porque a assinatura dele mora depois do
+    cabeçalho RIFF, e não no começo do arquivo.
+    """
+    limit = settings.max_image_upload_size_mb * 1024 * 1024
+    if not content:
+        raise ValidationError("Arquivo vazio.", code="empty_file")
+    if len(content) > limit:
+        raise ValidationError(
+            f"A imagem excede o limite de {settings.max_image_upload_size_mb} MB.",
+            code="file_too_large",
+            details={"max_bytes": limit, "size_bytes": len(content)},
+        )
+    if declared_mime and declared_mime not in ALLOWED_IMAGE_MIME_TYPES:
+        raise ValidationError(
+            "Formato não aceito. Envie PNG, JPEG, WebP ou GIF.",
+            code="unsupported_media_type",
+            details={"received": declared_mime},
+        )
+
+    if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "image/webp", "webp"
+    for mime, extension, signature in IMAGE_SIGNATURES:
+        if content.startswith(signature):
+            return mime, extension
+
+    raise ValidationError(
+        "O conteúdo enviado não é uma imagem PNG, JPEG, WebP ou GIF.",
+        code="invalid_image",
+    )
 
 
 def get_storage() -> LocalFileStorage:

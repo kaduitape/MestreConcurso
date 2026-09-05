@@ -611,11 +611,13 @@ class MonsterRead(BaseModel):
     letter: str
     species: str
     name: str
-    #: Silhueta desenhada no cliente. Arte em WebP pode substituí-la depois.
+    #: Silhueta desenhada no cliente, usada enquanto não houver arte cadastrada.
     shape: str
     color_token: str
     accent_token: str
     variant: int
+    #: Arte cadastrada no painel. ``None`` mantém a silhueta.
+    image_url: str | None = None
 
 
 class BattleStatusRead(BaseModel):
@@ -797,6 +799,10 @@ class BattleRead(BaseModel):
     #: O loadout congelado desta rodada.
     loadout: BattleLoadoutRead | None = None
     is_boss: bool = False
+    #: Arte cadastrada. Tudo opcional: sem peça, a tela desenha a silhueta.
+    enemy_image_url: str | None = None
+    player_image_url: str | None = None
+    scenery_image_url: str | None = None
 
 
 class BattleAnswerResultRead(BaseModel):
@@ -828,3 +834,19 @@ class BattleSettingUpdate(BaseModel):
 
 class BattlePowerInput(BaseModel):
     power: str
+
+
+class BattleAssetRead(BaseModel):
+    """Um lugar de arte do catálogo — cadastrado ou ainda vazio."""
+
+    kind: str
+    slug: str
+    label: str
+    #: O que a tela desenha enquanto este lugar estiver vazio.
+    fallback: str
+    public_id: str | None = None
+    image_url: str | None = None
+    mime_type: str | None = None
+    size_bytes: int | None = None
+    original_filename: str | None = None
+    updated_at: datetime | None = None

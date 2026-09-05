@@ -25,6 +25,7 @@ const monsters: BattleMonster[] = alternatives.map((item, index) => ({
   color_token: 'game-purple',
   accent_token: 'game-blue',
   variant: index,
+  image_url: null,
 }))
 
 const answered = (

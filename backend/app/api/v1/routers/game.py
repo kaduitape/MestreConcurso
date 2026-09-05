@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
 
 from app.api.deps import CurrentUser, DbSession, RequestCtx, rate_limit, require_permissions
 from app.api.v1.routers.questions import question_read
@@ -14,6 +14,7 @@ from app.domain import permissions as perms
 from app.domain.billing.plans import FeatureKey
 from app.domain.game import ACHIEVEMENTS_BY_SLUG, MODES, MODES_BY_KEY, ChallengeMode, evaluate
 from app.domain.game.battle import Loadout, Modifiers
+from app.domain.game.battle_art import CATALOGUE_BY_KEY
 from app.models.audit import AuditAction
 from app.models.game import (
     Duel,
@@ -30,6 +31,7 @@ from app.schemas.game import (
     AchievementRead,
     BattleAnswerResultRead,
     BattleArmoryRead,
+    BattleAssetRead,
     BattleCampaignRead,
     BattleClassRead,
     BattleCombatSettingsRead,
@@ -102,6 +104,7 @@ from app.schemas.game import (
 from app.schemas.question import SaveAnswerInput
 from app.services.analytics import AnalyticsService
 from app.services.audit import AuditService
+from app.services.battle_art import BattleArtService
 from app.services.entitlements import EntitlementService
 from app.services.game_battle import ArmoryView, BattleService, BattleView
 from app.services.game_challenges import ChallengeService, RunView
@@ -636,6 +639,7 @@ def _battle_read(view: BattleView) -> BattleRead:
                 color_token=item.color_token,
                 accent_token=item.accent_token,
                 variant=item.variant,
+                image_url=view.monster_image_urls.get(item.letter),
             )
             for item in view.monsters
         ],
@@ -683,6 +687,9 @@ def _battle_read(view: BattleView) -> BattleRead:
         hint=view.hint,
         loadout=_loadout_read(view.loadout),
         is_boss=view.is_boss,
+        enemy_image_url=view.enemy_image_url,
+        player_image_url=view.player_image_url,
+        scenery_image_url=view.scenery_image_url,
     )
 
 
@@ -1211,6 +1218,27 @@ async def start_battle(
 
 
 @game_router.get(
+    "/battle/art/{public_id}",
+    response_class=Response,
+    summary="Imagem cadastrada da batalha",
+)
+async def battle_art_image(public_id: str, db: DbSession) -> Response:
+    """Serve a arte da batalha.
+
+    Sem autenticação de propósito: um ``<img>`` não carrega o token da
+    aplicação, e desenho de monstro não é dado de ninguém. O cache é longo
+    porque o identificador muda a cada arte enviada.
+    """
+    service = BattleArtService(db)
+    asset = await service.get(public_id)
+    return Response(
+        content=await service.read_bytes(asset),
+        media_type=asset.mime_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@game_router.get(
     "/battle/armory", response_model=BattleArmoryRead, summary="Classes e equipamentos"
 )
 async def battle_armory(user: CurrentUser, db: DbSession) -> BattleArmoryRead:
@@ -1531,6 +1559,105 @@ async def update_battle_setting(
     fresh = await service.settings.get_fresh(key)
     assert fresh is not None
     return BattleSettingRead(key=fresh.key, label=fresh.label, value=fresh.value)
+
+
+# --------------------------------------------------------------------------- #
+# Arte da Batalha RPG
+# --------------------------------------------------------------------------- #
+def _asset_read(slot: Any, asset: Any) -> BattleAssetRead:
+    return BattleAssetRead(
+        kind=slot.kind,
+        slug=slot.slug,
+        label=slot.label,
+        fallback=slot.fallback,
+        public_id=asset.public_id if asset else None,
+        image_url=BattleArtService.public_url(asset.public_id) if asset else None,
+        mime_type=asset.mime_type if asset else None,
+        size_bytes=asset.size_bytes if asset else None,
+        original_filename=asset.original_filename if asset else None,
+        updated_at=asset.updated_at if asset else None,
+    )
+
+
+@admin_router.get(
+    "/battle-art", response_model=list[BattleAssetRead], summary="Arte da Batalha RPG"
+)
+async def list_battle_art(_: GameAdmin, db: DbSession) -> list[BattleAssetRead]:
+    """Todos os lugares de arte, **inclusive os vazios**.
+
+    Uma lista só do que já foi enviado esconderia exatamente o que falta fazer —
+    e o que a tela está desenhando enquanto isso.
+    """
+    return [_asset_read(slot, asset) for slot, asset in await BattleArtService(db).slots()]
+
+
+@admin_router.put(
+    "/battle-art/{kind}/{slug}",
+    response_model=BattleAssetRead,
+    summary="Enviar a arte de um lugar do catálogo",
+)
+async def upload_battle_art(
+    kind: str,
+    slug: str,
+    file: Annotated[UploadFile, File(description="PNG, JPEG, WebP ou GIF")],
+    actor: GameAdmin,
+    db: DbSession,
+    ctx: RequestCtx,
+) -> BattleAssetRead:
+    """Substitui a silhueta por arte de verdade — sem deploy.
+
+    O conteúdo do arquivo é validado pelos **bytes**, não pela extensão nem pelo
+    ``Content-Type``: a imagem cadastrada aqui aparece na tela de todo mundo que
+    estuda.
+    """
+    service = BattleArtService(db)
+    asset = await service.upload(
+        actor,
+        kind=kind.upper(),
+        slug=slug,
+        content=await file.read(),
+        declared_mime=file.content_type,
+        filename=file.filename,
+    )
+    key = (asset.kind, asset.slug)
+    await AuditService(db).record(
+        AuditAction.GAME_RULE_UPDATED,
+        actor=actor,
+        actor_ip=ctx.ip_address,
+        resource_type="battle_asset",
+        resource_id=f"{key[0]}/{key[1]}",
+        meta={"size_bytes": asset.size_bytes, "mime_type": asset.mime_type},
+    )
+    public_id = asset.public_id
+    await db.commit()
+
+    # Releitura depois do commit da auditoria: a instância anterior ficou com os
+    # atributos expirados e tocá-los aqui tentaria I/O fora do contexto async.
+    return _asset_read(CATALOGUE_BY_KEY[key], await service.get(public_id))
+
+
+@admin_router.delete(
+    "/battle-art/{public_id}",
+    response_model=BattleAssetRead,
+    summary="Remover a arte de um lugar",
+)
+async def delete_battle_art(
+    public_id: str, actor: GameAdmin, db: DbSession, ctx: RequestCtx
+) -> BattleAssetRead:
+    """Tira a arte do ar. A silhueta volta a aparecer na questão seguinte."""
+    service = BattleArtService(db)
+    asset = await service.get(public_id)
+    key = (asset.kind, asset.slug)
+    await AuditService(db).record(
+        AuditAction.GAME_RULE_UPDATED,
+        actor=actor,
+        actor_ip=ctx.ip_address,
+        resource_type="battle_asset",
+        resource_id=f"{asset.kind}/{asset.slug}",
+        meta={"removed": True},
+    )
+    await service.remove(actor, public_id)
+    return _asset_read(CATALOGUE_BY_KEY[key], None)
 
 
 router.include_router(game_router)
