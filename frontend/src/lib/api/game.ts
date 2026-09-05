@@ -1,6 +1,10 @@
 import { api } from './client'
 import type {
   AchievementList,
+  Battle,
+  BattleAnswerResult,
+  BattleSetting,
+  BattleViewport,
   BoardBattle,
   ChallengeMode,
   Duel,
@@ -81,6 +85,22 @@ export const gameApi = {
 
   runHistory: () => api.get<RunHistoryEntry[]>('/game/challenges/history'),
 
+  startBattle: (viewport: BattleViewport) =>
+    api.post<Battle>(`/game/battle?viewport=${viewport}`),
+
+  currentBattle: (viewport: BattleViewport) =>
+    api.get<Battle | null>(`/game/battle/current?viewport=${viewport}`),
+
+  battle: (publicId: string, viewport: BattleViewport) =>
+    api.get<Battle>(`/game/battle/${publicId}?viewport=${viewport}`),
+
+  answerBattle: (
+    publicId: string,
+    viewport: BattleViewport,
+    input: { question_public_id: string; letter: string | null; time_seconds: number },
+  ) =>
+    api.post<BattleAnswerResult>(`/game/battle/${publicId}/answer?viewport=${viewport}`, input),
+
   createDuel: () => api.post<Duel>('/game/duels'),
 
   acceptDuel: (code: string) => api.post<Duel>('/game/duels/accept', { code }),
@@ -109,6 +129,13 @@ export const gameApi = {
   cards: () => api.get<PublishedCard[]>('/game/cards'),
 
   revokeCard: (publicId: string) => api.delete<PublishedCard>(`/game/cards/${publicId}`),
+}
+
+export const battleSettingsApi = {
+  list: () => api.get<BattleSetting[]>('/admin/game/battle-settings'),
+
+  update: (key: string, value: number) =>
+    api.put<BattleSetting>(`/admin/game/battle-settings/${key}`, { value }),
 }
 
 export const gameRulesApi = {

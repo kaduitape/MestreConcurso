@@ -61,6 +61,7 @@ export const navigation: NavGroup[] = [
       { label: 'Meus erros', to: '/meus-erros', icon: TrendingUp },
       { label: 'Você vs Banca', to: '/voce-vs-banca', icon: Crosshair },
       { label: 'Desafios', to: '/desafios', icon: Zap },
+      { label: 'Batalha RPG', to: '/batalha', icon: Swords },
     ],
   },
   {

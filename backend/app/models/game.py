@@ -478,3 +478,26 @@ class ShareCardRecord(IdMixin, PublicIdMixin, TimestampMixin, Base):
     footer: Mapped[str] = mapped_column(String(400))
     #: O candidato pode revogar o link a qualquer momento.
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class BattleSetting(IdMixin, TimestampMixin, Base):
+    """Ajustes da Batalha RPG, editáveis sem deploy.
+
+    O pedido é explícito quanto aos limiares de layout: eles não podem ficar
+    rígidos no código. O ponto em que uma alternativa "fica longa" depende da
+    fonte, do idioma e do aparelho — coisas que mudam sem aviso, e que quem
+    cuida do produto precisa poder calibrar olhando a tela real.
+
+    Uma linha por chave, como ``game_rules``: o padrão de fábrica semeia, a
+    tabela manda.
+    """
+
+    __tablename__ = "battle_settings"
+    __table_args__ = (UniqueConstraint("key", name="uq_battle_settings_key"),)
+
+    key: Mapped[str] = mapped_column(String(40), index=True)
+    value: Mapped[int] = mapped_column(Integer, default=0)
+    label: Mapped[str] = mapped_column(String(160), default="")
+    updated_by_user_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="SET NULL")
+    )

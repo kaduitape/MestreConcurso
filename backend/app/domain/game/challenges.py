@@ -20,6 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from app.domain.game.battle import ENEMY_HP_ACCURACY_TARGET
+
 # Mesmo piso do antiabuso da Fase 1: abaixo disso não deu tempo de ler.
 MIN_SECONDS_PER_ANSWER = 3
 
@@ -39,6 +41,8 @@ class ChallengeMode(StrEnum):
     #: Rodada de um duelo (Fase 4). Não aparece na lista de modos avulsos: ela
     #: só existe dentro de um desafio entre dois candidatos.
     DUEL = "DUEL"
+    #: Batalha RPG. É uma rodada como as outras — o que muda é a apresentação.
+    BATTLE = "BATTLE"
 
 
 class RunStatus(StrEnum):
@@ -98,6 +102,22 @@ MODES: tuple[ModeSpec, ...] = (
         rule=(
             f"Cada acerto seguido soma {int(COMBO_STEP * 100)}% ao multiplicador, "
             f"até {MAX_COMBO_MULTIPLIER:.0f}×."
+        ),
+    ),
+    ModeSpec(
+        mode=ChallengeMode.BATTLE,
+        name="Batalha RPG",
+        description=(
+            "As mesmas questões, em forma de combate: acertar fere o inimigo, "
+            "errar custa vida do seu guerreiro."
+        ),
+        questions=8,
+        lives=None,
+        time_limit_seconds=None,
+        base_xp=100,
+        rule=(
+            "Vence quem derruba o inimigo antes de ficar sem vida. "
+            "Três de cada quatro acertos bastam."
         ),
     ),
     ModeSpec(
@@ -266,6 +286,12 @@ def score_run(spec: ModeSpec, state: RunState) -> RunScore:
         lines.append(
             ScoreLine("Multiplicador máximo", f"{combo_multiplier(state.best_combo):.1f}×")
         )
+    elif spec.mode == ChallengeMode.BATTLE:
+        score = scoring
+        # Vencer é derrubar o inimigo, e o HP dele sai da mesma régua.
+        achieved = state.correct >= round(spec.questions * ENEMY_HP_ACCURACY_TARGET)
+        headline = f"{score} acertos em {state.answered} questões"
+        share = scoring / spec.questions
     elif spec.mode == ChallengeMode.DUEL:
         score = scoring
         achieved = state.answered >= spec.questions

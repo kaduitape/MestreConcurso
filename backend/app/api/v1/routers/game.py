@@ -12,15 +12,28 @@ from app.core.errors import NotFoundError
 from app.core.pagination import Page, PageParams, page_params
 from app.domain import permissions as perms
 from app.domain.billing.plans import FeatureKey
-from app.domain.game import ACHIEVEMENTS_BY_SLUG, MODES, MODES_BY_KEY, evaluate
+from app.domain.game import ACHIEVEMENTS_BY_SLUG, MODES, MODES_BY_KEY, ChallengeMode, evaluate
+from app.domain.game.battle import MONSTER_DAMAGE, PLAYER_DAMAGE
 from app.models.audit import AuditAction
-from app.models.game import Duel, GameRun, Mission, SeasonParticipation, ShareCardRecord
+from app.models.game import (
+    Duel,
+    GameRun,
+    Mission,
+    SeasonParticipation,
+    ShareCardRecord,
+)
 from app.models.user import User
 from app.repositories.game import AchievementRepository, GameRuleRepository
 from app.schemas.game import (
     AcceptDuelInput,
     AchievementListRead,
     AchievementRead,
+    BattleAnswerResultRead,
+    BattleLayoutSettingsRead,
+    BattleRead,
+    BattleSettingRead,
+    BattleSettingUpdate,
+    BattleStatusRead,
     BoardBattleRead,
     CardStatRead,
     ChallengeModeRead,
@@ -42,6 +55,7 @@ from app.schemas.game import (
     LevelRead,
     MilestoneRead,
     MissionRead,
+    MonsterRead,
     ProfileRead,
     PublishedCardRead,
     RankComponentRead,
@@ -76,6 +90,7 @@ from app.schemas.question import SaveAnswerInput
 from app.services.analytics import AnalyticsService
 from app.services.audit import AuditService
 from app.services.entitlements import EntitlementService
+from app.services.game_battle import BattleService, BattleView
 from app.services.game_challenges import ChallengeService, RunView
 from app.services.game_engine import GameEngine
 from app.services.game_missions import MissionService
@@ -521,6 +536,61 @@ async def territory_map(user: CurrentUser, db: DbSession) -> TerritoryMapRead:
     )
 
 
+def _battle_read(view: BattleView) -> BattleRead:
+    status = view.status
+    return BattleRead(
+        run=_run_read(view.run),
+        enemy_species=view.enemy.slug,
+        enemy_name=view.enemy.name,
+        enemy_shape=view.enemy.shape,
+        enemy_color_token=view.enemy.color_token,
+        enemy_accent_token=view.enemy.accent_token,
+        status=BattleStatusRead(
+            player_hp=status.player_hp,
+            player_max_hp=status.player_max_hp,
+            player_hp_ratio=status.player_hp_ratio,
+            enemy_hp=status.enemy_hp,
+            enemy_max_hp=status.enemy_max_hp,
+            enemy_hp_ratio=status.enemy_hp_ratio,
+            answered=status.answered,
+            correct=status.correct,
+            wrong=status.wrong,
+            questions=status.questions,
+            is_over=status.is_over,
+            victory=status.victory,
+            defeat=status.defeat,
+            outcome_reason=status.outcome_reason,
+        ),
+        monsters=[
+            MonsterRead(
+                letter=item.letter,
+                species=item.species,
+                name=item.name,
+                shape=item.shape,
+                color_token=item.color_token,
+                accent_token=item.accent_token,
+                variant=item.variant,
+            )
+            for item in view.monsters
+        ],
+        layout=view.layout,
+        layout_reason=view.layout_reason,
+        settings=BattleLayoutSettingsRead(
+            short_answer_max=view.settings.short_answer_max,
+            short_average_max=view.settings.short_average_max,
+            tablet_short_answer_max=view.settings.tablet_short_answer_max,
+            tablet_short_average_max=view.settings.tablet_short_average_max,
+            mobile_short_answer_max=view.settings.mobile_short_answer_max,
+            mobile_short_average_max=view.settings.mobile_short_average_max,
+            max_options_for_arena=view.settings.max_options_for_arena,
+            chars_per_line_desktop=view.settings.chars_per_line_desktop,
+            chars_per_line_tablet=view.settings.chars_per_line_tablet,
+            chars_per_line_mobile=view.settings.chars_per_line_mobile,
+            max_lines_for_arena=view.settings.max_lines_for_arena,
+        ),
+    )
+
+
 def _duel_side_read(side: Any) -> DuelSideRead:
     return DuelSideRead(
         display_name=side.display_name,
@@ -735,6 +805,12 @@ async def update_league_preferences(
     "/challenges/modes", response_model=list[ChallengeModeRead], summary="Modos de desafio"
 )
 async def challenge_modes() -> list[ChallengeModeRead]:
+    """Os modos que a tela de Desafios sabe jogar.
+
+    A Batalha RPG usa a mesma mecânica de rodada, mas tem tela própria: mostrá-la
+    aqui daria um cartão que começa um combate e o entrega na apresentação
+    errada. Ela fica de fora desta lista de propósito.
+    """
     return [
         ChallengeModeRead(
             mode=item.mode,
@@ -746,6 +822,7 @@ async def challenge_modes() -> list[ChallengeModeRead]:
             rule=item.rule,
         )
         for item in MODES
+        if item.mode != ChallengeMode.BATTLE
     ]
 
 
@@ -1009,6 +1086,80 @@ async def revoke_card(public_id: str, user: CurrentUser, db: DbSession) -> Publi
 
 
 # --------------------------------------------------------------------------- #
+# Batalha RPG
+# --------------------------------------------------------------------------- #
+@game_router.post(
+    "/battle",
+    response_model=BattleRead,
+    status_code=201,
+    summary="Começar uma Batalha RPG",
+    dependencies=[Depends(rate_limit("60/hour", scope="game:battle"))],
+)
+async def start_battle(
+    user: CurrentUser,
+    db: DbSession,
+    viewport: Annotated[str, Query(pattern="^(desktop|tablet|mobile)$")] = "desktop",
+) -> BattleRead:
+    """Uma rodada de desafio com apresentação de combate — mesma mecânica."""
+    await EntitlementService(db).consume(user, FeatureKey.CHALLENGES)
+    return _battle_read(await BattleService(db).start(user, viewport=viewport))
+
+
+@game_router.get(
+    "/battle/current", response_model=BattleRead | None, summary="Batalha em andamento"
+)
+async def current_battle(
+    user: CurrentUser,
+    db: DbSession,
+    viewport: Annotated[str, Query(pattern="^(desktop|tablet|mobile)$")] = "desktop",
+) -> BattleRead | None:
+    view = await BattleService(db).current(user, viewport=viewport)
+    return _battle_read(view) if view else None
+
+
+@game_router.get("/battle/{public_id}", response_model=BattleRead, summary="Estado da batalha")
+async def battle_state(
+    public_id: str,
+    user: CurrentUser,
+    db: DbSession,
+    viewport: Annotated[str, Query(pattern="^(desktop|tablet|mobile)$")] = "desktop",
+) -> BattleRead:
+    return _battle_read(await BattleService(db).view(user, public_id, viewport=viewport))
+
+
+@game_router.post(
+    "/battle/{public_id}/answer",
+    response_model=BattleAnswerResultRead,
+    summary="Responder e resolver o golpe",
+)
+async def answer_battle(
+    public_id: str,
+    payload: SaveAnswerInput,
+    user: CurrentUser,
+    db: DbSession,
+    viewport: Annotated[str, Query(pattern="^(desktop|tablet|mobile)$")] = "desktop",
+) -> BattleAnswerResultRead:
+    """Quem ataca depende de quem acertou: o guerreiro, ou o monstro da correta."""
+    service = BattleService(db)
+    _, feedback = await service.challenges.answer(
+        user, public_id, letter=payload.letter, time_seconds=payload.time_seconds
+    )
+    view = await service.view(user, public_id, viewport=viewport)
+
+    correct = bool(feedback.attempt.is_correct)
+    return BattleAnswerResultRead(
+        battle=_battle_read(view),
+        is_correct=correct,
+        correct_letter=feedback.correct_letter,
+        selected_feedback=feedback.selected_feedback,
+        correct_feedback=feedback.correct_feedback,
+        explanation=feedback.explanation,
+        damage=PLAYER_DAMAGE if correct else MONSTER_DAMAGE,
+        damage_target="enemy" if correct else "player",
+    )
+
+
+# --------------------------------------------------------------------------- #
 # Administração das regras
 # --------------------------------------------------------------------------- #
 @admin_router.get("/rules", response_model=list[GameRuleRead], summary="Regras de pontuação")
@@ -1117,6 +1268,55 @@ async def create_event(payload: EventCreate, _: GameAdmin, db: DbSession) -> Eve
         reward_label=event.reward_label,
         reward_utility=event.reward_utility,
     )
+
+
+@admin_router.get(
+    "/battle-settings",
+    response_model=list[BattleSettingRead],
+    summary="Réguas da Batalha RPG",
+)
+async def battle_settings(_: GameAdmin, db: DbSession) -> list[BattleSettingRead]:
+    service = BattleService(db)
+    await service.sync_settings()
+    rows = await service.settings.all_settings()
+    return [BattleSettingRead(key=item.key, label=item.label, value=item.value) for item in rows]
+
+
+@admin_router.put(
+    "/battle-settings/{key}",
+    response_model=BattleSettingRead,
+    summary="Ajustar uma régua da Batalha RPG",
+)
+async def update_battle_setting(
+    key: str,
+    payload: BattleSettingUpdate,
+    actor: GameAdmin,
+    db: DbSession,
+    ctx: RequestCtx,
+) -> BattleSettingRead:
+    """Calibrar quando uma alternativa "fica longa" — sem deploy."""
+    service = BattleService(db)
+    await service.sync_settings()
+    stored = await service.settings.get_by_key(key)
+    if stored is None:
+        raise NotFoundError("Régua não encontrada.")
+
+    before = stored.value
+    stored.value = payload.value
+    stored.updated_by_user_id = actor.id
+    await AuditService(db).record(
+        AuditAction.GAME_RULE_UPDATED,
+        actor=actor,
+        actor_ip=ctx.ip_address,
+        resource_type="battle_setting",
+        resource_id=key,
+        meta={"before": before, "after": payload.value},
+    )
+    await db.commit()
+
+    fresh = await service.settings.get_fresh(key)
+    assert fresh is not None
+    return BattleSettingRead(key=fresh.key, label=fresh.label, value=fresh.value)
 
 
 router.include_router(game_router)

@@ -160,8 +160,10 @@ class ChallengeService:
     # ------------------------------------------------------------------ #
     # Estado
     # ------------------------------------------------------------------ #
-    async def _answers(self, run: GameRun) -> list[RunAnswer]:
-        rows = (
+    async def answers_of(self, run: GameRun) -> list[QuestionAttempt]:
+        """As respostas de uma rodada, na ordem. Leitura pública: outras telas
+        (a Batalha RPG, por exemplo) derivam o próprio estado a partir delas."""
+        return list(
             (
                 await self.session.execute(
                     select(QuestionAttempt)
@@ -172,9 +174,11 @@ class ChallengeService:
             .scalars()
             .all()
         )
+
+    async def _answers(self, run: GameRun) -> list[RunAnswer]:
         return [
             RunAnswer(is_correct=bool(item.is_correct), time_seconds=item.time_seconds)
-            for item in rows
+            for item in await self.answers_of(run)
         ]
 
     @staticmethod

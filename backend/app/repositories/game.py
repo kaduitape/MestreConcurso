@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.game import (
     Achievement,
+    BattleSetting,
     Duel,
     EventParticipation,
     GameRule,
@@ -349,3 +350,23 @@ class ShareCardRepository(BaseRepository[ShareCardRecord]):
             .limit(limit)
         )
         return (await self.session.execute(stmt)).scalars().all()
+
+
+class BattleSettingRepository(BaseRepository[BattleSetting]):
+    model = BattleSetting
+
+    async def all_settings(self) -> Sequence[BattleSetting]:
+        stmt = select(BattleSetting).order_by(BattleSetting.key)
+        return (await self.session.execute(stmt)).scalars().all()
+
+    async def get_by_key(self, key: str) -> BattleSetting | None:
+        return await self.get_by(key=key)
+
+    async def get_fresh(self, key: str) -> BattleSetting | None:
+        """Releitura após gravar — evita ``MissingGreenlet`` em ``updated_at``."""
+        stmt = (
+            select(BattleSetting)
+            .where(BattleSetting.key == key)
+            .execution_options(populate_existing=True)
+        )
+        return (await self.session.execute(stmt)).scalars().first()

@@ -235,7 +235,15 @@ export interface TrainingInput {
   character_name: string
   additional_prompt?: string
   level: 'BASICO' | 'INTERMEDIARIO' | 'AVANCADO' | 'ESPECIALISTA'
-  style: 'AULA' | 'HISTORIA' | 'MISSAO' | 'BATALHA' | 'INVESTIGACAO' | 'MILITAR' | 'DESAFIO' | 'REVISAO'
+  style:
+    | 'AULA'
+    | 'HISTORIA'
+    | 'MISSAO'
+    | 'BATALHA'
+    | 'INVESTIGACAO'
+    | 'MILITAR'
+    | 'DESAFIO'
+    | 'REVISAO'
   target_duration_minutes: number
   board_name?: string
   research_before_generate: boolean
@@ -1937,6 +1945,87 @@ export interface SaasDashboard {
   metrics: SaasMetric[]
   period_start: string | null
   period_end: string | null
+}
+
+// --------------------------------------------------------------------------- //
+// Batalha RPG
+// --------------------------------------------------------------------------- //
+export type BattleLayout = 'monster-arena' | 'compact-answer'
+export type BattleViewport = 'desktop' | 'tablet' | 'mobile'
+
+export interface BattleMonster {
+  letter: string
+  species: string
+  name: string
+  /** Silhueta desenhada no cliente; arte em WebP pode substituí-la depois. */
+  shape: string
+  color_token: string
+  accent_token: string
+  variant: number
+}
+
+export interface BattleStatus {
+  player_hp: number
+  player_max_hp: number
+  player_hp_ratio: number
+  enemy_hp: number
+  enemy_max_hp: number
+  enemy_hp_ratio: number
+  answered: number
+  correct: number
+  wrong: number
+  questions: number
+  is_over: boolean
+  victory: boolean
+  defeat: boolean
+  outcome_reason: string | null
+}
+
+/** As réguas que decidem o layout — vêm do banco, ajustáveis sem deploy. */
+export interface BattleLayoutSettings {
+  short_answer_max: number
+  short_average_max: number
+  tablet_short_answer_max: number
+  tablet_short_average_max: number
+  mobile_short_answer_max: number
+  mobile_short_average_max: number
+  max_options_for_arena: number
+  chars_per_line_desktop: number
+  chars_per_line_tablet: number
+  chars_per_line_mobile: number
+  max_lines_for_arena: number
+}
+
+export interface Battle {
+  run: GameRun
+  enemy_species: string
+  enemy_name: string
+  enemy_shape: string
+  enemy_color_token: string
+  enemy_accent_token: string
+  status: BattleStatus
+  monsters: BattleMonster[]
+  layout: BattleLayout
+  layout_reason: string
+  settings: BattleLayoutSettings
+}
+
+export interface BattleAnswerResult {
+  battle: Battle
+  is_correct: boolean
+  correct_letter: string | null
+  selected_feedback: string | null
+  correct_feedback: string | null
+  explanation: string | null
+  /** Quem apanhou depende de quem errou. */
+  damage: number
+  damage_target: 'enemy' | 'player'
+}
+
+export interface BattleSetting {
+  key: string
+  label: string
+  value: number
 }
 
 export interface GameRule {

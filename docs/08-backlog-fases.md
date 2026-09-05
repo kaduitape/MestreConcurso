@@ -72,3 +72,13 @@ Mestre Game Engine reativo a eventos, XP com razão contábil e antiabuso, níve
 ### G2 — Ranks na interface comparativa, Você vs Banca, Jornada da Aprovação, Mapa do Edital
 ### G3 — Temporadas, ligas, Boss Battle, Sobrevivência, Combo, Contra o Relógio
 ### G4 — Desafio entre amigos, card compartilhável, eventos especiais e Modo Guerra
+
+### Batalha RPG — Fase 1  ✅ implementada
+Rodada de desafio no modo `BATTLE` apresentada como combate 2D: dois modelos de tela
+escolhidos automaticamente pelo tamanho das alternativas, guerreiro e monstros com quatro
+estados de animação, vida derivada das respostas e réguas de layout no banco.
+**Aceite:** ver `docs/26-criterios-aceite-batalha-rpg.md`. Regra que sustenta a entrega:
+**o combate é consequência da resposta, nunca a fonte dela** — e quando animação e questão
+disputam a tela, a questão ganha.
+Ainda não entra aqui: XP de combate, combo, moedas, poderes, som, chefes e evolução (Fases 2
+e 3), que só começam depois de a Fase 1 estar estável.

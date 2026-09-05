@@ -602,3 +602,87 @@ class ShareCardCreate(BaseModel):
     #: O candidato escolhe o que entra. Nada é publicado por padrão.
     include: list[str] = Field(default_factory=lambda: ["level", "rank", "streak", "questions"])
     display_name: str | None = Field(default=None, max_length=80)
+
+
+# --------------------------------------------------------------------------- #
+# Batalha RPG
+# --------------------------------------------------------------------------- #
+class MonsterRead(BaseModel):
+    letter: str
+    species: str
+    name: str
+    #: Silhueta desenhada no cliente. Arte em WebP pode substituí-la depois.
+    shape: str
+    color_token: str
+    accent_token: str
+    variant: int
+
+
+class BattleStatusRead(BaseModel):
+    player_hp: int
+    player_max_hp: int
+    player_hp_ratio: float
+    enemy_hp: int
+    enemy_max_hp: int
+    enemy_hp_ratio: float
+    answered: int
+    correct: int
+    wrong: int
+    questions: int
+    is_over: bool
+    victory: bool
+    defeat: bool
+    outcome_reason: str | None = None
+
+
+class BattleLayoutSettingsRead(BaseModel):
+    """As réguas que decidem o layout — o cliente recalcula com o viewport real."""
+
+    short_answer_max: int
+    short_average_max: int
+    tablet_short_answer_max: int
+    tablet_short_average_max: int
+    mobile_short_answer_max: int
+    mobile_short_average_max: int
+    max_options_for_arena: int
+    chars_per_line_desktop: int
+    chars_per_line_tablet: int
+    chars_per_line_mobile: int
+    max_lines_for_arena: int
+
+
+class BattleRead(BaseModel):
+    run: RunRead
+    enemy_species: str
+    enemy_name: str
+    enemy_shape: str
+    enemy_color_token: str
+    enemy_accent_token: str
+    status: BattleStatusRead
+    monsters: list[MonsterRead] = Field(default_factory=list)
+    #: Layout sugerido pelo servidor; o cliente refaz a conta com o viewport.
+    layout: str
+    layout_reason: str
+    settings: BattleLayoutSettingsRead
+
+
+class BattleAnswerResultRead(BaseModel):
+    battle: BattleRead
+    is_correct: bool
+    correct_letter: str | None = None
+    selected_feedback: str | None = None
+    correct_feedback: str | None = None
+    explanation: str | None = None
+    #: Dano aplicado nesta resposta — quem apanhou depende de quem errou.
+    damage: int = 0
+    damage_target: str = "enemy"
+
+
+class BattleSettingRead(BaseModel):
+    key: str
+    label: str
+    value: int
+
+
+class BattleSettingUpdate(BaseModel):
+    value: int = Field(ge=1, le=400)

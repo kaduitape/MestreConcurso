@@ -105,6 +105,16 @@ A plataforma responde continuamente a uma única pergunta:
   assinatura verificada e é idempotente — e o status vem de uma consulta à API, nunca do
   corpo da notificação.
 
+- **Batalha RPG (Fase 1):** a mesma rodada de desafio, apresentada como combate 2D. Cada
+  alternativa é um monstro; acertar ataca, errar faz o monstro da alternativa correta
+  contra-atacar. A vida dos dois lados é **derivada das respostas** a cada leitura — não há
+  contador paralelo que possa divergir do que a pessoa respondeu. A tela escolhe sozinha
+  entre a arena (alternativa curta) e o modo compacto (alternativa longa) com **réguas que
+  moram no banco**, por tamanho de tela, e **congela o layout enquanto a questão está
+  aberta**. Quatro estados de animação, só `transform` e `opacity`, monstros em SVG inline
+  sem download, e "reduzir animações" respeitado. O enunciado não anima: quando a animação
+  e a questão disputam a tela, a questão ganha.
+
 Todas as fases do backlog estão implementadas. O que ainda não existe está declarado em
 [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md), fase a fase, na linha "ainda não
 entra aqui" — e a interface indica o que está por vir, sem telas ilustrativas nem dados
@@ -146,6 +156,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [23 — Critérios de aceite da Gamificação 4](docs/23-criterios-aceite-gamificacao-4.md) | duelos, eventos, Modo Guerra e card compartilhável |
 | [24 — Critérios de aceite da Fase 9](docs/24-criterios-aceite-fase9.md) | Mestre Score, projeção, caminho e painéis com decisão |
 | [25 — Critérios de aceite da Fase 10](docs/25-criterios-aceite-fase10.md) | planos, assinaturas, cupons, webhook idempotente e limites |
+| [26 — Critérios de aceite da Batalha RPG](docs/26-criterios-aceite-batalha-rpg.md) | dois layouts, combate derivado das respostas e réguas no banco |
 
 ## Como executar
 
