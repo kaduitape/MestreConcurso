@@ -1091,3 +1091,48 @@ async def test_a_campaign_stage_picks_its_own_subject(
     battle = response.json()
     assert battle["run"]["selection"]["rule"] == "estágio de campanha"
     assert battle["run"]["subject_label"] == subject["name"]
+
+
+async def test_the_alternative_monster_hp_is_a_rule_of_the_question_not_a_second_enemy(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """A barra de cada alternativa vale dentro da questão; a do topo atravessa a
+    batalha. São dois números reais, não um número inventado duas vezes."""
+    admin = await create_admin(client, emails, email="rpg46@exemplo.com.br")
+    await _stock(client, admin, total=12, prefix="Vida do monstro")
+    student = await create_user(client, emails, email="aluno.rpg46@exemplo.com.br")
+
+    battle = await _start(client, student)
+
+    assert battle["combat"]["monster_hp"] > 0
+    # A vida da rodada não é a vida de um monstro de alternativa.
+    assert battle["status"]["enemy_max_hp"] != battle["combat"]["monster_hp"]
+
+    rapido = await _answer_in(client, student, battle, correct=True, seconds=1)
+    # O mesmo dano alimenta as duas leituras: não há segunda fonte de verdade.
+    assert rapido["damage"] >= battle["combat"]["monster_hp"], (
+        "um acerto rápido derruba o monstro da alternativa de um golpe"
+    )
+    assert (
+        rapido["battle"]["status"]["enemy_hp"]
+        == battle["status"]["enemy_max_hp"] - rapido["damage"]
+    )
+
+
+async def test_the_monster_hp_rule_is_editable_without_deploy(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    admin = await create_admin(client, emails, email="rpg47@exemplo.com.br")
+    await _stock(client, admin, total=12, prefix="Régua do monstro")
+    student = await create_user(client, emails, email="aluno.rpg47@exemplo.com.br")
+
+    alterado = await client.put(
+        "/api/v1/admin/game/battle-settings/monster_hp",
+        headers=admin.auth_header,
+        json={"value": 200},
+    )
+    assert alterado.status_code == 200, alterado.text
+
+    battle = await _start(client, student)
+
+    assert battle["combat"]["monster_hp"] == 200

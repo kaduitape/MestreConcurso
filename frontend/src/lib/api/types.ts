@@ -2019,6 +2019,9 @@ export interface BattleCombatSettings {
   shield_cost: number
   eliminate_cost: number
   hint_cost: number
+  boss_hp_percent: number
+  /** Vida de um monstro de alternativa — vale dentro de uma questão só. */
+  monster_hp: number
 }
 
 export type BattleEquipmentSlot = 'WEAPON' | 'ARMOR' | 'TRINKET'

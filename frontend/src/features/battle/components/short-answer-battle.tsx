@@ -3,9 +3,10 @@ import type { Alternative, BattleMonster } from '@/lib/api/types'
 import type { BattleMachineState } from '../machine'
 import { canSelect, letterTone } from '../machine'
 import { Monster, type MonsterMood } from './monster'
+import { LetterPlate, MonsterHealth } from './monster-hp'
 
 const TONE_RING: Record<string, string> = {
-  idle: 'border-white/10 hover:border-game-purple/50',
+  idle: 'border-game-gold/25 hover:border-game-gold/60',
   selected: 'border-game-purple',
   correct: 'border-success bg-success-soft/10',
   wrong: 'border-danger bg-danger-soft/10',
@@ -14,19 +15,21 @@ const TONE_RING: Record<string, string> = {
 /**
  * Modelo 1 — arena. Alternativas curtas: um monstro grande por alternativa.
  *
- * A região inteira é o botão: monstro, letra e texto. Alvo grande importa mais
- * no celular do que qualquer efeito — errar o toque numa batalha custa uma
- * questão.
+ * A região inteira é o botão: barra de vida, monstro, letra e texto. Alvo grande
+ * importa mais no celular do que qualquer efeito — errar o toque numa batalha
+ * custa uma questão.
  */
 export function ShortAnswerBattle({
   alternatives,
   monsters,
   state,
+  monsterHp,
   onSelect,
 }: {
   alternatives: Alternative[]
   monsters: BattleMonster[]
   state: BattleMachineState
+  monsterHp: number
   onSelect: (letter: string) => void
 }) {
   const monsterOf = (letter: string) => monsters.find((item) => item.letter === letter)
@@ -58,26 +61,19 @@ export function ShortAnswerBattle({
             onClick={() => onSelect(alternative.letter)}
             aria-pressed={state.selectedLetter === alternative.letter}
             className={cn(
-              'flex min-h-[9.5rem] flex-col items-center justify-end gap-2 rounded-2xl border',
-              'bg-white/[0.03] p-3 text-center transition-colors',
+              'battle-frame flex min-h-[11rem] flex-col items-center justify-end gap-1.5 p-3',
+              'text-center transition-colors',
               'disabled:cursor-default focus-visible:outline-2 focus-visible:outline-offset-2',
               'focus-visible:outline-game-purple-light',
               TONE_RING[tone],
             )}
           >
+            {/* A vida fica logo acima do monstro, colada nele: uma barra solta
+                no topo do card pareceria pertencer à alternativa inteira, e ela
+                é do monstro. */}
+            <MonsterHealth letter={alternative.letter} state={state} monsterHp={monsterHp} />
             {monster && <Monster monster={monster} mood={mood} />}
-            <span
-              className={cn(
-                'flex size-6 items-center justify-center rounded-full text-xs font-black',
-                tone === 'correct'
-                  ? 'bg-success text-white'
-                  : tone === 'wrong'
-                    ? 'bg-danger text-white'
-                    : 'bg-white/10 text-slate-200',
-              )}
-            >
-              {alternative.letter}
-            </span>
+            <LetterPlate letter={alternative.letter} tone={tone} />
             <span className="text-sm leading-snug font-medium text-balance">
               {alternative.content}
             </span>

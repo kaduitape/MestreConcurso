@@ -122,6 +122,7 @@ COMBAT_LABELS: dict[str, str] = {
     "eliminate_cost": "Preço do Eliminar",
     "hint_cost": "Preço da Dica",
     "boss_hp_percent": "Vida extra do chefe (%)",
+    "monster_hp": "Vida de um monstro de alternativa (dentro da questão)",
 }
 
 SETTING_LABELS: dict[str, str] = {**LAYOUT_LABELS, **COMBAT_LABELS}

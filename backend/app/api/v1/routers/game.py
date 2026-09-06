@@ -669,6 +669,8 @@ def _battle_read(view: BattleView) -> BattleRead:
             shield_cost=view.combat.shield_cost,
             eliminate_cost=view.combat.eliminate_cost,
             hint_cost=view.combat.hint_cost,
+            boss_hp_percent=view.combat.boss_hp_percent,
+            monster_hp=view.combat.monster_hp,
         ),
         powers=[
             BattlePowerRead(

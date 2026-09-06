@@ -25,10 +25,7 @@ export function QuestionPanel({
 }) {
   return (
     <section
-      className={cn(
-        'rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 sm:p-5',
-        className,
-      )}
+      className={cn('battle-frame p-4 sm:p-5', className)}
       aria-label="Enunciado da questão"
     >
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-subtle">

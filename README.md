@@ -126,7 +126,9 @@ A plataforma responde continuamente a uma única pergunta:
   no ranking continuam saindo da taxa de acerto crua. A arte é **cadastrável**: monstros,
   guerreiro e cenários entram pelo painel administrativo, validados pelos bytes do arquivo, e
   cada lugar vazio declara o que a tela desenha no lugar dele — a silhueta em SVG é o padrão,
-  não o destino.
+  não o destino. Cada alternativa tem barra de vida própria, válida **dentro da questão**,
+  alimentada pelo mesmo dano que desce a vida do inimigo da rodada: uma leitura a mais, nunca
+  um número a mais.
 
 Todas as fases do backlog estão implementadas. O que ainda não existe está declarado em
 [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md), fase a fase, na linha "ainda não

@@ -296,7 +296,21 @@ async def create_position_with_subjects(
     return position
 
 
-WEEKDAY_AVAILABILITY = {"0": 120, "1": 120, "2": 120, "3": 120, "4": 120, "5": 240}
+#: Disponibilidade de um candidato que estuda **todos os dias**.
+#:
+#: O domingo (6) está aqui por um motivo específico: sem ele, os testes que
+#: pedem "a tarefa de hoje" quebravam aos domingos — o plano não tinha tarefa
+#: nenhuma naquele dia, e a suíte ficava vermelha uma vez por semana sem que
+#: nada no produto estivesse errado.
+WEEKDAY_AVAILABILITY = {
+    "0": 120,
+    "1": 120,
+    "2": 120,
+    "3": 120,
+    "4": 120,
+    "5": 240,
+    "6": 120,
+}
 
 
 def question_payload(

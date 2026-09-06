@@ -4,7 +4,6 @@ import { useReducedMotion } from 'framer-motion'
 import { Swords } from 'lucide-react'
 import { toast } from 'sonner'
 import { GameButton } from '@/components/game/game-button'
-import { GameCard } from '@/components/game/game-card'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ErrorState } from '@/components/feedback/error-state'
@@ -423,7 +422,7 @@ export function BattlePage() {
 
       {battle.hint && <HintPanel hint={battle.hint} />}
 
-      <GameCard className="space-y-4 p-4 sm:p-5">
+      <div className="battle-frame space-y-4 p-4 sm:p-5">
         <BattleHUD status={status} enemyName={battle.enemy_name} />
 
         {/* O palco. Só aqui há movimento; o enunciado e as alternativas ficam
@@ -476,7 +475,7 @@ export function BattlePage() {
             </div>
           )}
         </div>
-      </GameCard>
+      </div>
 
       {question && <QuestionPanel question={question} />}
 
@@ -486,6 +485,7 @@ export function BattlePage() {
             alternatives={visibleAlternatives}
             monsters={battle.monsters}
             state={state}
+            monsterHp={battle.combat.monster_hp}
             onSelect={onSelect}
           />
         ) : (
@@ -493,6 +493,7 @@ export function BattlePage() {
             alternatives={visibleAlternatives}
             monsters={battle.monsters}
             state={state}
+            monsterHp={battle.combat.monster_hp}
             onSelect={onSelect}
           />
         ))}

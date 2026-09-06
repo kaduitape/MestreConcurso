@@ -657,6 +657,9 @@ class BattleCombatSettingsRead(BaseModel):
     shield_cost: int
     eliminate_cost: int
     hint_cost: int
+    boss_hp_percent: int
+    #: Vida de um monstro de alternativa — vale dentro de uma questão só.
+    monster_hp: int
 
 
 class BattlePowerRead(BaseModel):

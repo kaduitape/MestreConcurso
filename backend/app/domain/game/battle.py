@@ -117,6 +117,13 @@ class CombatSettings:
     hint_cost: int = 15
     #: Vida extra de um chefe, sobre a de um inimigo comum de mesmo tamanho.
     boss_hp_percent: int = 60
+    #: Vida de um monstro de alternativa, **dentro de uma questão só**.
+    #:
+    #: Não é um segundo inimigo: é a régua que diz se o golpe derrubou aquele
+    #: monstro de uma vez. Um acerto base (34) o deixa ferido; um acerto rápido
+    #: em sequência o derruba. O que atravessa as questões continua sendo a vida
+    #: do inimigo da rodada, no alto da tela.
+    monster_hp: int = 50
 
     def cost_of(self, power: str) -> int:
         if power == BattlePower.SHIELD:

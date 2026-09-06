@@ -57,6 +57,7 @@ describe('ShortAnswerBattle', () => {
           type: 'QUESTION_READY',
           layout: 'monster-arena',
         })}
+        monsterHp={50}
         onSelect={onSelect}
       />,
     )
@@ -78,6 +79,7 @@ describe('ShortAnswerBattle', () => {
         alternatives={alternatives}
         monsters={monsters}
         state={answered}
+        monsterHp={50}
         onSelect={onSelect}
       />,
     )
@@ -99,6 +101,7 @@ describe('LongAnswerBattle', () => {
           type: 'QUESTION_READY',
           layout: 'compact-answer',
         })}
+        monsterHp={50}
         onSelect={vi.fn()}
       />,
     )
@@ -113,6 +116,7 @@ describe('LongAnswerBattle', () => {
         alternatives={alternatives}
         monsters={monsters}
         state={answered}
+        monsterHp={50}
         onSelect={vi.fn()}
       />,
     )

@@ -278,3 +278,25 @@ Escopo da **Fase 3**: chefes, campanhas, equipamentos, classes e ranking.
 ## Qualidade
 120. 10 testes de integração cobrem catálogo, envio, substituição, remoção, recusa de arquivo que não é imagem, recusa de lugar inexistente e a exigência de administrador. 5 no cliente cobrem a troca silhueta ↔ imagem.
 121. Migração `battle_assets` sobe e desce limpa; `alembic check` sem divergência.
+
+---
+
+# Moldura e vida por alternativa
+
+> **Regra que governa este acabamento:** o RPG pode ficar mais bonito, desde que
+> nenhum enfeite invente informação nem atrapalhe a leitura. Moldura é moldura;
+> barra é número real.
+
+## Vida por alternativa
+122. Cada monstro de alternativa tem uma barra de vida que vale **dentro daquela questão**: ela mostra quanto o golpe tirou daquele monstro. A barra do topo é outra coisa e continua sendo o inimigo da rodada, **através das questões**. Dois escopos diferentes, ditos com esse nome na tela e no rótulo acessível.
+123. **Não há segunda fonte de verdade.** O mesmo `damage` que desce a vida do inimigo desce a barra da alternativa. A régua `monster_hp` só diz quanto é preciso para derrubar aquele monstro de um golpe — e vive no banco, editável sem deploy.
+124. Um acerto base fere; um acerto rápido em sequência derruba. A barra é, portanto, a leitura visível de velocidade e combo — sinais reais, não decoração.
+125. Só o monstro da alternativa **correta** apanha, e só quando o candidato acerta. Errar não fere monstro nenhum: quem apanha é o guerreiro.
+126. No modelo compacto a barra encolhe e o número sai. Ali quem manda é o texto da alternativa.
+
+## Moldura
+127. A moldura dourada é feita com **gradiente e cantos em pseudo-elemento** — nenhuma imagem de borda. Nove-fatias em PNG custaria download antes da primeira questão, e a prioridade declarada do pedido é leveza.
+128. O ouro sai do token do tema: a moldura acompanha qualquer ajuste de paleta, em vez de ficar queimada num arquivo.
+129. As placas do cabeçalho (disciplina, andamento, chefe) trazem o número **e** a barra de progresso na mesma peça, sem competir com o enunciado logo abaixo.
+130. A cor da letra (A vermelho, B azul, C roxo, D dourado) é **identidade, não gabarito**. Acerto e erro continuam saindo do verde e do vermelho depois da resposta, que é onde a informação de verdade aparece.
+131. O contraste do enunciado não mudou: a moldura envolve o painel, não escurece o texto.
