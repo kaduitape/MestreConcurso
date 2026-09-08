@@ -781,6 +781,21 @@ class BattleRankingRead(BaseModel):
     note: str = ""
 
 
+class BattleHudRead(BaseModel):
+    """Rodapé da batalha — números que a plataforma já media em outro lugar."""
+
+    level: int
+    xp_total: int
+    xp_into_level: int
+    xp_for_next: int | None = None
+    xp_ratio: float
+    focus_minutes: int
+    #: Minutos que o próprio candidato reservou para hoje. ``None`` sem plano —
+    #: e aí a tela não desenha barra nenhuma.
+    focus_target_minutes: int | None = None
+    focus_reason: str | None = None
+
+
 class BattleRead(BaseModel):
     run: RunRead
     enemy_species: str
@@ -806,6 +821,7 @@ class BattleRead(BaseModel):
     enemy_image_url: str | None = None
     player_image_url: str | None = None
     scenery_image_url: str | None = None
+    hud: BattleHudRead | None = None
 
 
 class BattleAnswerResultRead(BaseModel):

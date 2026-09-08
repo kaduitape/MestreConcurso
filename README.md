@@ -128,7 +128,9 @@ A plataforma responde continuamente a uma única pergunta:
   cada lugar vazio declara o que a tela desenha no lugar dele — a silhueta em SVG é o padrão,
   não o destino. Cada alternativa tem barra de vida própria, válida **dentro da questão**,
   alimentada pelo mesmo dano que desce a vida do inimigo da rodada: uma leitura a mais, nunca
-  um número a mais.
+  um número a mais. O rodapé traz nível, XP e **foco do dia** — minutos de estudo reais contra
+  o que o próprio candidato reservou no plano; sem plano não há alvo, e sem alvo **não há
+  barra**.
 
 Todas as fases do backlog estão implementadas. O que ainda não existe está declarado em
 [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md), fase a fase, na linha "ainda não

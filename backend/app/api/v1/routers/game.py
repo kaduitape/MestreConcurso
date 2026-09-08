@@ -36,6 +36,7 @@ from app.schemas.game import (
     BattleClassRead,
     BattleCombatSettingsRead,
     BattleEquipmentRead,
+    BattleHudRead,
     BattleLayoutSettingsRead,
     BattleLoadoutInput,
     BattleLoadoutRead,
@@ -692,6 +693,20 @@ def _battle_read(view: BattleView) -> BattleRead:
         enemy_image_url=view.enemy_image_url,
         player_image_url=view.player_image_url,
         scenery_image_url=view.scenery_image_url,
+        hud=(
+            BattleHudRead(
+                level=view.hud.level,
+                xp_total=view.hud.xp_total,
+                xp_into_level=view.hud.xp_into_level,
+                xp_for_next=view.hud.xp_for_next,
+                xp_ratio=view.hud.xp_ratio,
+                focus_minutes=view.hud.focus_minutes,
+                focus_target_minutes=view.hud.focus_target_minutes,
+                focus_reason=view.hud.focus_reason,
+            )
+            if view.hud
+            else None
+        ),
     )
 
 

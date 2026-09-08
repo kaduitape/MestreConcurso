@@ -300,3 +300,21 @@ Escopo da **Fase 3**: chefes, campanhas, equipamentos, classes e ranking.
 129. As placas do cabeçalho (disciplina, andamento, chefe) trazem o número **e** a barra de progresso na mesma peça, sem competir com o enunciado logo abaixo.
 130. A cor da letra (A vermelho, B azul, C roxo, D dourado) é **identidade, não gabarito**. Acerto e erro continuam saindo do verde e do vermelho depois da resposta, que é onde a informação de verdade aparece.
 131. O contraste do enunciado não mudou: a moldura envolve o painel, não escurece o texto.
+
+---
+
+# Estandartes e rodapé do guerreiro
+
+## Estandartes
+132. São **puro enfeite**, e estão marcados como tal: fora da árvore de acessibilidade e escondidos abaixo de `xl`. Numa tela estreita eles roubariam largura do enunciado, que é a única coisa desta página que não pode ceder espaço.
+
+## Rodapé
+133. Nível e XP saem do **razão contábil da gamificação** — os mesmos números do perfil, não uma segunda contagem. No nível máximo a tela não promete um próximo.
+134. A vida do rodapé é a mesma vida da batalha, lida do mesmo lugar.
+135. **Foco é minuto de estudo real**: a soma das sessões de hoje, a mesma métrica que já alimenta missões e XP. Nada é estimado.
+136. O alvo do foco é **o que o próprio candidato reservou para hoje no plano de estudo**. A plataforma não inventa meta de ninguém.
+137. **Sem plano ativo não há alvo — e sem alvo não há barra.** Uma barra sem denominador seria um enfeite fingindo medir alguma coisa. No lugar dela fica o número real do dia e o motivo, por escrito. Alvo zerado recebe o mesmo tratamento.
+
+## Qualidade
+138. 3 testes de integração cobrem nível/XP vindos do razão, a ausência de alvo sem plano e o alvo igual ao que foi reservado. 8 no cliente cobrem o rodapé e os estandartes.
+139. As cores das barras são classes **escritas por extenso**. Derivar `bg-…` de `text-…` em tempo de execução deixaria a barra sem cor na folha publicada — foi assim que os monstros saíram pretos uma vez, e o comentário no código registra isso.

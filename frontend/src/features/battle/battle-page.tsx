@@ -24,6 +24,7 @@ import {
 import { useBattleSound } from './use-sound'
 import { useBattleViewport } from './use-viewport'
 import { ArmoryPanel } from './components/armory'
+import { BattleBanner, BattleFooter } from './components/battle-footer'
 import { RankingTable } from './components/battle-ranking'
 import { CampaignMap } from './components/campaign-map'
 import { CriticalBadge } from './components/combo-meter'
@@ -403,163 +404,171 @@ export function BattlePage() {
   const resolved = state.phase === 'RESULT' || state.phase === 'EXPLANATION'
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
-      <BattleHeader
-        battle={battle}
-        onLeave={() => leave.mutate()}
-        leaving={leave.isPending}
-        soundOn={sound.enabled}
-        onToggleSound={sound.toggle}
-      />
+    <div className="mx-auto flex max-w-6xl justify-center gap-6">
+      <BattleBanner words={['Estudo', 'Disciplina', 'Evolução', 'Vitória']} />
 
-      <PowerBar
-        powers={battle.powers}
-        coins={status.coins}
-        disabled={state.locked || state.phase !== 'QUESTION'}
-        pending={power.isPending ? power.variables : null}
-        onUse={(chosen) => power.mutate(chosen)}
-      />
+      <div className="min-w-0 flex-1 space-y-4">
+        <BattleHeader
+          battle={battle}
+          onLeave={() => leave.mutate()}
+          leaving={leave.isPending}
+          soundOn={sound.enabled}
+          onToggleSound={sound.toggle}
+        />
 
-      {battle.hint && <HintPanel hint={battle.hint} />}
+        <PowerBar
+          powers={battle.powers}
+          coins={status.coins}
+          disabled={state.locked || state.phase !== 'QUESTION'}
+          pending={power.isPending ? power.variables : null}
+          onUse={(chosen) => power.mutate(chosen)}
+        />
 
-      <div className="battle-frame space-y-4 p-4 sm:p-5">
-        <BattleHUD status={status} enemyName={battle.enemy_name} />
+        {battle.hint && <HintPanel hint={battle.hint} />}
 
-        {/* O palco. Só aqui há movimento; o enunciado e as alternativas ficam
+        <div className="battle-frame space-y-4 p-4 sm:p-5">
+          <BattleHUD status={status} enemyName={battle.enemy_name} />
+
+          {/* O palco. Só aqui há movimento; o enunciado e as alternativas ficam
             parados. */}
-        <div
-          className={cn(
-            'relative flex items-end justify-between gap-4 overflow-hidden rounded-xl px-3 pt-2',
-            !battle.scenery_image_url && 'bg-gradient-to-b from-white/[0.04] to-transparent',
-          )}
-          // O cenário é fundo: entra por trás do combate, sem competir com o
-          // enunciado, e some sozinho quando não há arte cadastrada.
-          style={
-            battle.scenery_image_url
-              ? {
-                  backgroundImage: `linear-gradient(to bottom, rgb(5 8 22 / 0.35), rgb(5 8 22 / 0.85)), url(${battle.scenery_image_url})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                }
-              : undefined
-          }
-        >
-          <div className="relative">
-            <PlayerCharacter mood={playerMoodOf(state)} imageUrl={battle.player_image_url} />
-            <DamageEffect
-              amount={state.damage}
-              visible={state.damageTarget === 'player' && resolved}
-              className="top-2 left-1/2"
-            />
-          </div>
-
-          {state.layout === 'compact-answer' && (
+          <div
+            className={cn(
+              'relative flex items-end justify-between gap-4 overflow-hidden rounded-xl px-3 pt-2',
+              !battle.scenery_image_url && 'bg-gradient-to-b from-white/[0.04] to-transparent',
+            )}
+            // O cenário é fundo: entra por trás do combate, sem competir com o
+            // enunciado, e some sozinho quando não há arte cadastrada.
+            style={
+              battle.scenery_image_url
+                ? {
+                    backgroundImage: `linear-gradient(to bottom, rgb(5 8 22 / 0.35), rgb(5 8 22 / 0.85)), url(${battle.scenery_image_url})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }
+                : undefined
+            }
+          >
             <div className="relative">
-              <Monster
-                monster={enemyAsMonster(battle)}
-                mood={enemyMoodOf(state, enemyDefeated)}
-              />
-              <SlashEffect
-                visible={state.phase === 'PLAYER_ATTACK'}
-                className="top-2 -left-4"
-              />
+              <PlayerCharacter mood={playerMoodOf(state)} imageUrl={battle.player_image_url} />
               <DamageEffect
                 amount={state.damage}
-                visible={state.damageTarget === 'enemy' && resolved}
+                visible={state.damageTarget === 'player' && resolved}
                 className="top-2 left-1/2"
               />
-              <CriticalBadge
-                visible={state.isCritical && resolved}
-                className="-top-2 left-1/2 -translate-x-1/2"
-              />
             </div>
-          )}
+
+            {state.layout === 'compact-answer' && (
+              <div className="relative">
+                <Monster
+                  monster={enemyAsMonster(battle)}
+                  mood={enemyMoodOf(state, enemyDefeated)}
+                />
+                <SlashEffect
+                  visible={state.phase === 'PLAYER_ATTACK'}
+                  className="top-2 -left-4"
+                />
+                <DamageEffect
+                  amount={state.damage}
+                  visible={state.damageTarget === 'enemy' && resolved}
+                  className="top-2 left-1/2"
+                />
+                <CriticalBadge
+                  visible={state.isCritical && resolved}
+                  className="-top-2 left-1/2 -translate-x-1/2"
+                />
+              </div>
+            )}
+          </div>
         </div>
+
+        {question && <QuestionPanel question={question} />}
+
+        {question &&
+          (state.layout === 'monster-arena' ? (
+            <ShortAnswerBattle
+              alternatives={visibleAlternatives}
+              monsters={battle.monsters}
+              state={state}
+              monsterHp={battle.combat.monster_hp}
+              onSelect={onSelect}
+            />
+          ) : (
+            <LongAnswerBattle
+              alternatives={visibleAlternatives}
+              monsters={battle.monsters}
+              state={state}
+              monsterHp={battle.combat.monster_hp}
+              onSelect={onSelect}
+            />
+          ))}
+
+        {resolved && result && (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3" role="status">
+              <p
+                className={cn(
+                  'text-sm font-semibold',
+                  result.is_correct ? 'text-success' : 'text-danger',
+                )}
+              >
+                {result.is_correct
+                  ? `Acertou. O ataque tirou ${result.damage} de vida do monstro.`
+                  : result.shielded
+                    ? `Errou — era ${result.correct_letter ?? '—'}. O escudo absorveu o golpe.`
+                    : `Errou — era ${result.correct_letter ?? '—'}. O contra-ataque custou ${result.damage} de vida.`}
+              </p>
+              {result.is_critical && (
+                <span className="rounded-full bg-game-gold/15 px-2 py-0.5 text-xs font-black tracking-wide text-game-gold uppercase">
+                  Crítico · acerto rápido
+                </span>
+              )}
+              {result.combo >= 2 && (
+                <span className="rounded-full bg-game-orange/15 px-2 py-0.5 text-xs font-black tracking-wide text-game-orange uppercase">
+                  Combo ×{result.combo}
+                </span>
+              )}
+              {result.coins > 0 && (
+                <span className="font-mono text-xs font-bold tabular-nums text-game-gold">
+                  +{result.coins} moedas
+                </span>
+              )}
+            </div>
+
+            {state.phase === 'EXPLANATION' && <ExplanationPanel result={result} />}
+
+            <div className="flex flex-wrap gap-2">
+              {state.phase === 'RESULT' && (
+                <GameButton
+                  variant="ghost"
+                  onClick={() => dispatch({ type: 'SHOW_EXPLANATION' })}
+                >
+                  Ver explicação
+                </GameButton>
+              )}
+              <GameButton onClick={advance}>
+                {result.battle.status.is_over ? 'Ver resultado' : 'Próxima questão'}
+              </GameButton>
+            </div>
+          </div>
+        )}
+
+        <p className="text-xs text-subtle">{decision?.reason}</p>
+
+        {battle.hud && <BattleFooter hud={battle.hud} status={status} />}
+
+        <ResultModal
+          battle={result?.battle ?? battle}
+          open={showResultModal}
+          onClose={() => {
+            setShowResultModal(false)
+            queryClient.setQueryData(queryKeys.gameBattle(viewport), null)
+          }}
+          onRestart={() => start.mutate({})}
+          restarting={start.isPending}
+        />
       </div>
 
-      {question && <QuestionPanel question={question} />}
-
-      {question &&
-        (state.layout === 'monster-arena' ? (
-          <ShortAnswerBattle
-            alternatives={visibleAlternatives}
-            monsters={battle.monsters}
-            state={state}
-            monsterHp={battle.combat.monster_hp}
-            onSelect={onSelect}
-          />
-        ) : (
-          <LongAnswerBattle
-            alternatives={visibleAlternatives}
-            monsters={battle.monsters}
-            state={state}
-            monsterHp={battle.combat.monster_hp}
-            onSelect={onSelect}
-          />
-        ))}
-
-      {resolved && result && (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3" role="status">
-            <p
-              className={cn(
-                'text-sm font-semibold',
-                result.is_correct ? 'text-success' : 'text-danger',
-              )}
-            >
-              {result.is_correct
-                ? `Acertou. O ataque tirou ${result.damage} de vida do monstro.`
-                : result.shielded
-                  ? `Errou — era ${result.correct_letter ?? '—'}. O escudo absorveu o golpe.`
-                  : `Errou — era ${result.correct_letter ?? '—'}. O contra-ataque custou ${result.damage} de vida.`}
-            </p>
-            {result.is_critical && (
-              <span className="rounded-full bg-game-gold/15 px-2 py-0.5 text-xs font-black tracking-wide text-game-gold uppercase">
-                Crítico · acerto rápido
-              </span>
-            )}
-            {result.combo >= 2 && (
-              <span className="rounded-full bg-game-orange/15 px-2 py-0.5 text-xs font-black tracking-wide text-game-orange uppercase">
-                Combo ×{result.combo}
-              </span>
-            )}
-            {result.coins > 0 && (
-              <span className="font-mono text-xs font-bold tabular-nums text-game-gold">
-                +{result.coins} moedas
-              </span>
-            )}
-          </div>
-
-          {state.phase === 'EXPLANATION' && <ExplanationPanel result={result} />}
-
-          <div className="flex flex-wrap gap-2">
-            {state.phase === 'RESULT' && (
-              <GameButton
-                variant="ghost"
-                onClick={() => dispatch({ type: 'SHOW_EXPLANATION' })}
-              >
-                Ver explicação
-              </GameButton>
-            )}
-            <GameButton onClick={advance}>
-              {result.battle.status.is_over ? 'Ver resultado' : 'Próxima questão'}
-            </GameButton>
-          </div>
-        </div>
-      )}
-
-      <p className="text-xs text-subtle">{decision?.reason}</p>
-
-      <ResultModal
-        battle={result?.battle ?? battle}
-        open={showResultModal}
-        onClose={() => {
-          setShowResultModal(false)
-          queryClient.setQueryData(queryKeys.gameBattle(viewport), null)
-        }}
-        onRestart={() => start.mutate({})}
-        restarting={start.isPending}
-      />
+      <BattleBanner words={['Conhecimento', 'Hoje', 'Liberdade', 'Sempre']} />
     </div>
   )
 }

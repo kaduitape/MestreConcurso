@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -61,6 +62,7 @@ from app.domain.game.battle_campaign import (
     build_ranking,
 )
 from app.domain.game.challenges import MODES_BY_KEY, ChallengeMode
+from app.domain.game.levels import level_for_xp
 from app.models.catalog import Subject
 from app.models.game import (
     Achievement,
@@ -74,7 +76,7 @@ from app.models.game import (
 )
 from app.models.intelligence import UserPriority
 from app.models.question import Question, QuestionStatus
-from app.models.study import StudyPlan, StudyPlanStatus
+from app.models.study import StudyAvailability, StudyPlan, StudyPlanStatus, StudySession
 from app.models.user import User
 from app.repositories.game import (
     BattleLoadoutRepository,
@@ -144,6 +146,29 @@ class PowerOffer:
 
 
 @dataclass(frozen=True, slots=True)
+class BattleHud:
+    """O rodapé da batalha, com números que a plataforma já media.
+
+    Nível e XP saem do razão contábil da gamificação. O foco sai da soma real
+    das sessões de estudo de hoje, e o alvo é **o que o próprio candidato
+    reservou para hoje no plano** — não uma meta inventada pela plataforma.
+
+    Sem plano ativo não há alvo, e aí **não há barra**: uma barra sem
+    denominador seria um enfeite fingindo medir alguma coisa.
+    """
+
+    level: int
+    xp_total: int
+    xp_into_level: int
+    xp_for_next: int | None
+    xp_ratio: float
+    focus_minutes: int
+    focus_target_minutes: int | None
+    #: Por que não há alvo de foco, quando for o caso.
+    focus_reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class EquipmentOffer:
     """Uma peça do arsenal, com o motivo de estar travada quando estiver."""
 
@@ -179,6 +204,7 @@ class BattleView:
     loadout: Loadout = DEFAULT_LOADOUT
     #: Verdadeiro quando a rodada é um chefe de campanha.
     is_boss: bool = False
+    hud: BattleHud | None = None
     #: Arte cadastrada, quando houver. ``None`` mantém a silhueta em SVG.
     enemy_image_url: str | None = None
     player_image_url: str | None = None
@@ -326,6 +352,7 @@ class BattleService:
         uses: Sequence[BattlePowerUse],
         loadout: Loadout,
         art: dict[tuple[str, str], str],
+        hud: BattleHud,
         *,
         viewport: str,
         question: Question | None,
@@ -368,6 +395,7 @@ class BattleService:
             enemy_image_url=self.art.resolve_url(art, AssetKind.MONSTER, enemy.slug),
             player_image_url=self.art.resolve_url(art, AssetKind.PLAYER, loadout.class_slug),
             scenery_image_url=self.art.resolve_url(art, AssetKind.SCENERY, enemy.slug),
+            hud=hud,
             # Todo monstro da questão é da espécie do inimigo: uma entrada só,
             # repetida por letra do lado do cliente, seria mais frágil de ler.
             monster_image_urls={
@@ -386,6 +414,7 @@ class BattleService:
         loadout = await self.run_loadout(run_view.run.id)
         status = await self._status(run_view, combat, uses, loadout)
         art = await self.art.url_map()
+        hud = await self.hud_for(run_view.run.user_id)
         return self._build(
             run_view,
             status,
@@ -394,8 +423,58 @@ class BattleService:
             uses,
             loadout,
             art,
+            hud,
             viewport=viewport,
             question=question,
+        )
+
+    async def hud_for(self, user_id: int) -> BattleHud:
+        """Nível, XP e foco do dia — tudo já medido em outro lugar do produto."""
+        profile = await self.challenges.engine.profiles.for_user(user_id)
+        progress = level_for_xp(profile.xp_total if profile else 0)
+
+        today = datetime.now(UTC).date()
+        focus_seconds = int(
+            (
+                await self.session.execute(
+                    select(func.coalesce(func.sum(StudySession.focus_seconds), 0)).where(
+                        StudySession.user_id == user_id,
+                        func.date(StudySession.started_at) == today,
+                    )
+                )
+            ).scalar_one()
+        )
+
+        # O alvo é o que o candidato reservou para hoje no próprio plano.
+        target = (
+            await self.session.execute(
+                select(StudyAvailability.minutes)
+                .join(StudyPlan, StudyPlan.id == StudyAvailability.study_plan_id)
+                .where(
+                    StudyPlan.user_id == user_id,
+                    StudyPlan.status == StudyPlanStatus.ACTIVE,
+                    StudyAvailability.weekday == today.weekday(),
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+
+        return BattleHud(
+            level=progress.level,
+            xp_total=progress.xp_total,
+            xp_into_level=progress.xp_into_level,
+            xp_for_next=progress.xp_for_next,
+            xp_ratio=progress.ratio,
+            focus_minutes=focus_seconds // 60,
+            focus_target_minutes=int(target) if target else None,
+            focus_reason=(
+                None
+                if target
+                else (
+                    "Você não reservou minutos para hoje no plano de estudo, "
+                    "então não há alvo de foco a mostrar."
+                )
+            ),
         )
 
     async def run_loadout(self, run_id: int) -> Loadout:

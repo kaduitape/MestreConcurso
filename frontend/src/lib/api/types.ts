@@ -1968,6 +1968,19 @@ export interface BattleAssetSlot {
   updated_at: string | null
 }
 
+/** Rodapé da batalha — números que a plataforma já media em outro lugar. */
+export interface BattleHud {
+  level: number
+  xp_total: number
+  xp_into_level: number
+  xp_for_next: number | null
+  xp_ratio: number
+  focus_minutes: number
+  /** Minutos que o próprio candidato reservou para hoje. `null` sem plano. */
+  focus_target_minutes: number | null
+  focus_reason: string | null
+}
+
 export interface BattleMonster {
   letter: string
   species: string
@@ -2153,6 +2166,7 @@ export interface Battle {
   enemy_image_url: string | null
   player_image_url: string | null
   scenery_image_url: string | null
+  hud: BattleHud | null
   powers: BattlePowerOffer[]
   /** Letras eliminadas nesta questão: a tela não as renderiza. */
   removed_letters: string[]

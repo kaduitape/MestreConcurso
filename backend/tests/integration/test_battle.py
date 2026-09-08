@@ -8,6 +8,7 @@ derivado das respostas, nunca acumulado.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from httpx import AsyncClient
@@ -1136,3 +1137,64 @@ async def test_the_monster_hp_rule_is_editable_without_deploy(
     battle = await _start(client, student)
 
     assert battle["combat"]["monster_hp"] == 200
+
+
+async def test_the_hud_shows_level_and_xp_from_the_ledger(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    admin = await create_admin(client, emails, email="rpg48@exemplo.com.br")
+    await _stock(client, admin, total=12, prefix="HUD")
+    student = await create_user(client, emails, email="aluno.rpg48@exemplo.com.br")
+
+    battle = await _start(client, student)
+    hud = battle["hud"]
+
+    assert hud["level"] >= 1
+    assert hud["xp_total"] >= 0
+    assert 0.0 <= hud["xp_ratio"] <= 1.0
+    assert hud["xp_into_level"] >= 0
+
+
+async def test_without_a_study_plan_there_is_no_focus_target(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """Barra sem denominador seria enfeite fingindo medir alguma coisa."""
+    admin = await create_admin(client, emails, email="rpg49@exemplo.com.br")
+    await _stock(client, admin, total=12, prefix="Sem plano")
+    student = await create_user(client, emails, email="aluno.rpg49@exemplo.com.br")
+
+    battle = await _start(client, student)
+    hud = battle["hud"]
+
+    assert hud["focus_target_minutes"] is None
+    assert hud["focus_reason"] is not None
+    assert "plano de estudo" in hud["focus_reason"]
+
+
+async def test_the_focus_target_is_what_the_candidate_reserved_for_today(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """O alvo não é inventado pela plataforma: é o que ele mesmo reservou."""
+    admin = await create_admin(client, emails, email="rpg50@exemplo.com.br")
+    position = await create_position_with_subjects(client, admin)
+    await _stock(client, admin, total=12, prefix="Com plano")
+    student = await create_user(client, emails, email="aluno.rpg50@exemplo.com.br")
+
+    plano = await client.post(
+        "/api/v1/study/plan",
+        headers=student.auth_header,
+        json={
+            "position_public_id": position["public_id"],
+            "minutes_by_weekday": WEEKDAY_AVAILABILITY,
+        },
+    )
+    assert plano.status_code == 201, plano.text
+    reservado = {item["weekday"]: item["minutes"] for item in plano.json()["availability"]}
+
+    battle = await _start(client, student)
+    hud = battle["hud"]
+
+    hoje = datetime.now(UTC).weekday()
+    assert hud["focus_target_minutes"] == reservado[hoje]
+    assert hud["focus_reason"] is None
+    assert hud["focus_minutes"] == 0, "nenhuma sessão de estudo ainda hoje"
