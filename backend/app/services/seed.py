@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from datetime import UTC, datetime
 
 from sqlalchemy import select
@@ -12,9 +13,21 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.security import hash_password
 from app.domain.permissions import PERMISSIONS, ROLE_ADMIN, ROLES
+from app.domain.training.example import (
+    EXAMPLE_CHARACTER,
+    EXAMPLE_DURATION_MINUTES,
+    EXAMPLE_LEVEL,
+    EXAMPLE_PUBLIC_ID,
+    EXAMPLE_SCRIPT,
+    EXAMPLE_STYLE,
+    EXAMPLE_SUBJECT,
+    EXAMPLE_TITLE,
+    EXAMPLE_TOPIC,
+)
 from app.domain.trap_catalogue import TRAP_PATTERNS
 from app.models.intelligence import TrapPattern
 from app.models.rbac import Permission, Role
+from app.models.training import TrainingLesson, TrainingStatus
 from app.models.user import Profile, User, UserStatus
 
 logger = get_logger(__name__)
@@ -142,3 +155,54 @@ async def ensure_bootstrap_admin(session: AsyncSession) -> User | None:
         hint="Troque a senha do administrador no primeiro acesso.",
     )
     return user
+
+
+async def ensure_example_training(session: AsyncSession, author: User | None) -> bool:
+    """Instala a aula-modelo do Dia de Treinamento, uma única vez.
+
+    O seed **só cria**. Se a aula já existe, ela não é tocada: alguém pode ter
+    reescrito uma cena no estúdio, e sobrescrever isso a cada reinício do
+    contêiner apagaria trabalho humano sem avisar.
+
+    Sem administrador não há autor, e sem autor não há aula — o modelo volta no
+    próximo seed, depois que o administrador inicial existir.
+    """
+    if author is None:
+        logger.info("seed.training_example.skipped", reason="sem administrador")
+        return False
+
+    existing = (
+        await session.execute(
+            select(TrainingLesson).where(TrainingLesson.public_id == EXAMPLE_PUBLIC_ID)
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        logger.info("seed.training_example.exists", public_id=EXAMPLE_PUBLIC_ID)
+        return False
+
+    session.add(
+        TrainingLesson(
+            public_id=EXAMPLE_PUBLIC_ID,
+            created_by_user_id=author.id,
+            title=EXAMPLE_TITLE,
+            subject=EXAMPLE_SUBJECT,
+            topic=EXAMPLE_TOPIC,
+            character_name=EXAMPLE_CHARACTER,
+            level=EXAMPLE_LEVEL,
+            style=EXAMPLE_STYLE,
+            target_duration_minutes=EXAMPLE_DURATION_MINUTES,
+            research_before_generate=False,
+            status=TrainingStatus.PUBLISHED,
+            # Cópia: a constante do módulo é compartilhada pelo processo inteiro,
+            # e a validação de roteiro completa campos ausentes no próprio dicionário.
+            script=copy.deepcopy(EXAMPLE_SCRIPT),
+            published_at=datetime.now(UTC),
+        )
+    )
+    await session.commit()
+    logger.info(
+        "seed.training_example.created",
+        public_id=EXAMPLE_PUBLIC_ID,
+        scenes=len(EXAMPLE_SCRIPT["scenes"]),
+    )
+    return True

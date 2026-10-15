@@ -4,6 +4,32 @@ O Estúdio produz aulas em **cenas editáveis**, não em vídeo fechado: o rotei
 gerado por IA, revisado por uma pessoa e publicado como timeline. Narração,
 avatar e efeitos são camadas dessa mesma timeline — nunca um MP4 obrigatório.
 
+## A aula-modelo
+
+Uma instalação nova não começa com a biblioteca vazia. O seed instala uma aula
+completa — **"Crase: o acento que derruba candidato"**, onze cenas com
+Mestre Arcanus — que serve de exemplo do formato e de referência de escrita.
+
+1. O conteúdo é **escrito à mão e conferido**, não gerado por IA em tempo de
+   execução. Crase é gramática consolidada: as regras são as que as bancas
+   cobram, com os exemplos clássicos. Nenhuma estatística, nenhuma "a banca X
+   cobra isso em 70% das provas", nenhuma regra inventada para encher cena.
+2. Ela mostra o que cada campo faz: por que um termo de `keywords` precisa
+   existir no diálogo (destaque que aponta para o vazio não acende nada), o que
+   `emphasis` muda na leitura, como uma cena de pergunta é montada.
+3. O identificador é fixo (`exemplo-crase-treinamento`), então o link é o mesmo
+   em qualquer ambiente.
+4. **O seed só cria.** Se a aula já existe, ela não é tocada: alguém pode ter
+   reescrito uma cena no estúdio, e o contêiner reinicia várias vezes por
+   semana — sobrescrever apagaria trabalho humano sem avisar.
+5. Sem administrador não há autor, e sem autor não há aula. O modelo volta no
+   próximo seed, depois que o administrador inicial existir, em vez de derrubar
+   a subida da API.
+6. 7 testes de domínio e 4 de integração cobram isso: que o roteiro passa pela
+   mesma validação de uma aula gerada, que a resposta da pergunta está dentro
+   da lista, que todo termo destacado existe no texto da cena, que rodar o seed
+   duas vezes não duplica nada e que uma edição humana sobrevive ao reinício.
+
 # Narração das aulas
 
 > **Regra que governa esta parte:** a IA escolhe **entonação, nunca informação**.
