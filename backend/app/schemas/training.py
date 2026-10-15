@@ -72,6 +72,8 @@ class TrainingRead(BaseModel):
     target_duration_minutes: int
     board_name: str | None = None
     research_before_generate: bool
+    #: Voz desta aula. Vazio usa a voz padrão da funcionalidade.
+    narration_voice: str | None = None
     status: str
     script: dict[str, Any] = Field(default_factory=dict)
     generation_error: str | None = None
@@ -80,3 +82,44 @@ class TrainingRead(BaseModel):
     published_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class NarrationSegmentRead(BaseModel):
+    """Um trecho falado: o texto, onde ele está na cena e o áudio dele."""
+
+    index: int
+    text: str
+    #: Posição dentro do texto da cena — é o que acende a frase que está tocando.
+    offset: int
+    length: int
+    #: ``None`` enquanto este trecho ainda não foi gerado.
+    audio_url: str | None = None
+    #: Estimativa só para a interface não nascer zerada; o player usa a duração
+    #: real do arquivo assim que ele carrega.
+    duration_hint_ms: int = 0
+
+
+class NarrationSceneRead(BaseModel):
+    scene_id: int
+    segments: list[NarrationSegmentRead] = Field(default_factory=list)
+
+
+class TrainingNarrationRead(BaseModel):
+    voice: str
+    model_slug: str | None = None
+    scenes: list[NarrationSceneRead] = Field(default_factory=list)
+    ready: int = 0
+    total: int = 0
+    is_complete: bool = False
+    #: Por que ainda não há áudio. A tela mostra isto em vez de ficar muda.
+    unavailable_reason: str | None = None
+
+
+class TrainingVoiceRead(BaseModel):
+    slug: str
+    label: str
+
+
+class TrainingVoiceUpdate(BaseModel):
+    #: Vazio devolve a aula à voz padrão da funcionalidade.
+    voice: str | None = None

@@ -63,6 +63,15 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         "Estúdio de Treinamento",
     ),
     FeatureSpec(
+        AIFeature.TRAINING_NARRATION,
+        "Narração do Estúdio de Treinamento",
+        "Dá voz ao roteiro já aprovado. A direção de cena sai do próprio roteiro "
+        "— tipo da cena, emoção e termos em destaque — e o áudio fica gravado: "
+        "reabrir a aula não gasta nada.",
+        "Estúdio de Treinamento",
+        kind="speech",
+    ),
+    FeatureSpec(
         AIFeature.EMBEDDINGS,
         "Embeddings",
         "Vetoriza editais e materiais para a busca semântica.",

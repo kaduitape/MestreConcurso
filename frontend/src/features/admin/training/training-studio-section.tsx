@@ -11,6 +11,7 @@ import { Field } from '@/components/ui/field'
 import { Input, Textarea } from '@/components/ui/input'
 import { SkeletonList } from '@/components/ui/skeleton'
 import { trainingApi } from '@/lib/api/training'
+import { NarrationPanel } from './narration-panel'
 import { ApiError } from '@/lib/api/client'
 import type { Training, TrainingInput, TrainingScene, TrainingScript } from '@/lib/api/types'
 import { queryKeys } from '@/lib/query-client'
@@ -387,6 +388,10 @@ function TrainingEditor({
             </>
           )}
         </div>
+        {/* A narração entra depois do roteiro aprovado: dar voz a um texto que
+            ainda vai mudar é pagar duas vezes pelo mesmo trecho. */}
+        {scenes.length > 0 && <NarrationPanel lesson={lesson} />}
+
         {lesson.status === 'PUBLISHED' && metrics.data && (
           <div className="grid gap-3 rounded-md border border-border bg-surface-muted/40 p-4 sm:grid-cols-4">
             <div>

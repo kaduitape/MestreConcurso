@@ -6,6 +6,8 @@ import type {
   TrainingInput,
   TrainingMetrics,
   TrainingProgress,
+  TrainingNarration,
+  TrainingVoice,
 } from './types'
 
 export const trainingApi = {
@@ -29,4 +31,14 @@ export const trainingApi = {
   saveScript: (publicId: string, input: { title: string; script: TrainingScript }) =>
     api.put<Training>(`/admin/training/${publicId}/script`, input),
   publish: (publicId: string) => api.post<Training>(`/admin/training/${publicId}/publish`),
+
+  narration: (publicId: string) =>
+    api.get<TrainingNarration>(`/training/${publicId}/narration`),
+  adminNarration: (publicId: string) =>
+    api.get<TrainingNarration>(`/admin/training/${publicId}/narration`),
+  generateNarration: (publicId: string, force = false) =>
+    api.post<TrainingNarration>(`/admin/training/${publicId}/narration?force=${force}`),
+  voices: () => api.get<TrainingVoice[]>('/admin/training/voices'),
+  setVoice: (publicId: string, voice: string | null) =>
+    api.put<Training>(`/admin/training/${publicId}/voice`, { voice }),
 }

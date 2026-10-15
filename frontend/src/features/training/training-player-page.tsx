@@ -11,6 +11,7 @@ import {
   VolumeX,
 } from 'lucide-react'
 import strategistCharacter from '@/assets/game/strategist-character.webp'
+import { useSceneNarration, type SpokenRange } from './use-narration'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -20,17 +21,17 @@ import type { TrainingScene } from '@/lib/api/types'
 import { queryKeys } from '@/lib/query-client'
 import { toast } from 'sonner'
 
-function highlight(text: string, keywords: string[], spokenOffset = -1) {
+/**
+ * Acende o que está sendo falado e marca as palavras-chave.
+ *
+ * O intervalo vem do trecho que está tocando — não de uma estimativa de onde a
+ * voz deveria estar. Destaque que erra o lugar atrapalha mais do que ajuda.
+ */
+function highlight(text: string, keywords: string[], spoken: SpokenRange | null = null) {
   if (!text) return text
   if (!keywords.length) {
-    const start = spokenOffset >= 0 ? Math.max(text.lastIndexOf(' ', spokenOffset) + 1, 0) : -1
-    const end =
-      start >= 0
-        ? (() => {
-            const nextSpace = text.indexOf(' ', spokenOffset)
-            return nextSpace === -1 ? text.length : nextSpace
-          })()
-        : -1
+    const start = spoken ? spoken.offset : -1
+    const end = spoken ? spoken.offset + spoken.length : -1
     if (start < 0 || end <= start) return text
     return (
       <>
@@ -45,13 +46,16 @@ function highlight(text: string, keywords: string[], spokenOffset = -1) {
     'gi',
   )
   let offset = 0
+  const spokenStart = spoken ? spoken.offset : -1
+  const spokenEnd = spoken ? spoken.offset + spoken.length : -1
   return text.split(pattern).map((part, index) => {
     const start = offset
     offset += part.length
+    const isSpoken = spokenStart >= 0 && start < spokenEnd && offset > spokenStart
     const isKeyword = keywords.some(
       (word) => word.toLocaleLowerCase('pt-BR') === part.toLocaleLowerCase('pt-BR'),
     )
-    const isBeingRead = spokenOffset >= start && spokenOffset < offset
+    void start
     if (isKeyword)
       return (
         <mark
@@ -64,7 +68,7 @@ function highlight(text: string, keywords: string[], spokenOffset = -1) {
     return (
       <span
         key={`${part}-${index}`}
-        className={isBeingRead ? 'rounded bg-game-cyan/20 text-white' : undefined}
+        className={isSpoken ? 'rounded bg-game-cyan/20 text-white' : undefined}
       >
         {part}
       </span>
@@ -99,8 +103,6 @@ export function TrainingPlayerPage() {
   const [playing, setPlaying] = useState(false)
   const [answer, setAnswer] = useState<number | null>(null)
   const [speechEnabled, setSpeechEnabled] = useState(false)
-  const [speechActive, setSpeechActive] = useState(false)
-  const [spokenOffset, setSpokenOffset] = useState(-1)
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
   const [voiceURI, setVoiceURI] = useState('')
   const [rate, setRate] = useState(1)
@@ -108,11 +110,28 @@ export function TrainingPlayerPage() {
   const scene = scenes[index]
   const isQuestion = scene?.type === 'question' && Array.isArray(scene.options)
 
-  const stopNarration = () => {
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
-    setSpeechActive(false)
-    setSpokenOffset(-1)
-  }
+  // A narração gerada é opcional por construção: a chamada falhar ou não haver
+  // provedor configurado não pode impedir ninguém de assistir à aula.
+  const narration = useQuery({
+    queryKey: queryKeys.trainingNarration(publicId),
+    queryFn: () => trainingApi.narration(publicId),
+    enabled: Boolean(publicId),
+    retry: false,
+  })
+
+  const {
+    active: speechActive,
+    spoken,
+    source: narrationSource,
+    stop: stopNarration,
+  } = useSceneNarration({
+    enabled: speechEnabled && Boolean(scene) && !isQuestion,
+    scene,
+    sceneId: scene?.id ?? 0,
+    narration: narration.data,
+    rate,
+    browserVoiceURI: voiceURI,
+  })
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return
@@ -162,28 +181,10 @@ export function TrainingPlayerPage() {
   useEffect(() => {
     if (index === scenes.length - 1) setPlaying(false)
   }, [index, scenes.length])
-  useEffect(() => {
-    if (!speechEnabled || !scene || isQuestion || !('speechSynthesis' in window)) return
-    const text = scene.narration || scene.dialogue
-    if (!text) return
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'pt-BR'
-    utterance.rate = rate
-    utterance.voice = voices.find((voice) => voice.voiceURI === voiceURI) ?? null
-    utterance.onstart = () => setSpeechActive(true)
-    utterance.onboundary = (event) => setSpokenOffset(event.charIndex)
-    utterance.onend = () => {
-      setSpeechActive(false)
-      setSpokenOffset(-1)
-    }
-    utterance.onerror = () => {
-      setSpeechActive(false)
-      setSpokenOffset(-1)
-    }
-    window.speechSynthesis.speak(utterance)
-    return () => window.speechSynthesis.cancel()
-  }, [index, isQuestion, rate, scene, speechEnabled, voiceURI, voices])
+
+  // A aula só mostra "voz do personagem" quando **toda** cena falada tem áudio
+  // gerado: um aviso que vale para metade das cenas é um aviso errado.
+  const hasGeneratedVoice = Boolean(narration.data?.is_complete && narration.data.total > 0)
 
   const progress = useMemo(
     () => (scenes.length ? ((index + 1) / scenes.length) * 100 : 0),
@@ -243,7 +244,7 @@ export function TrainingPlayerPage() {
               {scene.screen_text || training.data.topic}
             </h2>
             <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.045] p-5 text-base leading-relaxed text-slate-200 sm:text-lg">
-              {highlight(scene.dialogue || scene.narration, scene.keywords ?? [], spokenOffset)}
+              {highlight(scene.dialogue || scene.narration, scene.keywords ?? [], spoken)}
             </div>
             {(scene.keywords ?? []).length > 0 && (
               <div className="mt-4 flex flex-wrap gap-2">
@@ -323,7 +324,7 @@ export function TrainingPlayerPage() {
                 {index === scenes.length - 1 ? 'Concluir missão' : <ChevronRight />}
               </Button>
             </div>
-            {voices.length > 0 && (
+            {(voices.length > 0 || hasGeneratedVoice) && (
               <div className="flex items-center gap-2">
                 <Button
                   variant={speechEnabled ? 'secondary' : 'ghost'}
@@ -343,18 +344,31 @@ export function TrainingPlayerPage() {
                   </>{' '}
                   {speechActive ? 'Narrando' : 'Narração'}
                 </Button>
-                <select
-                  aria-label="Voz da narração"
-                  className="max-w-36 rounded-md border border-white/15 bg-[#0d1127] px-2 py-1.5 text-xs text-slate-200"
-                  value={voiceURI}
-                  onChange={(event) => setVoiceURI(event.target.value)}
-                >
-                  {voices.map((voice) => (
-                    <option key={voice.voiceURI} value={voice.voiceURI}>
-                      {voice.name}
-                    </option>
-                  ))}
-                </select>
+
+                {/* Qual voz está no ar. A diferença entre a narração gerada e
+                    a do navegador é audível; fingir que são a mesma coisa
+                    enganaria quem configura a plataforma. */}
+                {hasGeneratedVoice ? (
+                  <span
+                    className="rounded-md border border-game-gold/30 bg-game-gold/10 px-2 py-1.5 text-xs font-semibold text-game-gold"
+                    title={`Voz ${narration.data?.voice} gerada para esta aula.`}
+                  >
+                    Voz do {training.data.character_name}
+                  </span>
+                ) : (
+                  <select
+                    aria-label="Voz da narração"
+                    className="max-w-36 rounded-md border border-white/15 bg-[#0d1127] px-2 py-1.5 text-xs text-slate-200"
+                    value={voiceURI}
+                    onChange={(event) => setVoiceURI(event.target.value)}
+                  >
+                    {voices.map((voice) => (
+                      <option key={voice.voiceURI} value={voice.voiceURI}>
+                        {voice.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <select
                   aria-label="Velocidade da narração"
                   className="rounded-md border border-white/15 bg-[#0d1127] px-2 py-1.5 text-xs text-slate-200"
@@ -369,6 +383,9 @@ export function TrainingPlayerPage() {
             )}
             <span className="text-xs text-slate-500">
               Progresso salvo · XP por conclusão real
+              {speechEnabled && narrationSource === 'browser' && (
+                <> · narração pela voz do navegador</>
+              )}
             </span>
           </div>
         </div>

@@ -132,6 +132,14 @@ A plataforma responde continuamente a uma única pergunta:
   o que o próprio candidato reservou no plano; sem plano não há alvo, e sem alvo **não há
   barra**.
 
+- **Narração do Estúdio de Treinamento:** a aula ganhou voz. O roteiro aprovado é quebrado em
+  trechos e cada um recebe uma **direção de cena** montada a partir do que o roteiro já
+  declarava — tipo da cena, emoção do personagem e termos em destaque. A IA escolhe
+  **entonação, nunca informação**: o texto falado é exatamente o que a pessoa aprovou. O áudio
+  fica gravado e é identificado por texto + direção + voz + modelo, então reabrir a aula não
+  gasta nada e reescrever uma vírgula gera só aquele trecho. Sem provedor configurado a aula
+  continua inteira na voz do navegador — e a tela **diz qual voz está no ar**.
+
 Todas as fases do backlog estão implementadas. O que ainda não existe está declarado em
 [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md), fase a fase, na linha "ainda não
 entra aqui" — e a interface indica o que está por vir, sem telas ilustrativas nem dados
@@ -173,6 +181,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [23 — Critérios de aceite da Gamificação 4](docs/23-criterios-aceite-gamificacao-4.md) | duelos, eventos, Modo Guerra e card compartilhável |
 | [24 — Critérios de aceite da Fase 9](docs/24-criterios-aceite-fase9.md) | Mestre Score, projeção, caminho e painéis com decisão |
 | [25 — Critérios de aceite da Fase 10](docs/25-criterios-aceite-fase10.md) | planos, assinaturas, cupons, webhook idempotente e limites |
+| [Dia de Treinamento](docs/dia-de-treinamento.md) | estúdio em cenas e a narração com direção de cena |
 | [26 — Critérios de aceite da Batalha RPG](docs/26-criterios-aceite-batalha-rpg.md) | dois layouts, combate derivado das respostas, combo, moedas, poderes, campanha e ranking |
 
 ## Como executar

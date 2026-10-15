@@ -219,6 +219,8 @@ export interface Training {
   target_duration_minutes: number
   board_name: string | null
   research_before_generate: boolean
+  /** Voz desta aula. `null` usa a voz padrão da funcionalidade. */
+  narration_voice: string | null
   status: 'DRAFT' | 'GENERATING' | 'READY' | 'PUBLISHED' | 'ARCHIVED'
   script: TrainingScript
   generation_error: string | null
@@ -247,6 +249,38 @@ export interface TrainingInput {
   target_duration_minutes: number
   board_name?: string
   research_before_generate: boolean
+}
+
+/** Um trecho falado: o texto, onde ele está na cena e o áudio dele. */
+export interface NarrationSegment {
+  index: number
+  text: string
+  offset: number
+  length: number
+  /** `null` enquanto este trecho ainda não foi gerado. */
+  audio_url: string | null
+  duration_hint_ms: number
+}
+
+export interface NarrationScene {
+  scene_id: number
+  segments: NarrationSegment[]
+}
+
+export interface TrainingNarration {
+  voice: string
+  model_slug: string | null
+  scenes: NarrationScene[]
+  ready: number
+  total: number
+  is_complete: boolean
+  /** Por que ainda não há áudio. A tela mostra isto em vez de ficar muda. */
+  unavailable_reason: string | null
+}
+
+export interface TrainingVoice {
+  slug: string
+  label: string
 }
 
 export interface TrainingProgress {

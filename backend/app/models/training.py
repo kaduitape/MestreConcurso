@@ -66,6 +66,9 @@ class TrainingLesson(IdMixin, PublicIdMixin, TimestampMixin, Base):
     target_duration_minutes: Mapped[int] = mapped_column(Integer, default=10)
     board_name: Mapped[str | None] = mapped_column(String(120))
     research_before_generate: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: Voz desta aula. Vazio usa a voz padrão da funcionalidade — personagens
+    #: diferentes merecem vozes diferentes, e quem decide isso é uma pessoa.
+    narration_voice: Mapped[str | None] = mapped_column(String(40))
 
     status: Mapped[str] = mapped_column(String(20), default=TrainingStatus.DRAFT, index=True)
     script: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
@@ -102,3 +105,43 @@ class TrainingProgress(IdMixin, TimestampMixin, Base):
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     xp_awarded: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class TrainingNarration(IdMixin, PublicIdMixin, TimestampMixin, Base):
+    """Um trecho de narração já gerado, guardado para não ser gerado de novo.
+
+    A chave é o ``checksum``: texto + direção de cena + voz + modelo. Reescrever
+    uma vírgula do roteiro produz outro trecho e outro áudio; reabrir a mesma
+    aula não produz nada. É a mesma regra do cache de IA do resto da plataforma
+    — **o token é pago uma vez**.
+
+    A linha aponta para a aula e para a cena, mas o áudio não morre com uma
+    edição: dois roteiros com a mesma frase reaproveitam o mesmo arquivo.
+    """
+
+    __tablename__ = "training_narrations"
+    __table_args__ = (
+        UniqueConstraint("checksum", name="uq_training_narrations_checksum"),
+        Index("ix_training_narrations_lesson_scene", "lesson_id", "scene_id"),
+    )
+
+    lesson_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("training_lessons.id", ondelete="CASCADE")
+    )
+    scene_id: Mapped[int] = mapped_column(Integer, default=0)
+    segment_index: Mapped[int] = mapped_column(Integer, default=0)
+
+    checksum: Mapped[str] = mapped_column(String(64), index=True)
+    text: Mapped[str] = mapped_column(MediumText)
+    #: A direção de cena usada. Fica guardada para o áudio ser explicável.
+    direction: Mapped[str] = mapped_column(MediumText)
+
+    storage_key: Mapped[str] = mapped_column(String(255))
+    mime_type: Mapped[str] = mapped_column(String(60), default="audio/mpeg")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+
+    voice: Mapped[str] = mapped_column(String(40))
+    model_slug: Mapped[str] = mapped_column(String(120))
+    provider_slug: Mapped[str] = mapped_column(String(40), default="")
+    characters: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)

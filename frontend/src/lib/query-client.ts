@@ -108,6 +108,10 @@ export const queryKeys = {
   battleArt: ['admin', 'game', 'battle-art'] as const,
   adminTraining: (params: unknown) => ['admin', 'training', params] as const,
   adminTrainingLesson: (publicId: string) => ['admin', 'training', publicId] as const,
+  trainingNarration: (publicId: string) => ['training', publicId, 'narration'] as const,
+  adminTrainingNarration: (publicId: string) =>
+    ['admin', 'training', publicId, 'narration'] as const,
+  trainingVoices: ['admin', 'training', 'voices'] as const,
   training: (params: unknown) => ['training', params] as const,
   trainingLesson: (publicId: string) => ['training', publicId] as const,
 }
