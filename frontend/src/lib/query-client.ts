@@ -114,4 +114,9 @@ export const queryKeys = {
   trainingVoices: ['admin', 'training', 'voices'] as const,
   training: (params: unknown) => ['training', params] as const,
   trainingLesson: (publicId: string) => ['training', publicId] as const,
+  mindmaps: (params: unknown) => ['mindmaps', params] as const,
+  mindmap: (publicId: string) => ['mindmaps', publicId] as const,
+  adminMindmaps: (params: unknown) => ['admin', 'mindmaps', params] as const,
+  adminMindmap: (publicId: string) => ['admin', 'mindmaps', publicId] as const,
+  mindmapPanels: ['admin', 'mindmaps', 'panels'] as const,
 }

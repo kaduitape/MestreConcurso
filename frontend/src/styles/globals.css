@@ -313,6 +313,33 @@
     border-bottom-right-radius: 0.75rem;
   }
 
+  /* O tabuleiro do mapa mental.
+     16:9 é piso, não teto. O pedido pede a proporção, mas cortar texto para
+     caber na moldura seria esconder conteúdo de estudo — por isso
+     `min-height: fit-content`: em tela larga o quadro nasce 16:9 e cresce
+     quando o mapa for denso. O ::before não serve aqui: a moldura dourada do
+     .battle-frame já o usa para os cantos. */
+  /* O medalhão ocupa a linha inteira enquanto a grade é estreita. A posição
+     dele NÃO pode vir de utilitário do Tailwind: `col-span` mora na camada
+     utilities, que vence a components, e o `grid-column: 2` abaixo seria
+     ignorado — o centro caía na primeira coluna. */
+  .mindmap-center {
+    grid-column: 1 / -1;
+  }
+
+  @media (min-width: 1280px) {
+    .mindmap-stage {
+      aspect-ratio: 16 / 9;
+      min-height: fit-content;
+    }
+
+    /* O medalhão no meio da grade; os painéis preenchem o resto em ordem. */
+    .mindmap-center {
+      grid-column: 2;
+      grid-row: var(--center-row, 1);
+    }
+  }
+
   /* Placa de cabeçalho: disciplina, andamento, rótulos curtos. */
   .battle-plate {
     display: inline-flex;

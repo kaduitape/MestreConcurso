@@ -76,6 +76,9 @@ EXPECTED_TABLES = {
     "achievements",
     "user_achievements",
     "streak_days",
+    "training_lessons",
+    "training_narrations",
+    "mind_maps",
 }
 
 

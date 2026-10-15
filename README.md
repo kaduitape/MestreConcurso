@@ -183,6 +183,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [25 — Critérios de aceite da Fase 10](docs/25-criterios-aceite-fase10.md) | planos, assinaturas, cupons, webhook idempotente e limites |
 | [Dia de Treinamento](docs/dia-de-treinamento.md) | estúdio em cenas e a narração com direção de cena |
 | [26 — Critérios de aceite da Batalha RPG](docs/26-criterios-aceite-batalha-rpg.md) | dois layouts, combate derivado das respostas, combo, moedas, poderes, campanha e ranking |
+| [Mapas mentais](docs/mapas-mentais.md) | painéis com cor fixa, revisão humana antes de publicar e o texto como texto |
 
 ## Como executar
 

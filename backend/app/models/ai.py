@@ -52,6 +52,7 @@ class AIFeature(StrEnum):
     RERANK = "rerank.default"
     TRAINING_SCRIPT = "training.script"
     TRAINING_NARRATION = "training.narration"
+    MINDMAP_GENERATION = "mindmap.generation"
 
 
 class AIProviderConfig(IdMixin, TimestampMixin, Base):

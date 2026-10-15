@@ -2237,3 +2237,69 @@ export interface GameRule {
   is_enabled: boolean
   updated_at: string
 }
+
+/* --- Mapas mentais ------------------------------------------------------ */
+
+/** O tom de um item dentro do painel. Decide a cor da marca do item. */
+export type MindMapTone = 'NEUTRO' | 'CORRETO' | 'INCORRETO' | 'ALERTA'
+
+export interface MindMapItem {
+  text: string
+  tone: MindMapTone
+  /** Token de cor do tom, resolvido no backend. */
+  tone_color: string
+  /** Só vem preenchida quando a fonte estava no material enviado. */
+  source: string | null
+}
+
+export interface MindMapPanel {
+  kind: string
+  title: string
+  label: string
+  /** Cor fixa do tipo de painel. Um painel, uma cor, sempre a mesma. */
+  color_token: string
+  icon: string
+  items: MindMapItem[]
+}
+
+export interface MindMapContent {
+  version?: string
+  subject?: string
+  topic?: string
+  center_label?: string
+  /** Dúvidas que a IA registrou para a revisão humana. */
+  review_notes?: string[]
+  panels?: MindMapPanel[]
+}
+
+export interface MindMap {
+  public_id: string
+  subject: string
+  topic: string
+  title: string
+  level: string
+  max_panels: number
+  status: 'DRAFT' | 'GENERATING' | 'READY' | 'PUBLISHED' | 'ARCHIVED'
+  content: MindMapContent
+  generation_error: string | null
+  model_slug: string | null
+  generated_at: string | null
+  published_at: string | null
+  created_at: string
+}
+
+export interface MindMapInput {
+  subject: string
+  topic: string
+  level: string
+  max_panels: number
+  source_content: string | null
+}
+
+export interface MindMapPanelSpec {
+  kind: string
+  label: string
+  guidance: string
+  color_token: string
+  icon: string
+}

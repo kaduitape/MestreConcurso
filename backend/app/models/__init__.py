@@ -74,6 +74,7 @@ from app.models.intelligence import (
     TrapPattern,
     UserPriority,
 )
+from app.models.mindmap import MindMap, MindMapStatus
 from app.models.notice import Notice, NoticeFile, NoticeFileStatus, NoticeKind, NoticeStatus
 from app.models.notice_analysis import (
     EvidenceLevel,
@@ -180,6 +181,8 @@ __all__ = [
     "MasterScoreSnapshot",
     "Message",
     "MessageRole",
+    "MindMap",
+    "MindMapStatus",
     "Mission",
     "MissionScope",
     "MissionStatus",

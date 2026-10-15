@@ -72,6 +72,14 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         kind="speech",
     ),
     FeatureSpec(
+        AIFeature.MINDMAP_GENERATION,
+        "Mapas mentais",
+        "Organiza a matéria em painéis (conceito, regras, exceções, macetes, "
+        "pegadinhas) para revisão humana antes da publicação. A IA estrutura o "
+        "conteúdo; o desenho é feito pela plataforma, com texto de verdade.",
+        "Mapas mentais",
+    ),
+    FeatureSpec(
         AIFeature.EMBEDDINGS,
         "Embeddings",
         "Vetoriza editais e materiais para a busca semântica.",
