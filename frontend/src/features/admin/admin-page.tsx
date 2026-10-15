@@ -9,7 +9,10 @@ import { QuestionsSection } from './questions/questions-section'
 import { IntelligenceSection } from './intelligence-section'
 import { VideosSection } from './videos-section'
 import { GameRulesSection } from './game-rules-section'
+import { BattleSettingsSection } from './battle-settings-section'
+import { BattleArtSection } from './battle-art-section'
 import { TrainingStudioSection } from './training/training-studio-section'
+import { MindMapStudioSection } from './mindmap/mindmap-studio-section'
 import { useAuth } from '@/providers/auth-provider'
 
 export function AdminPage() {
@@ -51,13 +54,18 @@ export function AdminPage() {
             {hasPermission('intelligence:write') && <IntelligenceSection />}
             {hasPermission('catalog:write') && <VideosSection />}
             {hasPermission('intelligence:write') && <GameRulesSection />}
+            {hasPermission('intelligence:write') && <BattleSettingsSection />}
+            {hasPermission('intelligence:write') && <BattleArtSection />}
           </div>
         </TabsContent>
         <TabsContent value="inteligencia">
           <AiSection />
         </TabsContent>
         <TabsContent value="estudio">
-          <TrainingStudioSection />
+          <div className="space-y-6">
+            <TrainingStudioSection />
+            <MindMapStudioSection />
+          </div>
         </TabsContent>
         <TabsContent value="usuarios">
           <UsersSection />

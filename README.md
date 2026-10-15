@@ -105,6 +105,41 @@ A plataforma responde continuamente a uma única pergunta:
   assinatura verificada e é idempotente — e o status vem de uma consulta à API, nunca do
   corpo da notificação.
 
+- **Batalha RPG (Fases 1, 2 e 3):** a mesma rodada de desafio, apresentada como combate 2D. Cada
+  alternativa é um monstro; acertar ataca, errar faz o monstro da alternativa correta
+  contra-atacar. A vida dos dois lados é **derivada das respostas** a cada leitura — não há
+  contador paralelo que possa divergir do que a pessoa respondeu. A tela escolhe sozinha
+  entre a arena (alternativa curta) e o modo compacto (alternativa longa) com **réguas que
+  moram no banco**, por tamanho de tela, e **congela o layout enquanto a questão está
+  aberta**. Quatro estados de animação, só `transform` e `opacity`, monstros em SVG inline
+  sem download, e "reduzir animações" respeitado. O enunciado não anima: quando a animação
+  e a questão disputam a tela, a questão ganha. A Fase 2 acrescentou combo, **crítico derivado
+  do tempo da resposta — não de dado**, moedas que valem só naquela rodada e três poderes
+  (Escudo, Eliminar, Dica) cujo preço aparece antes do clique. A dica é sempre texto **já
+  cadastrado**: questão sem explicação não tem dica, e não se cobra por isso. Os sete efeitos
+  sonoros são sintetizados na hora, sem nenhum arquivo, não há música, e o som começa
+  desligado. A Fase 3 trouxe chefes tirados do **Priority Score real**, campanha montada com
+  as disciplinas fracas do próprio candidato (nenhum estágio tranca outro), quatro classes
+  livres, equipamento liberado **por conquista — nunca por sorteio, moeda ou pagamento** — e
+  ranking no mesmo contexto da liga, com anonimato e opção de sair. Tudo sob uma regra só:
+  **classe e equipamento mudam o combate, nunca a medição** — o XP, os estágios e a posição
+  no ranking continuam saindo da taxa de acerto crua. A arte é **cadastrável**: monstros,
+  guerreiro e cenários entram pelo painel administrativo, validados pelos bytes do arquivo, e
+  cada lugar vazio declara o que a tela desenha no lugar dele — a silhueta em SVG é o padrão,
+  não o destino. Cada alternativa tem barra de vida própria, válida **dentro da questão**,
+  alimentada pelo mesmo dano que desce a vida do inimigo da rodada: uma leitura a mais, nunca
+  um número a mais. O rodapé traz nível, XP e **foco do dia** — minutos de estudo reais contra
+  o que o próprio candidato reservou no plano; sem plano não há alvo, e sem alvo **não há
+  barra**.
+
+- **Narração do Estúdio de Treinamento:** a aula ganhou voz. O roteiro aprovado é quebrado em
+  trechos e cada um recebe uma **direção de cena** montada a partir do que o roteiro já
+  declarava — tipo da cena, emoção do personagem e termos em destaque. A IA escolhe
+  **entonação, nunca informação**: o texto falado é exatamente o que a pessoa aprovou. O áudio
+  fica gravado e é identificado por texto + direção + voz + modelo, então reabrir a aula não
+  gasta nada e reescrever uma vírgula gera só aquele trecho. Sem provedor configurado a aula
+  continua inteira na voz do navegador — e a tela **diz qual voz está no ar**.
+
 Todas as fases do backlog estão implementadas. O que ainda não existe está declarado em
 [`docs/08-backlog-fases.md`](docs/08-backlog-fases.md), fase a fase, na linha "ainda não
 entra aqui" — e a interface indica o que está por vir, sem telas ilustrativas nem dados
@@ -146,6 +181,9 @@ ambiente é necessária: a configuração é dado, não código.
 | [23 — Critérios de aceite da Gamificação 4](docs/23-criterios-aceite-gamificacao-4.md) | duelos, eventos, Modo Guerra e card compartilhável |
 | [24 — Critérios de aceite da Fase 9](docs/24-criterios-aceite-fase9.md) | Mestre Score, projeção, caminho e painéis com decisão |
 | [25 — Critérios de aceite da Fase 10](docs/25-criterios-aceite-fase10.md) | planos, assinaturas, cupons, webhook idempotente e limites |
+| [Dia de Treinamento](docs/dia-de-treinamento.md) | estúdio em cenas e a narração com direção de cena |
+| [26 — Critérios de aceite da Batalha RPG](docs/26-criterios-aceite-batalha-rpg.md) | dois layouts, combate derivado das respostas, combo, moedas, poderes, campanha e ranking |
+| [Mapas mentais](docs/mapas-mentais.md) | painéis com cor fixa, revisão humana antes de publicar e o texto como texto |
 
 ## Como executar
 

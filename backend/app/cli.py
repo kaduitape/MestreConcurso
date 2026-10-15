@@ -10,6 +10,7 @@ from app.core.logging import configure_logging, get_logger
 from app.db.session import dispose_engine, get_session_factory
 from app.services.seed import (
     ensure_bootstrap_admin,
+    ensure_example_training,
     sync_gamification,
     sync_rbac,
     sync_trap_patterns,
@@ -24,7 +25,9 @@ async def _seed() -> None:
         await sync_rbac(session)
         await sync_trap_patterns(session)
         await sync_gamification(session)
-        await ensure_bootstrap_admin(session)
+        admin = await ensure_bootstrap_admin(session)
+        # Depois do administrador: a aula-modelo precisa de um autor.
+        await ensure_example_training(session, admin)
     await dispose_engine()
 
 

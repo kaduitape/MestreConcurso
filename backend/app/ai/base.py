@@ -39,6 +39,12 @@ class ProviderUnavailableError(ProviderError):
     message = "Não foi possível falar com o provedor de IA."
 
 
+class SpeechNotSupportedError(AppError):
+    status_code = 409
+    code = "ai_speech_unsupported"
+    message = "Este provedor de IA não gera áudio."
+
+
 class ProviderNotConfiguredError(AppError):
     status_code = 409
     code = "ai_provider_not_configured"
@@ -84,6 +90,35 @@ class CompletionResult:
 
 
 @dataclass(frozen=True, slots=True)
+class SpeechRequest:
+    """Um trecho para virar voz.
+
+    ``instructions`` é a direção de cena: o texto que diz **como** ler, não o
+    que ler. É o que separa uma leitura de robô de uma narração — e, como vem
+    do próprio roteiro, não inventa nada sobre o conteúdo.
+    """
+
+    text: str
+    model: str
+    voice: str
+    instructions: str | None = None
+    #: Formato do arquivo. ``mp3`` toca em qualquer navegador.
+    audio_format: str = "mp3"
+    speed: float = 1.0
+
+
+@dataclass(frozen=True, slots=True)
+class SpeechResult:
+    audio: bytes
+    mime_type: str
+    model: str
+    voice: str
+    latency_ms: int
+    #: Caracteres cobrados — a unidade de preço das APIs de voz.
+    characters: int = 0
+
+
+@dataclass(frozen=True, slots=True)
 class EmbeddingResult:
     vectors: list[list[float]]
     model: str
@@ -95,7 +130,7 @@ class EmbeddingResult:
 class ModelInfo:
     slug: str
     display_name: str
-    kind: Literal["chat", "embedding", "rerank"] = "chat"
+    kind: Literal["chat", "embedding", "rerank", "speech"] = "chat"
     context_window: int | None = None
     max_output_tokens: int | None = None
     input_cost_per_1k: Decimal | None = None
@@ -151,3 +186,18 @@ class AIProvider(ABC):
     @abstractmethod
     async def embed(self, texts: list[str], model: str) -> EmbeddingResult:
         """Gera embeddings para os textos informados."""
+
+    async def synthesize_speech(self, request: SpeechRequest) -> SpeechResult:
+        """Gera áudio a partir de texto.
+
+        Opcional de propósito: nem todo fornecedor fala. O padrão recusa em vez
+        de devolver silêncio, para a tela poder dizer ao administrador que o
+        provedor escolhido não serve para narrar.
+        """
+        raise SpeechNotSupportedError(f"O provedor '{self.slug}' não implementa geração de voz.")
+
+    #: Vozes que o adaptador oferece. Lista vazia quando ele não fala.
+    @property
+    def voices(self) -> tuple[tuple[str, str], ...]:
+        """Pares ``(slug, rótulo)`` para o painel escolher sem adivinhar."""
+        return ()

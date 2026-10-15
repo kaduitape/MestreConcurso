@@ -86,7 +86,14 @@ class BillingService:
         return list(await self.plans.public_plans())
 
     async def current(self, user: User) -> Subscription | None:
-        return await self.subscriptions.current_for(user.id)
+        """A assinatura **já atualizada** pelo que o tempo mudou.
+
+        Passa por ``access_for`` de propósito: é ele que aplica a troca agendada
+        e move o estado (teste vencido, período virado). Ler a linha crua daria
+        um retrato desatualizado para quem só consulta.
+        """
+        access = await self.entitlements.access_for(user)
+        return access.subscription
 
     def _record(
         self,
@@ -519,32 +526,8 @@ class BillingService:
 
     async def apply_scheduled_downgrade(
         self, subscription: Subscription, *, today: date | None = None
-    ) -> None:
-        """Aplica o downgrade agendado quando o período vira."""
-        day = today or datetime.now(UTC).date()
-        if subscription.scheduled_plan_id is None:
-            return
-        if subscription.current_period_end is not None and day <= subscription.current_period_end:
-            return
-
-        target = await self.session.get(Plan, subscription.scheduled_plan_id)
-        if target is None:
-            subscription.scheduled_plan_id = None
-            await self.session.commit()
-            return
-
-        subscription.plan_id = target.id
-        subscription.scheduled_plan_id = None
-        subscription.current_period_start = day
-        subscription.current_period_end = period_end_for(day, months=target.months)
-        subscription.status = (
-            SubscriptionStatus.ACTIVE if target.price_cents == 0 else SubscriptionStatus.PAST_DUE
+    ) -> bool:
+        """Delega para o serviço de direitos, onde as transições do tempo moram."""
+        return await self.entitlements.apply_scheduled_downgrade(
+            subscription, today=today or datetime.now(UTC).date()
         )
-        self._record(
-            subscription,
-            kind="DOWNGRADE_APPLIED",
-            detail=f"Plano alterado para {target.name} na virada do período.",
-            to_status=subscription.status,
-            meta={"to_plan": target.slug},
-        )
-        await self.session.commit()

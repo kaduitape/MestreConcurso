@@ -38,7 +38,9 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     frontend_url: str = "http://localhost:5173"
     backend_url: str = "http://localhost:8000"
-    cors_origins: Annotated[list[str], NoDecode, Field(default_factory=lambda: ["http://localhost:5173"])]
+    cors_origins: Annotated[
+        list[str], NoDecode, Field(default_factory=lambda: ["http://localhost:5173"])
+    ]
     allowed_hosts: Annotated[list[str], NoDecode, Field(default_factory=lambda: ["*"])]
 
     # --- Segurança ---------------------------------------------------------
@@ -100,6 +102,9 @@ class Settings(BaseSettings):
     storage_backend: Literal["local", "s3"] = "local"
     storage_local_path: str = "/var/lib/mestre/uploads"
     max_upload_size_mb: int = 30
+    #: Arte da Batalha RPG. Separado do limite de PDF: um sprite de 30 MB seria
+    #: uma tela que não carrega no celular de quem estuda no ônibus.
+    max_image_upload_size_mb: int = 3
     max_pdf_pages: int = 400
 
     # --- Vetores / RAG -----------------------------------------------------

@@ -42,9 +42,10 @@ async def test_plan_is_generated_from_the_position_subjects(
 ) -> None:
     plan, _ = await _plan_from_position(client, emails, student_email="plano1@exemplo.com.br")
 
-    assert plan["weekly_minutes_target"] == 840
+    # 120 de segunda a sexta, 240 no sábado e 120 no domingo.
+    assert plan["weekly_minutes_target"] == 960
     assert plan["total_planned_minutes"] > 0
-    assert len(plan["availability"]) == 6
+    assert len(plan["availability"]) == 7
     assert plan["availability"][0]["label"] == "Segunda"
 
     shares = {share["name"]: share for share in plan["shares"]}

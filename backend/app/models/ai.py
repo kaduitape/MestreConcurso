@@ -51,6 +51,8 @@ class AIFeature(StrEnum):
     EMBEDDINGS = "embeddings.default"
     RERANK = "rerank.default"
     TRAINING_SCRIPT = "training.script"
+    TRAINING_NARRATION = "training.narration"
+    MINDMAP_GENERATION = "mindmap.generation"
 
 
 class AIProviderConfig(IdMixin, TimestampMixin, Base):
@@ -131,6 +133,9 @@ class AIFeatureBinding(IdMixin, TimestampMixin, Base):
     temperature: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=Decimal("0.20"))
     max_output_tokens: Mapped[int | None] = mapped_column(Integer)
     cache_ttl_hours: Mapped[int | None] = mapped_column(Integer)
+    #: Parâmetros que só algumas funcionalidades têm — a voz da narração, por
+    #: exemplo. JSON genérico em vez de uma coluna por capricho de uma feature.
+    options: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
 
     model: Mapped[AIModel | None] = relationship(foreign_keys=[model_id], lazy="selectin")
     fallback_model: Mapped[AIModel | None] = relationship(

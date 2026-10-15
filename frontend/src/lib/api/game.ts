@@ -1,6 +1,15 @@
 import { api } from './client'
 import type {
   AchievementList,
+  Battle,
+  BattleAnswerResult,
+  BattleArmory,
+  BattleAssetSlot,
+  BattleCampaign,
+  BattlePowerKey,
+  BattleRanking,
+  BattleSetting,
+  BattleViewport,
   BoardBattle,
   ChallengeMode,
   Duel,
@@ -81,6 +90,45 @@ export const gameApi = {
 
   runHistory: () => api.get<RunHistoryEntry[]>('/game/challenges/history'),
 
+  startBattle: (
+    viewport: BattleViewport,
+    options: { boss?: boolean; subject?: string } = {},
+  ) => {
+    const params = new URLSearchParams({ viewport })
+    if (options.boss) params.set('boss', 'true')
+    if (options.subject) params.set('subject', options.subject)
+    return api.post<Battle>(`/game/battle?${params.toString()}`)
+  },
+
+  battleArmory: () => api.get<BattleArmory>('/game/battle/armory'),
+
+  saveBattleLoadout: (input: {
+    class_slug: string
+    weapon_slug: string
+    armor_slug: string
+    trinket_slug: string
+  }) => api.put<BattleArmory>('/game/battle/armory', input),
+
+  battleCampaign: () => api.get<BattleCampaign>('/game/battle/campaign'),
+
+  battleRanking: () => api.get<BattleRanking>('/game/battle/ranking'),
+
+  currentBattle: (viewport: BattleViewport) =>
+    api.get<Battle | null>(`/game/battle/current?viewport=${viewport}`),
+
+  battle: (publicId: string, viewport: BattleViewport) =>
+    api.get<Battle>(`/game/battle/${publicId}?viewport=${viewport}`),
+
+  answerBattle: (
+    publicId: string,
+    viewport: BattleViewport,
+    input: { question_public_id: string; letter: string | null; time_seconds: number },
+  ) =>
+    api.post<BattleAnswerResult>(`/game/battle/${publicId}/answer?viewport=${viewport}`, input),
+
+  useBattlePower: (publicId: string, viewport: BattleViewport, power: BattlePowerKey) =>
+    api.post<Battle>(`/game/battle/${publicId}/power?viewport=${viewport}`, { power }),
+
   createDuel: () => api.post<Duel>('/game/duels'),
 
   acceptDuel: (code: string) => api.post<Duel>('/game/duels/accept', { code }),
@@ -109,6 +157,26 @@ export const gameApi = {
   cards: () => api.get<PublishedCard[]>('/game/cards'),
 
   revokeCard: (publicId: string) => api.delete<PublishedCard>(`/game/cards/${publicId}`),
+}
+
+export const battleSettingsApi = {
+  list: () => api.get<BattleSetting[]>('/admin/game/battle-settings'),
+
+  update: (key: string, value: number) =>
+    api.put<BattleSetting>(`/admin/game/battle-settings/${key}`, { value }),
+}
+
+export const battleArtApi = {
+  list: () => api.get<BattleAssetSlot[]>('/admin/game/battle-art'),
+
+  upload: (kind: string, slug: string, file: File) => {
+    const body = new FormData()
+    body.append('file', file)
+    return api.put<BattleAssetSlot>(`/admin/game/battle-art/${kind}/${slug}`, body)
+  },
+
+  remove: (publicId: string) =>
+    api.delete<BattleAssetSlot>(`/admin/game/battle-art/${publicId}`),
 }
 
 export const gameRulesApi = {

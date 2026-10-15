@@ -176,8 +176,13 @@ class SeasonService:
     # ------------------------------------------------------------------ #
     # Liga
     # ------------------------------------------------------------------ #
-    async def _context(self, user: User) -> tuple[int | None, str]:
-        """O cargo-alvo do plano ativo — é ele que define com quem comparar."""
+    async def context_of(self, user: User) -> tuple[int | None, str]:
+        """O cargo-alvo do plano ativo — é ele que define com quem comparar.
+
+        Leitura pública: o ranking da Batalha RPG compara pelo **mesmo contexto**
+        da liga, e reusar esta consulta é o que garante que as duas telas não
+        divirjam sobre quem disputa com quem.
+        """
         plan = (
             (
                 await self.session.execute(
@@ -225,7 +230,7 @@ class SeasonService:
                 ),
             )
 
-        position_id, context_label = await self._context(user)
+        position_id, context_label = await self.context_of(user)
         if position_id is None:
             return League(
                 context_label="",

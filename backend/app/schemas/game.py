@@ -602,3 +602,270 @@ class ShareCardCreate(BaseModel):
     #: O candidato escolhe o que entra. Nada é publicado por padrão.
     include: list[str] = Field(default_factory=lambda: ["level", "rank", "streak", "questions"])
     display_name: str | None = Field(default=None, max_length=80)
+
+
+# --------------------------------------------------------------------------- #
+# Batalha RPG
+# --------------------------------------------------------------------------- #
+class MonsterRead(BaseModel):
+    letter: str
+    species: str
+    name: str
+    #: Silhueta desenhada no cliente, usada enquanto não houver arte cadastrada.
+    shape: str
+    color_token: str
+    accent_token: str
+    variant: int
+    #: Arte cadastrada no painel. ``None`` mantém a silhueta.
+    image_url: str | None = None
+
+
+class BattleStatusRead(BaseModel):
+    player_hp: int
+    player_max_hp: int
+    player_hp_ratio: float
+    enemy_hp: int
+    enemy_max_hp: int
+    enemy_hp_ratio: float
+    answered: int
+    correct: int
+    wrong: int
+    questions: int
+    is_over: bool
+    victory: bool
+    defeat: bool
+    outcome_reason: str | None = None
+    #: Fase 2 — sequência, moedas e críticos, todos derivados das respostas.
+    combo: int = 0
+    best_combo: int = 0
+    coins: int = 0
+    coins_earned: int = 0
+    coins_spent: int = 0
+    criticals: int = 0
+
+
+class BattleCombatSettingsRead(BaseModel):
+    """As réguas do combate, para a tela explicar o preço em vez de só cobrá-lo."""
+
+    critical_seconds: int
+    critical_bonus_percent: int
+    combo_damage_percent: int
+    max_combo_steps: int
+    coins_per_correct: int
+    coins_per_combo_step: int
+    starting_coins: int
+    shield_cost: int
+    eliminate_cost: int
+    hint_cost: int
+    boss_hp_percent: int
+    #: Vida de um monstro de alternativa — vale dentro de uma questão só.
+    monster_hp: int
+
+
+class BattlePowerRead(BaseModel):
+    power: str
+    label: str
+    description: str
+    cost: int
+    affordable: bool
+    used: bool
+    removed_letter: str | None = None
+    hint: str | None = None
+
+
+class BattleLayoutSettingsRead(BaseModel):
+    """As réguas que decidem o layout — o cliente recalcula com o viewport real."""
+
+    short_answer_max: int
+    short_average_max: int
+    tablet_short_answer_max: int
+    tablet_short_average_max: int
+    mobile_short_answer_max: int
+    mobile_short_average_max: int
+    max_options_for_arena: int
+    chars_per_line_desktop: int
+    chars_per_line_tablet: int
+    chars_per_line_mobile: int
+    max_lines_for_arena: int
+
+
+# --------------------------------------------------------------------------- #
+# Batalha RPG — Fase 3
+# --------------------------------------------------------------------------- #
+class BattleModifiersRead(BaseModel):
+    """O que a peça muda no combate — e só no combate."""
+
+    damage_percent: int = 0
+    max_hp_percent: int = 0
+    coin_percent: int = 0
+    power_discount_percent: int = 0
+
+
+class BattleClassRead(BaseModel):
+    slug: str
+    name: str
+    description: str
+    #: A troca declarada: toda classe ganha de um lado e perde do outro.
+    tradeoff: str
+    modifiers: BattleModifiersRead
+
+
+class BattleEquipmentRead(BaseModel):
+    slug: str
+    name: str
+    slot: str
+    description: str
+    modifiers: BattleModifiersRead
+    is_unlocked: bool
+    #: Conquista que libera a peça, quando houver.
+    requirement_label: str | None = None
+
+
+class BattleLoadoutRead(BaseModel):
+    class_slug: str
+    weapon_slug: str
+    armor_slug: str
+    trinket_slug: str
+    modifiers: BattleModifiersRead
+
+
+class BattleArmoryRead(BaseModel):
+    loadout: BattleLoadoutRead
+    classes: list[BattleClassRead] = Field(default_factory=list)
+    equipment: list[BattleEquipmentRead] = Field(default_factory=list)
+
+
+class BattleLoadoutInput(BaseModel):
+    class_slug: str
+    weapon_slug: str
+    armor_slug: str
+    trinket_slug: str
+
+
+class BattleStageRead(BaseModel):
+    order: int
+    subject_public_id: str
+    label: str
+    #: O Priority Score real que ordenou o estágio.
+    priority_score: float
+    battles: int
+    cleared: bool
+    is_locked: bool
+    blocked_reason: str | None = None
+
+
+class BattleCampaignRead(BaseModel):
+    stages: list[BattleStageRead] = Field(default_factory=list)
+    cleared: int = 0
+    total: int = 0
+    is_complete: bool = False
+    empty_reason: str | None = None
+
+
+class BattleRankingMemberRead(BaseModel):
+    position: int
+    label: str
+    battles: int
+    wins: int
+    correct: int
+    is_you: bool
+    is_named: bool
+
+
+class BattleRankingRead(BaseModel):
+    context_label: str
+    participants: int
+    members: list[BattleRankingMemberRead] = Field(default_factory=list)
+    your_position: int | None = None
+    empty_reason: str | None = None
+    note: str = ""
+
+
+class BattleHudRead(BaseModel):
+    """Rodapé da batalha — números que a plataforma já media em outro lugar."""
+
+    level: int
+    xp_total: int
+    xp_into_level: int
+    xp_for_next: int | None = None
+    xp_ratio: float
+    focus_minutes: int
+    #: Minutos que o próprio candidato reservou para hoje. ``None`` sem plano —
+    #: e aí a tela não desenha barra nenhuma.
+    focus_target_minutes: int | None = None
+    focus_reason: str | None = None
+
+
+class BattleRead(BaseModel):
+    run: RunRead
+    enemy_species: str
+    enemy_name: str
+    enemy_shape: str
+    enemy_color_token: str
+    enemy_accent_token: str
+    status: BattleStatusRead
+    monsters: list[MonsterRead] = Field(default_factory=list)
+    #: Layout sugerido pelo servidor; o cliente refaz a conta com o viewport.
+    layout: str
+    layout_reason: str
+    settings: BattleLayoutSettingsRead
+    combat: BattleCombatSettingsRead
+    powers: list[BattlePowerRead] = Field(default_factory=list)
+    #: Letras já eliminadas nesta questão — a tela não as renderiza.
+    removed_letters: list[str] = Field(default_factory=list)
+    hint: str | None = None
+    #: O loadout congelado desta rodada.
+    loadout: BattleLoadoutRead | None = None
+    is_boss: bool = False
+    #: Arte cadastrada. Tudo opcional: sem peça, a tela desenha a silhueta.
+    enemy_image_url: str | None = None
+    player_image_url: str | None = None
+    scenery_image_url: str | None = None
+    hud: BattleHudRead | None = None
+
+
+class BattleAnswerResultRead(BaseModel):
+    battle: BattleRead
+    is_correct: bool
+    correct_letter: str | None = None
+    selected_feedback: str | None = None
+    correct_feedback: str | None = None
+    explanation: str | None = None
+    #: Dano aplicado nesta resposta — quem apanhou depende de quem errou.
+    damage: int = 0
+    #: ``None`` quando o escudo absorveu o golpe: ninguém apanhou.
+    damage_target: str | None = "enemy"
+    combo: int = 0
+    is_critical: bool = False
+    shielded: bool = False
+    coins: int = 0
+
+
+class BattleSettingRead(BaseModel):
+    key: str
+    label: str
+    value: int
+
+
+class BattleSettingUpdate(BaseModel):
+    value: int = Field(ge=0, le=400)
+
+
+class BattlePowerInput(BaseModel):
+    power: str
+
+
+class BattleAssetRead(BaseModel):
+    """Um lugar de arte do catálogo — cadastrado ou ainda vazio."""
+
+    kind: str
+    slug: str
+    label: str
+    #: O que a tela desenha enquanto este lugar estiver vazio.
+    fallback: str
+    public_id: str | None = None
+    image_url: str | None = None
+    mime_type: str | None = None
+    size_bytes: int | None = None
+    original_filename: str | None = None
+    updated_at: datetime | None = None

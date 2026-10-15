@@ -74,6 +74,7 @@ from app.models.intelligence import (
     TrapPattern,
     UserPriority,
 )
+from app.models.mindmap import MindMap, MindMapStatus
 from app.models.notice import Notice, NoticeFile, NoticeFileStatus, NoticeKind, NoticeStatus
 from app.models.notice_analysis import (
     EvidenceLevel,
@@ -116,6 +117,12 @@ from app.models.study import (
     UserSubjectProgress,
 )
 from app.models.token import AuthToken, AuthTokenType
+from app.models.training import (
+    TrainingLesson,
+    TrainingProgress,
+    TrainingProgressStatus,
+    TrainingStatus,
+)
 from app.models.tutor import (
     ChatMode,
     Conversation,
@@ -124,7 +131,6 @@ from app.models.tutor import (
     VideoResource,
     VocabularyTerm,
 )
-from app.models.training import TrainingLesson, TrainingProgress, TrainingProgressStatus, TrainingStatus
 from app.models.user import Profile, User, UserStatus
 from app.models.user_session import UserSession
 
@@ -175,6 +181,8 @@ __all__ = [
     "MasterScoreSnapshot",
     "Message",
     "MessageRole",
+    "MindMap",
+    "MindMapStatus",
     "Mission",
     "MissionScope",
     "MissionStatus",

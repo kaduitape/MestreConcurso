@@ -478,3 +478,133 @@ class ShareCardRecord(IdMixin, PublicIdMixin, TimestampMixin, Base):
     footer: Mapped[str] = mapped_column(String(400))
     #: O candidato pode revogar o link a qualquer momento.
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class BattleSetting(IdMixin, TimestampMixin, Base):
+    """Ajustes da Batalha RPG, editáveis sem deploy.
+
+    O pedido é explícito quanto aos limiares de layout: eles não podem ficar
+    rígidos no código. O ponto em que uma alternativa "fica longa" depende da
+    fonte, do idioma e do aparelho — coisas que mudam sem aviso, e que quem
+    cuida do produto precisa poder calibrar olhando a tela real.
+
+    Uma linha por chave, como ``game_rules``: o padrão de fábrica semeia, a
+    tabela manda.
+    """
+
+    __tablename__ = "battle_settings"
+    __table_args__ = (UniqueConstraint("key", name="uq_battle_settings_key"),)
+
+    key: Mapped[str] = mapped_column(String(40), index=True)
+    value: Mapped[int] = mapped_column(Integer, default=0)
+    label: Mapped[str] = mapped_column(String(160), default="")
+    updated_by_user_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+
+class BattlePowerUse(IdMixin, TimestampMixin, Base):
+    """Um poder gasto numa questão da Batalha RPG.
+
+    É o único estado da batalha que **não** dá para derivar das respostas: usar
+    um escudo é uma decisão, não uma consequência. Guardar a decisão mantém o
+    resto derivável — o HP continua saindo da conta entre respostas e escudos,
+    e não de um saldo que poderia divergir.
+
+    O que o poder revelou (a alternativa eliminada, o texto da dica) fica junto:
+    recalcular depois poderia devolver outra alternativa e mudar a questão
+    debaixo de quem já a estava lendo.
+    """
+
+    __tablename__ = "battle_power_uses"
+    __table_args__ = (
+        UniqueConstraint("game_run_id", "question_id", "power", name="uq_battle_power_once"),
+        Index("ix_battle_power_uses_run", "game_run_id"),
+    )
+
+    game_run_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("game_runs.id", ondelete="CASCADE")
+    )
+    question_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("questions.id", ondelete="CASCADE")
+    )
+    power: Mapped[str] = mapped_column(String(16))
+    #: Preço pago, congelado no momento do uso: mudar a tabela de preços não
+    #: pode reescrever o saldo de uma batalha já jogada.
+    cost: Mapped[int] = mapped_column(Integer, default=0)
+    #: Letra removida pelo ELIMINAR, quando for o caso.
+    removed_letter: Mapped[str | None] = mapped_column(String(2))
+    #: Texto da DICA, sempre copiado de conteúdo já cadastrado.
+    hint: Mapped[str | None] = mapped_column(MediumText)
+
+
+class BattleLoadout(IdMixin, TimestampMixin, Base):
+    """A classe e o equipamento que o candidato escolheu para a Batalha RPG.
+
+    Uma linha por pessoa: é preferência, não histórico. O que a batalha usou fica
+    congelado na própria rodada (``battle_run_loadouts``) — trocar de armadura no
+    meio do combate e ter o dano já causado recalculado faria o HP mudar sozinho.
+    """
+
+    __tablename__ = "battle_loadouts"
+    __table_args__ = (UniqueConstraint("user_id", name="uq_battle_loadouts_user"),)
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    class_slug: Mapped[str] = mapped_column(String(30), default="recruta")
+    weapon_slug: Mapped[str] = mapped_column(String(40), default="espada-simples")
+    armor_slug: Mapped[str] = mapped_column(String(40), default="gibao-de-couro")
+    trinket_slug: Mapped[str] = mapped_column(String(40), default="amuleto-de-latao")
+
+
+class BattleRunLoadout(IdMixin, TimestampMixin, Base):
+    """O loadout congelado de uma rodada — as questões já eram congeladas assim.
+
+    Sem isso, uma batalha lida amanhã seria recalculada com o equipamento de
+    amanhã, e a vida mostraria um número diferente do que o candidato viu.
+    """
+
+    __tablename__ = "battle_run_loadouts"
+    __table_args__ = (UniqueConstraint("game_run_id", name="uq_battle_run_loadouts_run"),)
+
+    game_run_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("game_runs.id", ondelete="CASCADE")
+    )
+    class_slug: Mapped[str] = mapped_column(String(30), default="recruta")
+    weapon_slug: Mapped[str] = mapped_column(String(40), default="espada-simples")
+    armor_slug: Mapped[str] = mapped_column(String(40), default="gibao-de-couro")
+    trinket_slug: Mapped[str] = mapped_column(String(40), default="amuleto-de-latao")
+
+
+class BattleAsset(IdMixin, PublicIdMixin, TimestampMixin, Base):
+    """Arte cadastrada para a Batalha RPG: monstro, guerreiro ou cenário.
+
+    Existe porque a silhueta em SVG é um **padrão honesto, não um destino**: ela
+    garante que a batalha funcione no dia um, sem download e sem depender de
+    ninguém desenhar nada. Quando houver arte de verdade, ela entra por aqui e
+    substitui a silhueta sem tocar em uma linha de código.
+
+    Uma peça por chave (espécie do monstro, classe do guerreiro, cenário). Trocar
+    a arte é enviar outra no mesmo lugar; remover devolve a silhueta.
+    """
+
+    __tablename__ = "battle_assets"
+    __table_args__ = (
+        UniqueConstraint("kind", "slug", name="uq_battle_assets_kind_slug"),
+        Index("ix_battle_assets_kind", "kind"),
+    )
+
+    kind: Mapped[str] = mapped_column(String(20))
+    slug: Mapped[str] = mapped_column(String(40))
+    label: Mapped[str] = mapped_column(String(120), default="")
+
+    storage_key: Mapped[str] = mapped_column(String(255))
+    mime_type: Mapped[str] = mapped_column(String(60), default="image/png")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), default="")
+    original_filename: Mapped[str | None] = mapped_column(String(255))
+
+    uploaded_by_user_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="SET NULL")
+    )

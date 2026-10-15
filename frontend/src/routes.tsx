@@ -94,6 +94,9 @@ const AnalyticsPage = lazy(() =>
 const ArenaPage = lazy(() =>
   import('@/features/game/arena-page').then((module) => ({ default: module.ArenaPage })),
 )
+const BattlePage = lazy(() =>
+  import('@/features/battle/battle-page').then((module) => ({ default: module.BattlePage })),
+)
 const PublicCardPage = lazy(() =>
   import('@/features/game/public-card-page').then((module) => ({
     default: module.PublicCardPage,
@@ -141,6 +144,16 @@ const TrainingLibraryPage = lazy(() =>
 const TrainingPlayerPage = lazy(() =>
   import('@/features/training/training-player-page').then((module) => ({
     default: module.TrainingPlayerPage,
+  })),
+)
+const MindMapLibraryPage = lazy(() =>
+  import('@/features/mindmap/mindmap-library-page').then((module) => ({
+    default: module.MindMapLibraryPage,
+  })),
+)
+const MindMapPage = lazy(() =>
+  import('@/features/mindmap/mindmap-page').then((module) => ({
+    default: module.MindMapPage,
   })),
 )
 
@@ -203,12 +216,15 @@ export const router = createBrowserRouter([
           { path: '/temporada', element: lazyRoute(<SeasonPage />) },
           { path: '/desafios', element: lazyRoute(<ChallengesPage />) },
           { path: '/arena', element: lazyRoute(<ArenaPage />) },
+          { path: '/batalha', element: lazyRoute(<BattlePage />) },
           { path: '/analytics', element: lazyRoute(<AnalyticsPage />) },
           { path: '/plano-e-cobranca', element: lazyRoute(<BillingPage />) },
           { path: '/concursos', element: lazyRoute(<CompetitionsPage />) },
           { path: '/concursos/:publicId', element: lazyRoute(<CompetitionDetailPage />) },
           { path: '/treinamentos', element: lazyRoute(<TrainingLibraryPage />) },
           { path: '/dia-de-treinamento/:publicId', element: lazyRoute(<TrainingPlayerPage />) },
+          { path: '/mapas-mentais', element: lazyRoute(<MindMapLibraryPage />) },
+          { path: '/mapas-mentais/:publicId', element: lazyRoute(<MindMapPage />) },
           { path: '/conta', element: <AccountPage /> },
           {
             element: <RequirePermission permission="admin_dashboard:read" />,

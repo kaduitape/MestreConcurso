@@ -37,3 +37,17 @@
 26. Command palette (Ctrl/⌘+K) navega de verdade entre as telas existentes — nenhum item decorativo.
 27. Estados de carregamento (skeleton), vazio e erro implementados em todas as telas da fase; nenhum dado falso ou botão sem função.
 28. Build de produção (`npm run build`) sem erro de TypeScript e sem `any` implícito.
+
+## Adendo — exportação LGPD (revisado na entrega da Fase 10)
+
+A exportação nasceu aqui e ficou parada enquanto o produto crescia. Desde a
+revisão pós-Fase 10:
+
+- A exportação cobre **todas as áreas do produto**: estudo, questões,
+  memorização, Mestre IA, inteligência, gamificação, analytics e comercial —
+  além de conta, perfil, sessões, consentimentos e trilha de auditoria.
+- O catálogo do que é exportado é **declarativo** (`app/services/data_export.py`):
+  uma coleção nova é uma linha, e a ausência aparece na revisão.
+- Cada coleção declara o **total real**. Coleções grandes são limitadas por um
+  teto, e o corte é dito com o número — entregar uma fatia calada seria pior do
+  que não entregar.

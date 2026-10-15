@@ -233,8 +233,18 @@ def _base_for(event: GameEvent, rule: XPRule) -> tuple[int, float, str, str | No
     if event.kind == GameEventKind.TRAINING_FINISHED:
         minutes = float(metrics.get("focus_minutes", 0))
         if minutes < MIN_FOCUS_MINUTES:
-            return 0, 0.0, "", f"Missões exigem ao menos {MIN_FOCUS_MINUTES} minutos de foco para pontuar."
-        return rule.xp_value, 1.0, f"Missão de treinamento concluída com {round(minutes)} minutos de foco.", None
+            return (
+                0,
+                0.0,
+                "",
+                f"Missões exigem ao menos {MIN_FOCUS_MINUTES} minutos de foco para pontuar.",
+            )
+        return (
+            rule.xp_value,
+            1.0,
+            f"Missão de treinamento concluída com {round(minutes)} minutos de foco.",
+            None,
+        )
 
     # Missões: o valor é o da própria regra.
     return rule.xp_value, 1.0, rule.label + ".", None

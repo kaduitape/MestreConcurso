@@ -24,6 +24,8 @@ from app.ai.base import (
     ProviderError,
     ProviderRateLimitedError,
     ProviderUnavailableError,
+    SpeechRequest,
+    SpeechResult,
     Usage,
 )
 from app.core.logging import get_logger
@@ -57,12 +59,21 @@ def _classify_model(slug: str) -> str:
         return "embedding"
     if "rerank" in slug:
         return "rerank"
+    # "tts" cobre gpt-4o-mini-tts e a família tts-1; "audio" não serve porque
+    # também aparece em modelos de transcrição, que fazem o caminho inverso.
+    if "tts" in slug:
+        return "speech"
     return "chat"
 
 
 def _is_usable(slug: str) -> bool:
-    """Filtra modelos que não interessam à plataforma (áudio, imagem, moderação)."""
-    ignored = ("whisper", "tts", "dall-e", "moderation", "audio", "image", "realtime")
+    """Filtra modelos que não interessam à plataforma (imagem, moderação, transcrição).
+
+    Os modelos de voz (``tts``) ficaram de fora desta lista quando o Estúdio de
+    Treinamento passou a narrar as aulas. ``audio`` continua barrado: ele marca
+    os modelos de conversa por voz em tempo real, que fazem outra coisa.
+    """
+    ignored = ("whisper", "dall-e", "moderation", "audio", "image", "realtime")
     return not any(token in slug for token in ignored)
 
 
@@ -192,6 +203,62 @@ class OpenAIProvider(AIProvider):
             ),
             latency_ms=int((time.perf_counter() - started) * 1000),
             raw={"finish_reason": choices[0].get("finish_reason")},
+        )
+
+    #: Vozes da API de fala da OpenAI, com o caráter de cada uma.
+    #:
+    #: O rótulo descreve o timbre para quem escolhe no painel não ter de testar
+    #: as onze. Quem decide qual combina com o Mestre é uma pessoa, não o código.
+    VOICES: tuple[tuple[str, str], ...] = (
+        ("onyx", "Onyx — grave e firme"),
+        ("ash", "Ash — grave e rouca"),
+        ("echo", "Echo — serena e clara"),
+        ("fable", "Fable — narrativa, de contador de histórias"),
+        ("alloy", "Alloy — neutra"),
+        ("ballad", "Ballad — melodiosa"),
+        ("sage", "Sage — calma e didática"),
+        ("verse", "Verse — expressiva"),
+        ("coral", "Coral — calorosa"),
+        ("nova", "Nova — jovem e brilhante"),
+        ("shimmer", "Shimmer — suave"),
+    )
+
+    @property
+    def voices(self) -> tuple[tuple[str, str], ...]:
+        return self.VOICES
+
+    async def synthesize_speech(self, request: SpeechRequest) -> SpeechResult:
+        """Gera o áudio de um trecho pela API de fala.
+
+        As ``instructions`` só são enviadas quando existem: a família ``tts-1``
+        ignora o campo, e mandá-lo vazio seria pedir uma direção de cena em
+        branco.
+        """
+        payload: dict[str, Any] = {
+            "model": request.model,
+            "voice": request.voice,
+            "input": request.text,
+            "response_format": request.audio_format,
+            "speed": request.speed,
+        }
+        if request.instructions:
+            payload["instructions"] = request.instructions
+
+        started = time.perf_counter()
+        try:
+            async with self._client() as client:
+                response = await client.post("/audio/speech", json=payload)
+        except httpx.HTTPError as exc:
+            raise ProviderUnavailableError(str(exc)) from exc
+
+        self._raise_for_status(response)
+        return SpeechResult(
+            audio=response.content,
+            mime_type=response.headers.get("content-type", "audio/mpeg").split(";")[0],
+            model=request.model,
+            voice=request.voice,
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            characters=len(request.text),
         )
 
     async def embed(self, texts: list[str], model: str) -> EmbeddingResult:

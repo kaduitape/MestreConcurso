@@ -219,6 +219,8 @@ export interface Training {
   target_duration_minutes: number
   board_name: string | null
   research_before_generate: boolean
+  /** Voz desta aula. `null` usa a voz padrão da funcionalidade. */
+  narration_voice: string | null
   status: 'DRAFT' | 'GENERATING' | 'READY' | 'PUBLISHED' | 'ARCHIVED'
   script: TrainingScript
   generation_error: string | null
@@ -235,10 +237,50 @@ export interface TrainingInput {
   character_name: string
   additional_prompt?: string
   level: 'BASICO' | 'INTERMEDIARIO' | 'AVANCADO' | 'ESPECIALISTA'
-  style: 'AULA' | 'HISTORIA' | 'MISSAO' | 'BATALHA' | 'INVESTIGACAO' | 'MILITAR' | 'DESAFIO' | 'REVISAO'
+  style:
+    | 'AULA'
+    | 'HISTORIA'
+    | 'MISSAO'
+    | 'BATALHA'
+    | 'INVESTIGACAO'
+    | 'MILITAR'
+    | 'DESAFIO'
+    | 'REVISAO'
   target_duration_minutes: number
   board_name?: string
   research_before_generate: boolean
+}
+
+/** Um trecho falado: o texto, onde ele está na cena e o áudio dele. */
+export interface NarrationSegment {
+  index: number
+  text: string
+  offset: number
+  length: number
+  /** `null` enquanto este trecho ainda não foi gerado. */
+  audio_url: string | null
+  duration_hint_ms: number
+}
+
+export interface NarrationScene {
+  scene_id: number
+  segments: NarrationSegment[]
+}
+
+export interface TrainingNarration {
+  voice: string
+  model_slug: string | null
+  scenes: NarrationScene[]
+  ready: number
+  total: number
+  is_complete: boolean
+  /** Por que ainda não há áudio. A tela mostra isto em vez de ficar muda. */
+  unavailable_reason: string | null
+}
+
+export interface TrainingVoice {
+  slug: string
+  label: string
 }
 
 export interface TrainingProgress {
@@ -1484,7 +1526,8 @@ export interface LeaguePreferences {
   display_name: string | null
 }
 
-export type ChallengeModeKey = 'BOSS' | 'SURVIVAL' | 'COMBO' | 'TIME_ATTACK'
+/** `BATTLE` existe no servidor mas não é oferecido em Desafios: tem tela própria. */
+export type ChallengeModeKey = 'BOSS' | 'SURVIVAL' | 'COMBO' | 'TIME_ATTACK' | 'BATTLE'
 
 export interface ChallengeMode {
   mode: ChallengeModeKey
@@ -1939,6 +1982,253 @@ export interface SaasDashboard {
   period_end: string | null
 }
 
+// --------------------------------------------------------------------------- //
+// Batalha RPG
+// --------------------------------------------------------------------------- //
+export type BattleLayout = 'monster-arena' | 'compact-answer'
+export type BattleViewport = 'desktop' | 'tablet' | 'mobile'
+
+export interface BattleAssetSlot {
+  kind: 'MONSTER' | 'PLAYER' | 'SCENERY'
+  slug: string
+  label: string
+  /** O que a tela desenha enquanto este lugar estiver vazio. */
+  fallback: string
+  public_id: string | null
+  image_url: string | null
+  mime_type: string | null
+  size_bytes: number | null
+  original_filename: string | null
+  updated_at: string | null
+}
+
+/** Rodapé da batalha — números que a plataforma já media em outro lugar. */
+export interface BattleHud {
+  level: number
+  xp_total: number
+  xp_into_level: number
+  xp_for_next: number | null
+  xp_ratio: number
+  focus_minutes: number
+  /** Minutos que o próprio candidato reservou para hoje. `null` sem plano. */
+  focus_target_minutes: number | null
+  focus_reason: string | null
+}
+
+export interface BattleMonster {
+  letter: string
+  species: string
+  name: string
+  /** Silhueta desenhada no cliente; arte em WebP pode substituí-la depois. */
+  shape: string
+  color_token: string
+  accent_token: string
+  variant: number
+  /** Arte cadastrada no painel. `null` mantém a silhueta em SVG. */
+  image_url: string | null
+}
+
+export interface BattleStatus {
+  player_hp: number
+  player_max_hp: number
+  player_hp_ratio: number
+  enemy_hp: number
+  enemy_max_hp: number
+  enemy_hp_ratio: number
+  answered: number
+  correct: number
+  wrong: number
+  questions: number
+  is_over: boolean
+  victory: boolean
+  defeat: boolean
+  outcome_reason: string | null
+  /** Fase 2 — tudo derivado das respostas, como o HP. */
+  combo: number
+  best_combo: number
+  coins: number
+  coins_earned: number
+  coins_spent: number
+  criticals: number
+}
+
+export type BattlePowerKey = 'SHIELD' | 'ELIMINATE' | 'HINT'
+
+/** As réguas do combate: combo, crítico, moedas e preço dos poderes. */
+export interface BattleCombatSettings {
+  critical_seconds: number
+  critical_bonus_percent: number
+  combo_damage_percent: number
+  max_combo_steps: number
+  coins_per_correct: number
+  coins_per_combo_step: number
+  starting_coins: number
+  shield_cost: number
+  eliminate_cost: number
+  hint_cost: number
+  boss_hp_percent: number
+  /** Vida de um monstro de alternativa — vale dentro de uma questão só. */
+  monster_hp: number
+}
+
+export type BattleEquipmentSlot = 'WEAPON' | 'ARMOR' | 'TRINKET'
+
+/** O que uma peça muda no combate — e só no combate. */
+export interface BattleModifiers {
+  damage_percent: number
+  max_hp_percent: number
+  coin_percent: number
+  power_discount_percent: number
+}
+
+export interface BattleClass {
+  slug: string
+  name: string
+  description: string
+  /** A troca declarada: toda classe ganha de um lado e perde do outro. */
+  tradeoff: string
+  modifiers: BattleModifiers
+}
+
+export interface BattleEquipment {
+  slug: string
+  name: string
+  slot: BattleEquipmentSlot
+  description: string
+  modifiers: BattleModifiers
+  is_unlocked: boolean
+  /** Conquista que libera a peça, quando houver. */
+  requirement_label: string | null
+}
+
+export interface BattleLoadout {
+  class_slug: string
+  weapon_slug: string
+  armor_slug: string
+  trinket_slug: string
+  modifiers: BattleModifiers
+}
+
+export interface BattleArmory {
+  loadout: BattleLoadout
+  classes: BattleClass[]
+  equipment: BattleEquipment[]
+}
+
+export interface BattleStage {
+  order: number
+  subject_public_id: string
+  label: string
+  /** O Priority Score real que ordenou o estágio. */
+  priority_score: number
+  battles: number
+  cleared: boolean
+  is_locked: boolean
+  blocked_reason: string | null
+}
+
+export interface BattleCampaign {
+  stages: BattleStage[]
+  cleared: number
+  total: number
+  is_complete: boolean
+  empty_reason: string | null
+}
+
+export interface BattleRankingMember {
+  position: number
+  label: string
+  battles: number
+  wins: number
+  correct: number
+  is_you: boolean
+  is_named: boolean
+}
+
+export interface BattleRanking {
+  context_label: string
+  participants: number
+  members: BattleRankingMember[]
+  your_position: number | null
+  empty_reason: string | null
+  note: string
+}
+
+export interface BattlePowerOffer {
+  power: BattlePowerKey
+  label: string
+  description: string
+  cost: number
+  affordable: boolean
+  used: boolean
+  removed_letter: string | null
+  hint: string | null
+}
+
+/** As réguas que decidem o layout — vêm do banco, ajustáveis sem deploy. */
+export interface BattleLayoutSettings {
+  short_answer_max: number
+  short_average_max: number
+  tablet_short_answer_max: number
+  tablet_short_average_max: number
+  mobile_short_answer_max: number
+  mobile_short_average_max: number
+  max_options_for_arena: number
+  chars_per_line_desktop: number
+  chars_per_line_tablet: number
+  chars_per_line_mobile: number
+  max_lines_for_arena: number
+}
+
+export interface Battle {
+  run: GameRun
+  enemy_species: string
+  enemy_name: string
+  enemy_shape: string
+  enemy_color_token: string
+  enemy_accent_token: string
+  status: BattleStatus
+  monsters: BattleMonster[]
+  layout: BattleLayout
+  layout_reason: string
+  settings: BattleLayoutSettings
+  combat: BattleCombatSettings
+  /** O loadout congelado desta rodada. */
+  loadout: BattleLoadout | null
+  is_boss: boolean
+  /** Arte cadastrada. Tudo opcional: sem peça, a tela desenha a silhueta. */
+  enemy_image_url: string | null
+  player_image_url: string | null
+  scenery_image_url: string | null
+  hud: BattleHud | null
+  powers: BattlePowerOffer[]
+  /** Letras eliminadas nesta questão: a tela não as renderiza. */
+  removed_letters: string[]
+  hint: string | null
+}
+
+export interface BattleAnswerResult {
+  battle: Battle
+  is_correct: boolean
+  correct_letter: string | null
+  selected_feedback: string | null
+  correct_feedback: string | null
+  explanation: string | null
+  /** Quem apanhou depende de quem errou. `null` quando o escudo absorveu. */
+  damage: number
+  damage_target: 'enemy' | 'player' | null
+  combo: number
+  is_critical: boolean
+  shielded: boolean
+  coins: number
+}
+
+export interface BattleSetting {
+  key: string
+  label: string
+  value: number
+}
+
 export interface GameRule {
   key: string
   label: string
@@ -1946,4 +2236,70 @@ export interface GameRule {
   daily_cap: number
   is_enabled: boolean
   updated_at: string
+}
+
+/* --- Mapas mentais ------------------------------------------------------ */
+
+/** O tom de um item dentro do painel. Decide a cor da marca do item. */
+export type MindMapTone = 'NEUTRO' | 'CORRETO' | 'INCORRETO' | 'ALERTA'
+
+export interface MindMapItem {
+  text: string
+  tone: MindMapTone
+  /** Token de cor do tom, resolvido no backend. */
+  tone_color: string
+  /** Só vem preenchida quando a fonte estava no material enviado. */
+  source: string | null
+}
+
+export interface MindMapPanel {
+  kind: string
+  title: string
+  label: string
+  /** Cor fixa do tipo de painel. Um painel, uma cor, sempre a mesma. */
+  color_token: string
+  icon: string
+  items: MindMapItem[]
+}
+
+export interface MindMapContent {
+  version?: string
+  subject?: string
+  topic?: string
+  center_label?: string
+  /** Dúvidas que a IA registrou para a revisão humana. */
+  review_notes?: string[]
+  panels?: MindMapPanel[]
+}
+
+export interface MindMap {
+  public_id: string
+  subject: string
+  topic: string
+  title: string
+  level: string
+  max_panels: number
+  status: 'DRAFT' | 'GENERATING' | 'READY' | 'PUBLISHED' | 'ARCHIVED'
+  content: MindMapContent
+  generation_error: string | null
+  model_slug: string | null
+  generated_at: string | null
+  published_at: string | null
+  created_at: string
+}
+
+export interface MindMapInput {
+  subject: string
+  topic: string
+  level: string
+  max_panels: number
+  source_content: string | null
+}
+
+export interface MindMapPanelSpec {
+  kind: string
+  label: string
+  guidance: string
+  color_token: string
+  icon: string
 }

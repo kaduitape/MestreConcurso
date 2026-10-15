@@ -58,8 +58,26 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
     FeatureSpec(
         AIFeature.TRAINING_SCRIPT,
         "Roteiro do Estúdio de Treinamento",
-        "Produz o roteiro estruturado em cenas, diálogos, destaques e perguntas para revisão humana antes da publicação.",
+        "Produz o roteiro estruturado em cenas, diálogos, destaques e perguntas "
+        "para revisão humana antes da publicação.",
         "Estúdio de Treinamento",
+    ),
+    FeatureSpec(
+        AIFeature.TRAINING_NARRATION,
+        "Narração do Estúdio de Treinamento",
+        "Dá voz ao roteiro já aprovado. A direção de cena sai do próprio roteiro "
+        "— tipo da cena, emoção e termos em destaque — e o áudio fica gravado: "
+        "reabrir a aula não gasta nada.",
+        "Estúdio de Treinamento",
+        kind="speech",
+    ),
+    FeatureSpec(
+        AIFeature.MINDMAP_GENERATION,
+        "Mapas mentais",
+        "Organiza a matéria em painéis (conceito, regras, exceções, macetes, "
+        "pegadinhas) para revisão humana antes da publicação. A IA estrutura o "
+        "conteúdo; o desenho é feito pela plataforma, com texto de verdade.",
+        "Mapas mentais",
     ),
     FeatureSpec(
         AIFeature.EMBEDDINGS,
