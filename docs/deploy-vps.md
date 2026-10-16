@@ -4,6 +4,28 @@ Todo `push` na branch `master` executa o workflow **Deploy VPS**. Ele atualiza a
 cópia do repositório na VPS, reconstrói os containers de produção, aplica as
 migrations e só termina com sucesso quando a API responde ao health check.
 
+## As migrations rodam em um lugar só
+
+O `alembic upgrade head` é disparado **apenas pelo entrypoint do contêiner da
+API**, antes de o gunicorn subir. O workflow não dispara de novo, e isso é
+deliberado:
+
+- `docker compose up -d` retorna quando o contêiner **inicia**, não quando o
+  entrypoint termina. Disparar o alembic logo em seguida colocava dois
+  processos migrando o mesmo banco ao mesmo tempo.
+- Em MySQL o DDL **não tem rollback**. Numa corrida assim, os dois leem a mesma
+  versão, um cria a tabela e o outro morre com `1050 ... already exists` — e a
+  tabela fica de pé **sem o carimbo de versão**. O banco para num estado que
+  nenhuma revisão descreve, e toda subida seguinte repete o mesmo erro.
+- Como o `/health` só responde depois das migrations, esperar pelo health check
+  é esperar por elas. Se as migrations falharem, o contêiner não sobe, o health
+  check estoura em 120s e o passo imprime os últimos 300 logs da API.
+
+Como rede de segurança, `backend/alembic/env.py` pega uma **trava consultiva**
+(`GET_LOCK`) no MySQL antes de migrar: se alguém rodar `alembic upgrade head` à
+mão durante um deploy, o segundo processo espera em vez de corromper o schema.
+A trava vive na sessão — se o processo morrer, o MySQL a solta sozinho.
+
 ## Preparar a VPS (uma vez)
 
 Na VPS, instale Docker Engine com o plugin Compose **v2.24 ou superior**, clone

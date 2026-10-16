@@ -66,9 +66,15 @@ jobs:
           compose="docker compose --env-file .env -f docker-compose.yml -f docker-compose.production.yml"
           $compose config -q
           $compose up -d --build --remove-orphans
-          $compose exec -T api alembic upgrade head
 
-          for attempt in $(seq 1 30); do
+          # As migrations NÃO são disparadas daqui. O entrypoint do contêiner já
+          # roda `alembic upgrade head` antes de subir o gunicorn, e `up -d`
+          # retorna quando o contêiner inicia, não quando o entrypoint termina:
+          # disparar de novo aqui colocava dois alembic correndo no mesmo banco.
+          # Em MySQL o DDL não tem rollback, então o perdedor da corrida deixava
+          # a tabela criada sem o carimbo de versão. O /health só responde depois
+          # das migrations, então esperar por ele é esperar por elas.
+          for attempt in $(seq 1 60); do
             if $compose exec -T api curl -fsS http://localhost:8000/health >/dev/null; then
               $compose ps
               exit 0
@@ -76,6 +82,7 @@ jobs:
             sleep 2
           done
 
-          $compose logs --tail=100 api
+          echo "[deploy] /health não respondeu em 120s; logs do api abaixo"
+          $compose logs --tail=300 api
           exit 1
           REMOTE

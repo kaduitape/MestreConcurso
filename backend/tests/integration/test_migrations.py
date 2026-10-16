@@ -93,6 +93,33 @@ def alembic_config(tmp_path: object) -> Config:
     return config
 
 
+def test_a_half_applied_migration_can_still_reach_head(alembic_config: Config) -> None:
+    """O banco machucado pela corrida de deploy precisa conseguir se endireitar.
+
+    Em MySQL o DDL não tem rollback. Quando dois ``alembic upgrade head``
+    rodaram juntos em produção, um criou ``training_narrations`` e morreu antes
+    de carimbar a versão — e a subida seguinte batia em "already exists" para
+    sempre. Aqui esse estado é reproduzido de propósito: aplica a revisão,
+    devolve o carimbo para a anterior **sem desfazer o schema**, e cobra que
+    subir de novo chegue até o topo.
+    """
+    command.upgrade(alembic_config, "05598f0ab8c9")
+    # O carimbo volta; as tabelas ficam. É exatamente o estado da produção.
+    command.stamp(alembic_config, "7d0f0c1a654a")
+
+    command.upgrade(alembic_config, "head")
+
+    engine = create_engine(_sync_url())
+    try:
+        tables = set(inspect(engine).get_table_names())
+        assert "training_narrations" in tables
+        assert "mind_maps" in tables
+    finally:
+        engine.dispose()
+
+    command.downgrade(alembic_config, "base")
+
+
 def test_upgrade_head_then_downgrade_base(alembic_config: Config) -> None:
     # O event loop do Alembic é próprio; garante que não há loop ativo neste teste.
     assert asyncio.get_event_loop_policy() is not None

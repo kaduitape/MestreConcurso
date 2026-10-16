@@ -35,7 +35,55 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+#: Nome da trava consultiva no MySQL. Qualquer processo que vá migrar pega
+#: esta trava antes de olhar a versão do banco.
+MIGRATION_LOCK = "mestre_concurso_alembic"
+
+#: Tempo de espera pela trava. Uma migração longa pode segurar o outro
+#: processo por um bom tempo, e esperar é exatamente o comportamento certo.
+MIGRATION_LOCK_TIMEOUT_SECONDS = 600
+
+
+def _acquire_lock(connection: Connection) -> bool:
+    """Impede que dois processos migrem o mesmo banco ao mesmo tempo.
+
+    Em MySQL o DDL **não tem rollback**: dois ``alembic upgrade head``
+    simultâneos leem a mesma versão, os dois tentam criar a mesma tabela, um
+    vence e o outro morre com "already exists" — e a tabela fica de pé sem o
+    carimbo de versão, deixando o banco num estado que nenhuma migração
+    descreve. Foi exatamente isso que derrubou o deploy de produção quando o
+    entrypoint do contêiner e o passo do deploy rodaram juntos.
+
+    A trava é consultiva e vive na sessão: se o processo morrer, o MySQL a
+    solta sozinho. Em SQLite (os testes) não há o que travar.
+    """
+    if connection.dialect.name != "mysql":
+        return False
+    acquired = connection.exec_driver_sql(
+        f"SELECT GET_LOCK('{MIGRATION_LOCK}', {MIGRATION_LOCK_TIMEOUT_SECONDS})"
+    ).scalar()
+    if acquired != 1:
+        raise RuntimeError(
+            "Outro processo segurou a trava de migração por mais de "
+            f"{MIGRATION_LOCK_TIMEOUT_SECONDS}s. Nada foi migrado."
+        )
+    return True
+
+
+def _release_lock(connection: Connection) -> None:
+    connection.exec_driver_sql(f"SELECT RELEASE_LOCK('{MIGRATION_LOCK}')")
+
+
 def do_run_migrations(connection: Connection) -> None:
+    locked = _acquire_lock(connection)
+    try:
+        _run_migrations(connection)
+    finally:
+        if locked:
+            _release_lock(connection)
+
+
+def _run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,

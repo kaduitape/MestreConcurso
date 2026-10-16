@@ -30,7 +30,81 @@ MYSQL_OPTS = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Reparo de meia-aplicação
+#
+# Esta migração chegou a rodar duas vezes em paralelo em produção (o entrypoint
+# do contêiner e o passo do deploy disparavam `alembic upgrade head` juntos).
+# Em MySQL o DDL não tem rollback: a tabela foi criada, o processo perdedor
+# morreu com "already exists" e a versão nunca foi carimbada — o banco ficou num
+# estado que nenhuma revisão descreve.
+#
+# A corrida está corrigida na origem (trava consultiva em `alembic/env.py` e um
+# único ponto de migração no deploy). O que sobra aqui é o conserto: a subida
+# pula o que já existe, para que o banco machucado alcance a versão certa.
+# --------------------------------------------------------------------------- #
+def _existing_tables() -> set[str]:
+    return set(sa.inspect(op.get_bind()).get_table_names())
+
+
+def _existing_columns(table: str) -> set[str]:
+    inspector = sa.inspect(op.get_bind())
+    if table not in inspector.get_table_names():
+        return set()
+    return {column["name"] for column in inspector.get_columns(table)}
+
+
+def _existing_indexes(table: str) -> set[str]:
+    inspector = sa.inspect(op.get_bind())
+    if table not in inspector.get_table_names():
+        return set()
+    return {index["name"] for index in inspector.get_indexes(table)}
+
+
 def upgrade() -> None:
+    if "training_narrations" not in _existing_tables():
+        _create_narrations_table()
+
+    indexes = _existing_indexes("training_narrations")
+    if op.f("ix_training_narrations_checksum") not in indexes:
+        op.create_index(
+            op.f("ix_training_narrations_checksum"),
+            "training_narrations",
+            ["checksum"],
+            unique=False,
+        )
+    if "ix_training_narrations_lesson_scene" not in indexes:
+        op.create_index(
+            "ix_training_narrations_lesson_scene",
+            "training_narrations",
+            ["lesson_id", "scene_id"],
+            unique=False,
+        )
+    if op.f("ix_training_narrations_public_id") not in indexes:
+        op.create_index(
+            op.f("ix_training_narrations_public_id"),
+            "training_narrations",
+            ["public_id"],
+            unique=True,
+        )
+
+    if "options" not in _existing_columns("ai_feature_bindings"):
+        with op.batch_alter_table("ai_feature_bindings", schema=None) as batch_op:
+            batch_op.add_column(
+                sa.Column("options", sa.JSON().with_variant(mysql.JSON(), "mysql"), nullable=False)
+            )
+
+    with op.batch_alter_table("documents", schema=None) as batch_op:
+        batch_op.alter_column(
+            "text_coverage", existing_type=sa.FLOAT(), type_=sa.Double(), existing_nullable=True
+        )
+
+    if "narration_voice" not in _existing_columns("training_lessons"):
+        with op.batch_alter_table("training_lessons", schema=None) as batch_op:
+            batch_op.add_column(sa.Column("narration_voice", sa.String(length=40), nullable=True))
+
+
+def _create_narrations_table() -> None:
     op.create_table(
         "training_narrations",
         sa.Column("lesson_id", sa.BigInteger(), nullable=False),
@@ -71,31 +145,6 @@ def upgrade() -> None:
         sa.UniqueConstraint("checksum", name="uq_training_narrations_checksum"),
         **MYSQL_OPTS,
     )
-    op.create_index(
-        op.f("ix_training_narrations_checksum"), "training_narrations", ["checksum"], unique=False
-    )
-    op.create_index(
-        "ix_training_narrations_lesson_scene",
-        "training_narrations",
-        ["lesson_id", "scene_id"],
-        unique=False,
-    )
-    op.create_index(
-        op.f("ix_training_narrations_public_id"), "training_narrations", ["public_id"], unique=True
-    )
-
-    with op.batch_alter_table("ai_feature_bindings", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("options", sa.JSON().with_variant(mysql.JSON(), "mysql"), nullable=False)
-        )
-
-    with op.batch_alter_table("documents", schema=None) as batch_op:
-        batch_op.alter_column(
-            "text_coverage", existing_type=sa.FLOAT(), type_=sa.Double(), existing_nullable=True
-        )
-
-    with op.batch_alter_table("training_lessons", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("narration_voice", sa.String(length=40), nullable=True))
 
 
 def downgrade() -> None:
