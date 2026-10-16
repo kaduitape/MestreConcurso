@@ -102,8 +102,15 @@ jobs:
           # Checar só a API por dentro deixa passar um proxy apontando para um
           # contêiner que não existe mais: o deploy fica verde e todo /api/
           # responde 502 em produção. Já aconteceu — por isso este passo existe.
+          #
+          # O Host precisa ser o de verdade: a API roda com TrustedHostMiddleware
+          # e responde 400 "Invalid host header" para qualquer outro. Sai do
+          # ALLOWED_HOSTS do .env, que é exatamente o que produção aceita.
+          health_host=$(sed -n 's/^ALLOWED_HOSTS=//p' .env | head -1 | cut -d, -f1 | tr -d "\"' ")
+          [ -n "$health_host" ] || health_host=localhost
+          echo "[deploy] testando o caminho do usuário com Host: $health_host"
           for attempt in $(seq 1 30); do
-            if $compose exec -T frontend wget -qO- http://127.0.0.1/health </dev/null >/dev/null 2>&1; then
+            if $compose exec -T frontend wget -qO- --header="Host: $health_host" http://127.0.0.1/health </dev/null >/dev/null 2>&1; then
               echo "[deploy] /health pelo nginx respondeu — caminho do usuário OK"
               $compose ps
               exit 0
@@ -112,7 +119,9 @@ jobs:
           done
 
           echo "[deploy] a API responde por dentro, mas /health pelo nginx não."
-          echo "[deploy] o proxy do frontend não está alcançando a API."
+          echo "[deploy] 502 = o proxy não alcança a API; 400 = Host recusado."
+          $compose exec -T frontend wget -S -qO- --header="Host: $health_host" \
+            http://127.0.0.1/health </dev/null 2>&1 | head -20 || true
           $compose logs --tail=100 frontend
           $compose ps
           exit 1
