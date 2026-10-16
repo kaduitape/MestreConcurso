@@ -4,6 +4,36 @@ Todo `push` na branch `master` executa o workflow **Deploy VPS**. Ele atualiza a
 cópia do repositório na VPS, reconstrói os containers de produção, aplica as
 migrations e só termina com sucesso quando a API responde ao health check.
 
+## O deploy testa o caminho do usuário, não só a API
+
+O passo final não pergunta "a API está viva?" — pergunta "o navegador consegue
+falar com ela?". São duas checagens, nesta ordem:
+
+1. `curl` dentro do contêiner da API. Prova que as migrations rodaram e o app
+   subiu.
+2. `wget` dentro do contêiner do frontend, batendo em `/health`. Esse caminho
+   atravessa o nginx, então pega também proxy apontando para o lugar errado.
+
+A segunda existe porque a primeira sozinha já deixou passar uma produção
+quebrada: o deploy ficou verde enquanto **todo `/api/` respondia 502**.
+
+### Por que o proxy quebrava
+
+O `proxy_pass` do nginx usa uma **variável** (`set $api_upstream ...`) e o
+`resolver` do Docker (`127.0.0.11`), em vez do host escrito direto. Com o host
+literal, o nginx resolve o nome **uma única vez, ao subir**, e guarda o IP para
+sempre.
+
+Quando um deploy recria só o contêiner da API — porque a imagem do frontend não
+mudou —, a API volta com outro IP na rede do Docker e o nginx segue falando com
+o endereço morto. O resultado é 502 com corpo HTML, que o frontend não consegue
+ler como erro e exibe como "não foi possível concluir a operação".
+
+O healthcheck do próprio contêiner do frontend não cobre isso de propósito: ele
+bate em `/`, que é arquivo estático. Marcar o frontend como insalubre toda vez
+que a API reinicia causaria mais problema do que resolve — a checagem
+ponta a ponta é trabalho do deploy.
+
 ## As migrations rodam em um lugar só
 
 O `alembic upgrade head` é disparado **apenas pelo entrypoint do contêiner da
