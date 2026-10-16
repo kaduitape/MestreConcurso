@@ -13,6 +13,10 @@ falar com ela?". São duas checagens, nesta ordem:
    subiu.
 2. `wget` dentro do contêiner do frontend, batendo em `/health`. Esse caminho
    atravessa o nginx, então pega também proxy apontando para o lugar errado.
+   O `Host` da requisição sai do `ALLOWED_HOSTS` do `.env`: a API roda com
+   `TrustedHostMiddleware` e responde **400 `Invalid host header`** para
+   qualquer outro. Usar o host real é o que faz a checagem exercitar o mesmo
+   caminho do navegador, e não um atalho que produção não usa.
 
 A segunda existe porque a primeira sozinha já deixou passar uma produção
 quebrada: o deploy ficou verde enquanto **todo `/api/` respondia 502**.
