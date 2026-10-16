@@ -17,6 +17,17 @@ falar com ela?". São duas checagens, nesta ordem:
 A segunda existe porque a primeira sozinha já deixou passar uma produção
 quebrada: o deploy ficou verde enquanto **todo `/api/` respondia 502**.
 
+### A armadilha do stdin
+
+Todo `compose exec` no script do deploy fecha a entrada com `</dev/null`, e isso
+não é adorno. O script inteiro chega no servidor **pelo stdin** do `bash -s`.
+O `compose exec` conecta o stdin ao processo remoto mesmo com `-T`; quando ele
+drena o que sobrou do heredoc, **o resto do script desaparece** e o passo
+termina com sucesso sem ter executado checagem nenhuma.
+
+É uma corrida, então falha de forma intermitente: um deploy passou por sorte e o
+seguinte morreu logo depois do `up -d` — verde, e sem ter verificado nada.
+
 ### Por que o proxy quebrava
 
 O `proxy_pass` do nginx usa uma **variável** (`set $api_upstream ...`) e o
