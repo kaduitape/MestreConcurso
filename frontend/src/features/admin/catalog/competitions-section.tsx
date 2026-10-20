@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Briefcase, Eye, EyeOff, Plus, Search, Trash2 } from 'lucide-react'
+import { Briefcase, Plus, Search, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { ApiError } from '@/lib/api/client'
+import { catalogLinkApi } from '@/lib/api/catalog-link'
+import type { CompetitionEditorialStatus } from '@/lib/api/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,10 +23,15 @@ import { SkeletonList } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorState } from '@/components/feedback/error-state'
 import { adminCatalogApi } from '@/lib/api/catalog'
-import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/lib/query-client'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import { STATUS_LABEL, formatCurrency, formatDate } from './helpers'
+import {
+  EDITORIAL_LABEL,
+  EDITORIAL_ORDER,
+  STATUS_LABEL,
+  formatCurrency,
+  formatDate,
+} from './helpers'
 import { CompetitionDialog } from './competition-dialog'
 
 export function CompetitionsSection() {
@@ -83,17 +91,24 @@ export function CompetitionsSection() {
       toast.error(error instanceof ApiError ? error.message : 'Não foi possível salvar.'),
   })
 
-  const togglePublished = useMutation({
-    mutationFn: (input: { publicId: string; value: boolean }) =>
-      adminCatalogApi.updateCompetition(input.publicId, { is_published: input.value }),
+  // A esteira editorial substitui o antigo botão de publicar/despublicar:
+  // dois controles para o mesmo estado criariam duas verdades sobre a mesma
+  // ficha, e ninguém saberia em qual acreditar.
+  const moveEditorial = useMutation({
+    mutationFn: (input: { publicId: string; value: CompetitionEditorialStatus }) =>
+      catalogLinkApi.setEditorialStatus(input.publicId, input.value),
     onSuccess: (competition) => {
       toast.success(
         competition.is_published
           ? 'Concurso publicado para os candidatos.'
-          : 'Concurso despublicado.',
+          : `Concurso movido para ${EDITORIAL_LABEL[competition.editorial_status]}.`,
       )
       invalidate()
     },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof ApiError ? error.message : 'Não foi possível mover o concurso.',
+      ),
   })
 
   const remove = useMutation({
@@ -180,30 +195,32 @@ export function CompetitionsSection() {
                     </Td>
                     <Td className="space-x-1">
                       <Badge variant="outline">{STATUS_LABEL[competition.status]}</Badge>
-                      {competition.is_published ? (
-                        <Badge variant="success">Publicado</Badge>
-                      ) : (
-                        <Badge variant="neutral">Rascunho</Badge>
-                      )}
+                      <Badge
+                        variant={competition.is_published ? 'success' : 'neutral'}
+                        title="Esteira editorial da ficha"
+                      >
+                        {EDITORIAL_LABEL[competition.editorial_status]}
+                      </Badge>
                     </Td>
                     <Td className="text-right whitespace-nowrap">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          togglePublished.mutate({
+                      <select
+                        className="h-8 rounded-md border border-border bg-surface px-2 text-xs text-foreground"
+                        aria-label={`Esteira editorial de ${competition.name}`}
+                        value={competition.editorial_status}
+                        disabled={moveEditorial.isPending}
+                        onChange={(event) =>
+                          moveEditorial.mutate({
                             publicId: competition.public_id,
-                            value: !competition.is_published,
+                            value: event.target.value as CompetitionEditorialStatus,
                           })
                         }
-                        title={
-                          competition.is_published
-                            ? 'Ocultar dos candidatos'
-                            : 'Publicar para os candidatos'
-                        }
                       >
-                        {competition.is_published ? <EyeOff /> : <Eye />}
-                      </Button>
+                        {EDITORIAL_ORDER.map((estado) => (
+                          <option key={estado} value={estado}>
+                            {EDITORIAL_LABEL[estado]}
+                          </option>
+                        ))}
+                      </select>
                       <Button
                         variant="ghost"
                         size="sm"

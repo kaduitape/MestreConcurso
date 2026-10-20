@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
+
 from fastapi import APIRouter, Body, Depends, Response, status
 from pydantic import BaseModel, Field
 
-from app.api.deps import CurrentPrincipal, DbSession, RequestCtx, rate_limit
+from app.api.deps import CurrentPrincipal, CurrentUser, DbSession, RequestCtx, rate_limit
 from app.core.errors import InvalidCredentialsError
 from app.core.security import verify_password
 from app.schemas.auth import PasswordChangeRequest, SessionInfo
 from app.schemas.common import MessageResponse
-from app.schemas.user import MeRead, ProfileUpdate, UserUpdate
+from app.schemas.user import (
+    MeRead,
+    ProfileUpdate,
+    StudyFocusRead,
+    StudyFocusUpdate,
+    UserUpdate,
+)
 from app.services.auth import AuthService
+from app.services.study_focus import StudyFocusService
 from app.services.user import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -134,3 +143,28 @@ async def delete_account(
         raise InvalidCredentialsError("A senha informada está incorreta.")
     await UserService(db).delete_account(principal.user, ctx)
     return MessageResponse(message="Conta excluída. Seus dados pessoais foram anonimizados.")
+
+
+# --------------------------------------------------------------------------- #
+# Concurso principal
+#
+# Sem concurso escolhido não há contagem regressiva, e sem data de prova no
+# edital também não. Nos dois casos a resposta traz o motivo em vez de um
+# número inventado.
+# --------------------------------------------------------------------------- #
+@router.get("/me/focus", response_model=StudyFocusRead, summary="Meu concurso principal")
+async def get_focus(user: CurrentUser, db: DbSession) -> StudyFocusRead:
+    return StudyFocusRead(**asdict(await StudyFocusService(db).get(user)))
+
+
+@router.put("/me/focus", response_model=StudyFocusRead, summary="Escolher concurso principal")
+async def set_focus(
+    payload: StudyFocusUpdate,
+    user: CurrentUser,
+    db: DbSession,
+    ctx: RequestCtx,
+) -> StudyFocusRead:
+    focus = await StudyFocusService(db).set_primary(
+        user, ctx, competition_public_id=payload.competition_public_id
+    )
+    return StudyFocusRead(**asdict(focus))

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -7,6 +7,7 @@ import {
   Download,
   FileText,
   GraduationCap,
+  Target,
   Users,
 } from 'lucide-react'
 import { Badge, ProvenanceBadge } from '@/components/ui/badge'
@@ -15,7 +16,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton, SkeletonList } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorState } from '@/components/feedback/error-state'
+import { toast } from 'sonner'
+import { ApiError } from '@/lib/api/client'
 import { catalogApi } from '@/lib/api/catalog'
+import { studyFocusApi } from '@/lib/api/catalog-link'
 import { queryKeys } from '@/lib/query-client'
 import {
   EDUCATION_LABEL,
@@ -31,6 +35,48 @@ const SOURCE_TONE = {
   EDITORIAL: 'HISTORICO',
   OFFICIAL: 'OFICIAL',
 } as const
+
+/**
+ * Declarar o concurso principal. É o que destrava a contagem regressiva no
+ * painel — sem essa escolha, a plataforma não tem de onde tirar o prazo.
+ */
+function PrimaryCompetitionButton({ publicId }: { publicId: string }) {
+  const queryClient = useQueryClient()
+  const focus = useQuery({
+    queryKey: queryKeys.studyFocus,
+    queryFn: () => studyFocusApi.get(),
+    retry: false,
+  })
+  const isCurrent = focus.data?.competition_public_id === publicId
+
+  const choose = useMutation({
+    mutationFn: () => studyFocusApi.set(isCurrent ? null : publicId),
+    onSuccess: (result) => {
+      queryClient.setQueryData(queryKeys.studyFocus, result)
+      toast.success(
+        result.competition_public_id
+          ? 'Concurso principal atualizado.'
+          : 'Você não está mais seguindo este concurso.',
+      )
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof ApiError ? error.message : 'Não foi possível salvar a escolha.',
+      ),
+  })
+
+  return (
+    <Button
+      variant={isCurrent ? 'secondary' : 'primary'}
+      onClick={() => choose.mutate()}
+      disabled={choose.isPending}
+    >
+      <Target className="size-4" />
+      {isCurrent ? 'Meu concurso principal' : 'Definir como meu concurso'}
+    </Button>
+  )
+}
+
 
 export function CompetitionDetailPage() {
   const { publicId = '' } = useParams()
@@ -87,11 +133,16 @@ export function CompetitionDetailPage() {
             <Badge variant="success">{remaining} dias para a prova</Badge>
           )}
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight">{data.name}</h1>
-        <p className="text-muted">
-          {data.organization.name}
-          {data.organization.uf && ` · ${data.organization.uf}`}
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">{data.name}</h1>
+            <p className="text-muted">
+              {data.organization.name}
+              {data.organization.uf && ` · ${data.organization.uf}`}
+            </p>
+          </div>
+          <PrimaryCompetitionButton publicId={data.public_id} />
+        </div>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

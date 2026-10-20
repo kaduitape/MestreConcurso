@@ -32,3 +32,20 @@ export function daysUntil(value: string | null): number | null {
   const today = new Date().setHours(0, 0, 0, 0)
   return Math.round((target - today) / 86_400_000)
 }
+
+/** Os cinco pontos da esteira editorial, na ordem em que se caminha. */
+export const EDITORIAL_ORDER = [
+  'DRAFT',
+  'PROCESSING',
+  'REVIEW',
+  'PUBLISHED',
+  'ARCHIVED',
+] as const
+
+export const EDITORIAL_LABEL: Record<string, string> = {
+  DRAFT: 'Rascunho',
+  PROCESSING: 'Processamento',
+  REVIEW: 'Revisão',
+  PUBLISHED: 'Publicado',
+  ARCHIVED: 'Arquivado',
+}

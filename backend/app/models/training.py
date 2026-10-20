@@ -57,8 +57,20 @@ class TrainingLesson(IdMixin, PublicIdMixin, TimestampMixin, Base):
         BigInteger, ForeignKey("competitions.id", ondelete="SET NULL")
     )
     title: Mapped[str] = mapped_column(String(200))
+    #: O texto que a aula exibe e que foi para o prompt. Continua mandando na
+    #: tela: o vínculo abaixo é para a plataforma saber de qual tópico a aula é,
+    #: não para reescrever o que o autor digitou.
     subject: Mapped[str] = mapped_column(String(140))
     topic: Mapped[str] = mapped_column(String(240))
+    #: Vínculo com o catálogo. Opcional de propósito: aula antiga sem vínculo
+    #: continua funcionando, e casar no chute mandaria o aluno para o tópico
+    #: errado. Quem confirma é uma pessoa, no painel.
+    subject_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("subjects.id", ondelete="SET NULL"), index=True
+    )
+    topic_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("topics.id", ondelete="SET NULL"), index=True
+    )
     character_name: Mapped[str] = mapped_column(String(120))
     additional_prompt: Mapped[str | None] = mapped_column(MediumText)
     level: Mapped[str] = mapped_column(String(20), default="INTERMEDIARIO")

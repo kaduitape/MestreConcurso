@@ -38,6 +38,7 @@ import type { DailyBoard, GameProfile, League, TerritoryMap } from '@/lib/api/ty
 import { queryKeys } from '@/lib/query-client'
 import { firstName, greeting } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
+import { StudyFocusCard } from './study-focus-card'
 import { MissionPanel } from '@/features/study/mission'
 import { SprintDialog } from '@/features/study/sprint-dialog'
 import { formatMinutes } from '@/features/study/helpers'
@@ -490,6 +491,8 @@ export function TodayPage() {
 
   return (
     <div className="space-y-5">
+      {/* O concurso principal abre a tela: é o que dá sentido a tudo abaixo. */}
+      <StudyFocusCard />
       <motion.header
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}

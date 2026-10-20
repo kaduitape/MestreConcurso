@@ -72,3 +72,19 @@ class MeRead(UserRead):
         data = cls.model_validate(user)
         data.permissions = sorted(user.permission_slugs)
         return data
+
+
+class StudyFocusRead(BaseModel):
+    """O concurso principal e a contagem regressiva — ou o motivo de não haver."""
+
+    competition_public_id: str | None = None
+    competition_name: str | None = None
+    organization_name: str | None = None
+    exam_date: date | None = None
+    days_remaining: int | None = None
+    unavailable_reason: str | None = None
+
+
+class StudyFocusUpdate(BaseModel):
+    #: Vazio abandona o concurso principal.
+    competition_public_id: str | None = None

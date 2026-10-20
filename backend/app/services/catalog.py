@@ -16,6 +16,7 @@ from app.core.slugify import slugify
 from app.models.audit import AuditAction
 from app.models.catalog import (
     Competition,
+    CompetitionEditorialStatus,
     ExamBoard,
     Organization,
     Position,
@@ -47,6 +48,39 @@ class ImportResult:
     updated: int
     skipped: int
     errors: list[str]
+
+
+#: Para onde cada estado editorial pode ir. O caminho normal é
+#: rascunho → processamento → revisão → publicado; voltar é permitido porque
+#: revisão que encontra problema precisa poder devolver a ficha.
+EDITORIAL_TRANSITIONS: dict[str, frozenset[str]] = {
+    CompetitionEditorialStatus.DRAFT: frozenset(
+        {
+            CompetitionEditorialStatus.PROCESSING,
+            CompetitionEditorialStatus.REVIEW,
+            CompetitionEditorialStatus.ARCHIVED,
+        }
+    ),
+    CompetitionEditorialStatus.PROCESSING: frozenset(
+        {
+            CompetitionEditorialStatus.REVIEW,
+            CompetitionEditorialStatus.DRAFT,
+            CompetitionEditorialStatus.ARCHIVED,
+        }
+    ),
+    CompetitionEditorialStatus.REVIEW: frozenset(
+        {
+            CompetitionEditorialStatus.PUBLISHED,
+            CompetitionEditorialStatus.DRAFT,
+            CompetitionEditorialStatus.ARCHIVED,
+        }
+    ),
+    # Publicado não volta direto para rascunho: some do ar sem ninguém revisar.
+    CompetitionEditorialStatus.PUBLISHED: frozenset(
+        {CompetitionEditorialStatus.REVIEW, CompetitionEditorialStatus.ARCHIVED}
+    ),
+    CompetitionEditorialStatus.ARCHIVED: frozenset({CompetitionEditorialStatus.DRAFT}),
+}
 
 
 class CatalogService:
@@ -258,6 +292,16 @@ class CatalogService:
         for field, value in data.items():
             setattr(competition, field, value)
 
+        # `is_published` e `editorial_status` descrevem a mesma coisa por dois
+        # ângulos. Deixar o PATCH mexer só num deles criaria uma ficha
+        # "publicada" presa em rascunho — e ninguém saberia qual acreditar.
+        if "is_published" in data:
+            competition.editorial_status = (
+                CompetitionEditorialStatus.PUBLISHED
+                if competition.is_published
+                else CompetitionEditorialStatus.DRAFT
+            )
+
         await self._audit(
             AuditAction.CATALOG_UPDATED,
             actor,
@@ -265,6 +309,46 @@ class CatalogService:
             "competition",
             public_id,
             {"fields": sorted(data)},
+        )
+        await self.session.commit()
+        return await self.get_competition(public_id)
+
+    async def set_editorial_status(
+        self,
+        public_id: str,
+        status: str,
+        *,
+        actor: User,
+        context: RequestContext,
+    ) -> Competition:
+        """Move a ficha do concurso na esteira editorial.
+
+        A visibilidade para quem estuda (``is_published``) passa a ser derivada
+        daqui: publicado mostra, qualquer outro estado esconde. Assim existe
+        uma verdade só, e arquivar um concurso tira ele do ar de fato.
+        """
+        competition = await self.get_competition(public_id)
+        if status not in set(CompetitionEditorialStatus):
+            raise ValidationError(
+                "Estado editorial desconhecido.", code="competition_unknown_status"
+            )
+        permitidos = EDITORIAL_TRANSITIONS[competition.editorial_status]
+        if status != competition.editorial_status and status not in permitidos:
+            raise ConflictError(
+                f"Não dá para ir de {competition.editorial_status} para {status}.",
+                code="competition_invalid_transition",
+            )
+
+        competition.editorial_status = status
+        competition.is_published = status == CompetitionEditorialStatus.PUBLISHED
+
+        await self._audit(
+            AuditAction.CATALOG_UPDATED,
+            actor,
+            context,
+            "competition",
+            public_id,
+            {"editorial_status": status},
         )
         await self.session.commit()
         return await self.get_competition(public_id)

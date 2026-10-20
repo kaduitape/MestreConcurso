@@ -37,8 +37,14 @@ class MindMap(IdMixin, PublicIdMixin, TimestampMixin, Base):
     created_by_user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
+    #: Vínculo com o catálogo, confirmado por uma pessoa. O ``subject_id`` foi
+    #: criado junto com o mapa mental e nunca chegou a ser preenchido — esta
+    #: fase conserta isso e acrescenta o tópico.
     subject_id: Mapped[int | None] = mapped_column(
-        BigInteger, ForeignKey("subjects.id", ondelete="SET NULL")
+        BigInteger, ForeignKey("subjects.id", ondelete="SET NULL"), index=True
+    )
+    topic_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("topics.id", ondelete="SET NULL"), index=True
     )
 
     subject: Mapped[str] = mapped_column(String(140))
