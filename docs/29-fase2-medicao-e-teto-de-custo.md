@@ -143,6 +143,39 @@ passo e execução manual de um agente só**.
     agente sozinho não mexe nos outros.
 34. Migração `agent_runs`/`agent_steps` sobe, desce e passa no `alembic check`.
 
+---
+
+# Fase 2 (parte 3) — A tela, e o terceiro agente
+
+## A tela do orquestrador
+
+35. O acompanhamento vive no painel, aba **Agentes**. Cada estado tem cor e
+    ícone próprios, e **pulado nunca se parece com concluído**: o passo pulado
+    traz o motivo escrito ao lado, e o que ainda não foi construído carrega o
+    selo "ainda não existe".
+36. `BUDGET_BLOCKED` aparece como *Barrado pelo teto*, em dourado — separado de
+    *Falhou*, em vermelho. São coisas diferentes e a tela não as mistura.
+37. Enquanto a execução roda, a tela se atualiza sozinha: o estado mora no
+    banco, não na memória do navegador.
+38. A contagem de agentes construídos sai do próprio catálogo. Número escrito à
+    mão na interface envelhece em silêncio.
+39. A execução é identificada pelo **concurso e pela data**, não por um pedaço
+    de identificador — é assim que uma pessoa procura o que rodou.
+
+## O terceiro agente, e a ficha que mentia
+
+40. O **tutor adaptativo** estava declarado como construído e não tinha
+    implementação registrada. Na execução ele seria pulado dizendo "ainda não
+    foi implementado", contradizendo a própria ficha dele na mesma tela.
+41. Agora ele roda, sobre o Priority Score que já existia: reúne sinais reais
+    do candidato e marca como ausente o sinal que não existe. **Nenhuma IA
+    entra aqui** — e nenhum número é estimado.
+42. Sem candidato com plano ativo para o concurso, ele é pulado com o motivo
+    escrito. Ausência de insumo não é falha.
+43. Um teste passou a cobrar a igualdade que faltava: **todo agente declarado
+    como construído tem implementação registrada**. São três, e os cinco
+    restantes dizem por que ainda não são.
+
 ## O que ainda falta
 
 - Os agentes 3, 4 e 5 só ganham implementação na **Fase 4** (geração em massa).

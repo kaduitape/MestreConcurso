@@ -185,9 +185,7 @@ class AIBudget(IdMixin, TimestampMixin, Base):
 
     scope: Mapped[str] = mapped_column(String(40), default="GLOBAL")
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
-    monthly_limit_cents: Mapped[Decimal] = mapped_column(
-        Numeric(12, 6), default=Decimal("0")
-    )
+    monthly_limit_cents: Mapped[Decimal] = mapped_column(Numeric(12, 6), default=Decimal("0"))
     per_run_limit_cents: Mapped[Decimal] = mapped_column(Numeric(12, 6), default=Decimal("0"))
 
 

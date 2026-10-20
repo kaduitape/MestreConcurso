@@ -116,13 +116,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_agent_steps_run_id_status", table_name="agent_steps")
-    op.drop_index(op.f("ix_agent_steps_run_id"), table_name="agent_steps")
-
+    # Derrubar a tabela já leva os índices dela. Remover o índice antes falha no
+    # MySQL quando é ele que sustenta a chave estrangeira — "Cannot drop index
+    # 'ix_agent_runs_competition_id': needed in a foreign key constraint". O
+    # SQLite dos testes não reclama, então isso só aparece em banco de verdade.
     op.drop_table("agent_steps")
-    op.drop_index("ix_agent_runs_status_created_at", table_name="agent_runs")
-    op.drop_index(op.f("ix_agent_runs_status"), table_name="agent_runs")
-    op.drop_index(op.f("ix_agent_runs_public_id"), table_name="agent_runs")
-    op.drop_index(op.f("ix_agent_runs_competition_id"), table_name="agent_runs")
-
     op.drop_table("agent_runs")

@@ -98,7 +98,7 @@ async def catalog(_: AgentReader) -> AgentLayersRead:
 @router.get("", response_model=Page[AgentRunRead], summary="Execuções")
 async def list_runs(_: AgentReader, db: DbSession, params: PageDep) -> Page[AgentRunRead]:
     service = OrchestratorService(db)
-    rows, total = await service.list(limit=params.page_size, offset=params.offset)
+    rows, total = await service.list_runs(limit=params.page_size, offset=params.offset)
     items = [_read(service, run, await _competition_public_id(db, run)) for run in rows]
     return Page.create(items, total, params)
 

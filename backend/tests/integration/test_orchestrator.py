@@ -10,8 +10,10 @@ from __future__ import annotations
 from typing import Any
 
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.agents import AgentKey
+from app.models.catalog import Competition, Organization
 from tests.conftest import CapturingDispatcher
 from tests.factories import RegisteredUser, create_admin, create_user
 
@@ -202,6 +204,87 @@ async def test_an_unbuilt_agent_consumes_no_attempt(
     assert melhorias["status"] == "SKIPPED"
     assert melhorias["attempts"] == 0
     assert melhorias["is_implemented"] is False
+
+
+async def test_a_manual_run_still_respects_the_dependency(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """Rodar à mão não atropela a ordem.
+
+    O tutor depende da estatística: insistir nele antes disso recalcularia
+    prioridade sobre incidência que ainda não existe. O passo é pulado com a
+    cadeia escrita e **não gasta tentativa**, porque não rodou.
+    """
+    admin = await create_admin(client, emails, email="agt13@exemplo.com.br")
+    run = await _run(client, admin)
+
+    body = (
+        await client.post(
+            f"/api/v1/admin/agents/{run['public_id']}/run/{AgentKey.TUTOR}",
+            headers=admin.auth_header,
+        )
+    ).json()
+
+    tutor = _step(body, AgentKey.TUTOR)
+    assert tutor["status"] == "SKIPPED"
+    assert tutor["attempts"] == 0
+    assert "depende de" in (tutor["detail"] or "").lower()
+
+
+async def test_the_tutor_says_there_is_nobody_to_reorder(db_session: AsyncSession) -> None:
+    """O tutor é um dos três construídos: ele roda de verdade.
+
+    Sem candidato com plano ativo não há prioridade para recalcular, e isso é
+    ausência de insumo — não "agente que não existe". Aqui ele é chamado
+    direto, sem o orquestrador, para cobrar o que ele mesmo faz.
+    """
+    from app.models.agent_run import AgentRun as AgentRunModel
+    from app.services.agent_runners import run_tutor
+
+    org = Organization(
+        name="Tribunal do Tutor", slug="tribunal-do-tutor", short_name="TTU", sphere="FEDERAL"
+    )
+    db_session.add(org)
+    await db_session.flush()
+    competition = Competition(
+        name="Concurso do Tutor",
+        slug="concurso-do-tutor",
+        year=2026,
+        organization_id=org.id,
+    )
+    db_session.add(competition)
+    await db_session.flush()
+    run = AgentRunModel(competition_id=competition.id, status="PENDING")
+    db_session.add(run)
+    await db_session.flush()
+
+    outcome = await run_tutor(db_session, run)
+
+    assert outcome.skipped is True
+    assert "plano de estudo ativo" in outcome.detail
+
+
+async def test_every_agent_declared_as_built_has_an_implementation(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """Catálogo e registro precisam contar a mesma história.
+
+    Um agente declarado como construído sem implementação registrada seria
+    pulado dizendo "ainda não foi implementado" — contradizendo a ficha dele na
+    mesma tela. Verde que mente é o defeito que este orquestrador existe para
+    não ter.
+    """
+    from app.services.orchestrator import registry
+
+    admin = await create_admin(client, emails, email="agt14@exemplo.com.br")
+    body = (await client.get("/api/v1/admin/agents/catalog", headers=admin.auth_header)).json()
+
+    for agente in body["agents"]:
+        construido = agente["is_implemented"]
+        registrado = registry.get(agente["key"]) is not None
+        assert construido == registrado, (
+            f"{agente['key']}: catálogo diz construído={construido}, registro diz {registrado}"
+        )
 
 
 async def test_an_unknown_agent_is_refused(
