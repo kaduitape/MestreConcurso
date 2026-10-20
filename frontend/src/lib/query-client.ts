@@ -123,4 +123,5 @@ export const queryKeys = {
   linkTopics: (kind: string, publicId: string, subjectId: string) =>
     ['admin', 'catalog', 'links', kind, publicId, subjectId] as const,
   studyFocus: ['users', 'me', 'focus'] as const,
+  aiBudget: ['admin', 'ai', 'budget'] as const,
 }

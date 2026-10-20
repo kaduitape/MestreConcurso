@@ -2367,3 +2367,23 @@ export interface StudyFocus {
   /** Por que não há contagem. A tela mostra isto no lugar do número. */
   unavailable_reason: string | null
 }
+
+/* --- Teto de gasto com IA ----------------------------------------------- */
+
+export interface AIBudget {
+  is_enabled: boolean
+  /** Centavos. Zero quer dizer "sem teto para este". */
+  monthly_limit_cents: string
+  per_run_limit_cents: string
+  spent_month_cents: string
+  calls_month: number
+  /** Falso quando algum modelo usado no mês não tem preço cadastrado. */
+  is_complete: boolean
+  models_without_price: string[]
+}
+
+export interface AIBudgetInput {
+  is_enabled: boolean
+  monthly_limit_cents: string
+  per_run_limit_cents: string
+}

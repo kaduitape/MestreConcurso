@@ -16,6 +16,7 @@ from app.ai.base import (
     ProviderError,
     ProviderNotConfiguredError,
 )
+from app.ai.metered import MeteredProvider
 from app.ai.registry import available_provider_slugs, build_provider
 from app.core.crypto import decrypt_secret, encrypt_secret, secret_hint
 from app.core.errors import ConflictError, NotFoundError, ValidationError
@@ -411,8 +412,26 @@ class AISettingsService:
         if not provider_config.is_active:
             raise ProviderNotConfiguredError("O provedor desta funcionalidade está inativo.")
 
+        # O provedor sai daqui já embrulhado pelo medidor. É o único ponto da
+        # aplicação onde isso acontece: medir em cada um dos nove lugares que
+        # chamam IA daria nove chances de esquecer, e o esquecido não aparece
+        # na conta — que é exatamente o defeito que a medição veio consertar.
         return ResolvedModel(
-            provider=self.build_client(provider_config),
+            provider=MeteredProvider(
+                self.build_client(provider_config),
+                feature=feature,
+                model_slug=model.slug,
+                input_cost_per_1k=(
+                    Decimal(model.input_cost_per_1k)
+                    if model.input_cost_per_1k is not None
+                    else None
+                ),
+                output_cost_per_1k=(
+                    Decimal(model.output_cost_per_1k)
+                    if model.output_cost_per_1k is not None
+                    else None
+                ),
+            ),
             provider_slug=provider_config.slug,
             model_slug=model.slug,
             binding=binding,

@@ -1,0 +1,130 @@
+"""Os agentes que de fato rodam hoje.
+
+O catálogo em ``app.domain.agents`` declara os oito do pedido. Aqui ficam só os
+que têm implementação de verdade — e isso é deliberado: registrar um agente que
+não faz nada o deixaria **verde** na tela de acompanhamento, que é pior do que
+deixá-lo pulado. Pulado traz o motivo escrito; verde mente.
+
+Os dois registrados reutilizam serviços que já estavam em produção:
+
+* **Analista de editais** → o pipeline de análise, com suas sete etapas e a
+  conferência de cada citação no PDF.
+* **Inteligência estatística** → o cálculo de incidência da banca, que já
+  separa frequência observada de estimativa e carrega o tamanho da amostra.
+
+O orquestrador não refaz o trabalho deles. Ele os chama na ordem certa e
+registra o que aconteceu.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.domain.agents import AgentKey
+from app.models.agent_run import AgentRun
+from app.models.catalog import Competition
+from app.models.notice import Notice, NoticeKind
+from app.services.auth import RequestContext
+from app.services.orchestrator import AgentOutcome, registry
+
+
+async def _competition(session: AsyncSession, run: AgentRun) -> Competition | None:
+    if run.competition_id is None:
+        return None
+    return (
+        await session.execute(select(Competition).where(Competition.id == run.competition_id))
+    ).scalar_one_or_none()
+
+
+async def run_notice_analyst(session: AsyncSession, run: AgentRun) -> AgentOutcome:
+    """Roda a análise do edital principal do concurso."""
+    from app.services.notice_analysis import NoticeAnalysisService
+
+    notices = (
+        (
+            await session.execute(
+                select(Notice)
+                .where(Notice.competition_id == run.competition_id)
+                .order_by(Notice.created_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    principal = next((item for item in notices if item.kind == NoticeKind.MAIN), None)
+    if principal is None:
+        # Sem edital não há o que analisar, e isso não é falha: é ausência de
+        # insumo. O motivo escrito evita que alguém procure um erro que não há.
+        return AgentOutcome(
+            detail="O concurso ainda não tem edital principal cadastrado.", skipped=True
+        )
+    if not principal.files:
+        return AgentOutcome(
+            detail="O edital está cadastrado, mas sem arquivo PDF enviado.", skipped=True
+        )
+
+    outcome = await NoticeAnalysisService(session).analyze(
+        principal, actor=None, context=RequestContext()
+    )
+    return AgentOutcome(
+        detail=(
+            f"Edital analisado: {outcome.subjects_created} disciplinas, "
+            f"{outcome.facts_created} dados extraídos e "
+            f"{outcome.events_created} datas identificadas."
+        ),
+        result={
+            "notice": outcome.notice_public_id,
+            "subjects_created": outcome.subjects_created,
+            "facts_created": outcome.facts_created,
+            "events_created": outcome.events_created,
+            "cached": outcome.cached,
+        },
+    )
+
+
+async def run_statistics(session: AsyncSession, run: AgentRun) -> AgentOutcome:
+    """Recalcula a incidência da banca do concurso."""
+    from app.services.intelligence import IntelligenceService
+
+    competition = await _competition(session, run)
+    if competition is None or competition.exam_board is None:
+        return AgentOutcome(
+            detail="O concurso não tem banca definida, então não há provas para analisar.",
+            skipped=True,
+        )
+
+    resultado = await IntelligenceService(session).recompute_board(competition.exam_board.slug)
+
+    if resultado.incidence_blocked:
+        # O serviço já diz por que não deu — repassar isso é melhor que
+        # inventar um sucesso vazio.
+        return AgentOutcome(detail=resultado.incidence_blocked, skipped=True)
+
+    return AgentOutcome(
+        detail=(
+            f"{resultado.incidence_rows} linhas de incidência a partir de "
+            f"{resultado.questions_sampled} questões da banca."
+        ),
+        result={
+            "board": resultado.board_slug,
+            "questions_sampled": resultado.questions_sampled,
+            "incidence_rows": resultado.incidence_rows,
+            "profile_metrics": resultado.profile_metrics,
+        },
+    )
+
+
+def register_default_agents() -> None:
+    """Liga as chaves do catálogo às implementações reais.
+
+    Só estes dois. Os outros seis continuam declarados e pulados com o motivo
+    que o catálogo traz — professor, memorização e mestre de batalhas dependem
+    da geração em massa (Fase 4), o auditor é a Fase 3 e o analista de
+    melhorias ainda não teve o desenho aprovado.
+    """
+    registry.register(AgentKey.NOTICE_ANALYST, run_notice_analyst)
+    registry.register(AgentKey.STATISTICS, run_statistics)
+
+
+register_default_agents()

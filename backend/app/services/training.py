@@ -304,7 +304,16 @@ class TrainingService:
                         json_response=True,
                     )
                 )
-                script = _validate_script(json.loads(completion.content))
+                try:
+                    bruto = json.loads(completion.content)
+                except json.JSONDecodeError as exc:
+                    # Modelo devolvendo algo que não é JSON é evento real de
+                    # produção. Sem isto, vira 500 com stack trace em vez de
+                    # uma recusa legível com o motivo gravado na aula.
+                    raise ValidationError(
+                        "A IA não devolveu JSON válido.", code="training_invalid_json"
+                    ) from exc
+                script = _validate_script(bruto)
                 input_tokens = completion.usage.input_tokens
                 output_tokens = completion.usage.output_tokens
                 latency_ms = completion.latency_ms
