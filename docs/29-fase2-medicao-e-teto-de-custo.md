@@ -84,3 +84,67 @@ Um teto sobre esse número seria ficção. Então a medição vem antes do teto.
   portas sobre os serviços existentes.
 - Esta parte veio primeiro porque o orquestrador vai precisar perguntar
   "posso gastar?" antes de cada passo — e essa pergunta não tinha resposta.
+
+---
+
+# Fase 2 (parte 2) — O orquestrador
+
+Generaliza o que o pipeline de análise de edital já fazia bem — passos
+persistidos, acompanháveis ao vivo, com motivo escrito quando algo é pulado — e
+acrescenta o que faltava: **dependências entre agentes, tentativas, custo por
+passo e execução manual de um agente só**.
+
+## A regra que sustenta tudo
+
+21. **Agente que não existe nunca aparece verde.** Dois dos oito ainda não
+    foram construídos (auditor e analista de melhorias) e três dependem da
+    geração em massa. Eles ficam `SKIPPED` **com o motivo escrito**, nunca
+    `DONE`. Um passo concluído que não fez nada é pior que um passo falho,
+    porque ninguém vai investigar.
+22. Os agentes são **nomes e portas** sobre serviços que já rodavam, não
+    reimplementações. O orquestrador chama na ordem certa e registra.
+23. **Só dois estão registrados hoje**, e ambos rodam de verdade:
+    - *Analista de editais* → o pipeline de análise com suas sete etapas;
+    - *Inteligência estatística* → o cálculo de incidência da banca.
+
+    Registrar um agente vazio o deixaria verde — por isso os outros não são
+    registrados.
+
+## Dependências, tentativas e custo
+
+24. O grafo é declarado; a ordem de execução é **derivada** dele. É o que
+    permite responder quais passos podem correr juntos — o pedido pede
+    paralelismo **apenas** onde não há dependência.
+25. Ciclo no grafo é recusado em vez de rodar para sempre.
+26. Dependência que não terminou bem faz o passo seguinte ser pulado **com a
+    cadeia escrita** ("não rodou porque depende de: …").
+27. Falha de um agente não derruba os independentes.
+28. Tentativas são por agente e poucas: insistir num agente que falhou por
+    configuração só queima tempo, e a decisão de insistir manualmente continua
+    sendo de uma pessoa.
+29. **Duas coisas diferentes viram "pulado", e a contagem de tentativas as
+    separa:** o agente que rodou e não achou o que fazer gasta tentativa; o que
+    nem existe, não.
+30. O custo de cada passo é a diferença do gasto medido no período — o
+    orquestrador não conta token, ele lê o que a camada de medição registrou.
+
+## O teto encontra o orquestrador
+
+31. O teto é perguntado **antes de cada passo**. Passo barrado fica
+    `BUDGET_BLOCKED`, que não se confunde com falha de código nem com
+    conclusão.
+32. Execução barrada por orçamento **não conta como concluída**.
+
+## Qualidade
+
+33. **17 testes de domínio** e **13 de integração**. Entre eles: que o catálogo
+    declara os oito, que agente sem implementação diz por quê, que pulado nunca
+    vira concluído, que a cadeia de dependência aparece escrita, e que rodar um
+    agente sozinho não mexe nos outros.
+34. Migração `agent_runs`/`agent_steps` sobe, desce e passa no `alembic check`.
+
+## O que ainda falta
+
+- Os agentes 3, 4 e 5 só ganham implementação na **Fase 4** (geração em massa).
+- O auditor é a **Fase 3** e vem antes dela.
+- O analista de melhorias continua sem desenho aprovado.
