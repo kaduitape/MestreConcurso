@@ -184,6 +184,8 @@ ambiente é necessária: a configuração é dado, não código.
 | [Dia de Treinamento](docs/dia-de-treinamento.md) | estúdio em cenas e a narração com direção de cena |
 | [26 — Critérios de aceite da Batalha RPG](docs/26-criterios-aceite-batalha-rpg.md) | dois layouts, combate derivado das respostas, combo, moedas, poderes, campanha e ranking |
 | [Mapas mentais](docs/mapas-mentais.md) | painéis com cor fixa, revisão humana antes de publicar e o texto como texto |
+| [27 — Evolução com agentes: diagnóstico](docs/27-evolucao-agentes-diagnostico.md) | o que já existe, as lacunas reais, os riscos e o plano em fases |
+| [28 — Fase 1: vínculo e concurso principal](docs/28-fase1-vinculo-e-concurso-principal.md) | conteúdo ligado ao catálogo por decisão humana, e a contagem regressiva sem número inventado |
 
 ## Como executar
 

@@ -17,16 +17,22 @@ from app.schemas.board_knowledge import (
     BoardKnowledgeRead,
 )
 from app.schemas.catalog import (
+    CatalogLinkUpdate,
+    CatalogMatchCandidate,
+    CatalogMatchRead,
     CompetitionCreate,
+    CompetitionEditorialUpdate,
     CompetitionRead,
     CompetitionSummary,
     CompetitionUpdate,
     ExamBoardCreate,
     ExamBoardRead,
     ExamBoardUpdate,
+    LinkedContentRead,
     OrganizationCreate,
     OrganizationRead,
     OrganizationUpdate,
+    PendingLinkRead,
     PositionCreate,
     PositionRead,
     PositionSubjectInput,
@@ -41,6 +47,7 @@ from app.schemas.catalog import (
 from app.schemas.common import MessageResponse
 from app.services.board_knowledge import BoardKnowledgeService, KnowledgeInput
 from app.services.catalog import CatalogService
+from app.services.catalog_link import CatalogLinkService
 
 router = APIRouter(prefix="/admin/catalog", tags=["admin · catálogo"])
 
@@ -305,6 +312,25 @@ async def update_competition(
     return CompetitionRead.model_validate(competition)
 
 
+@router.put(
+    "/competitions/{public_id}/editorial-status",
+    response_model=CompetitionRead,
+    summary="Mover o concurso na esteira editorial",
+)
+async def set_editorial_status(
+    public_id: str,
+    payload: CompetitionEditorialUpdate,
+    actor: CatalogWriter,
+    db: DbSession,
+    ctx: RequestCtx,
+) -> CompetitionRead:
+    """Publicar aqui é o que torna o concurso visível para quem estuda."""
+    competition = await CatalogService(db).set_editorial_status(
+        public_id, payload.editorial_status, actor=actor, context=ctx
+    )
+    return CompetitionRead.model_validate(competition)
+
+
 @router.delete(
     "/competitions/{public_id}", response_model=MessageResponse, summary="Remover concurso"
 )
@@ -535,3 +561,106 @@ async def delete_topic(
 ) -> MessageResponse:
     await CatalogService(db).delete_topic(public_id, actor=actor, context=ctx)
     return MessageResponse(message="Assunto removido (subassuntos incluídos).")
+
+
+# --------------------------------------------------------------------------- #
+# Vínculo de conteúdo com o catálogo
+#
+# A sugestão é calculada sem IA e **não** é aplicada sozinha: casar no chute
+# mandaria a aula para o tópico errado, e o aluno estudaria achando que está
+# no lugar certo.
+# --------------------------------------------------------------------------- #
+def _match(result: object) -> CatalogMatchRead:
+    from app.domain.catalog_match import MatchResult
+
+    assert isinstance(result, MatchResult)
+    return CatalogMatchRead(
+        query=result.query,
+        candidates=[
+            CatalogMatchCandidate(
+                public_id=item.entry.public_id,
+                name=item.entry.name,
+                path=item.entry.path,
+                score=item.score,
+                reason=item.reason,
+                reason_label=item.reason_label,
+                is_strong=item.is_strong,
+            )
+            for item in result.candidates
+        ],
+    )
+
+
+@router.get(
+    "/links/pending",
+    response_model=Page[PendingLinkRead],
+    summary="Conteúdo esperando vínculo com o catálogo",
+)
+async def pending_links(
+    _: CatalogReader, db: DbSession, params: Annotated[PageParams, Depends(page_params)]
+) -> Page[PendingLinkRead]:
+    rows, total = await CatalogLinkService(db).pending(limit=params.page_size, offset=params.offset)
+    items = [
+        PendingLinkRead(
+            kind=item.kind,
+            public_id=item.public_id,
+            title=item.title,
+            subject_text=item.subject_text,
+            topic_text=item.topic_text,
+            subject_public_id=item.subject_public_id,
+            subject_suggestions=_match(item.subject_suggestions),
+        )
+        for item in rows
+    ]
+    return Page.create(items, total, params)
+
+
+@router.get(
+    "/links/{kind}/{public_id}/topics",
+    response_model=CatalogMatchRead,
+    summary="Tópicos candidatos dentro da disciplina escolhida",
+)
+async def topic_suggestions(
+    kind: str,
+    public_id: str,
+    subject_public_id: Annotated[str, Query(min_length=1)],
+    _: CatalogReader,
+    db: DbSession,
+) -> CatalogMatchRead:
+    result = await CatalogLinkService(db).topic_suggestions(
+        kind.upper(), public_id, subject_public_id=subject_public_id
+    )
+    return _match(result)
+
+
+@router.put(
+    "/links/{kind}/{public_id}",
+    response_model=LinkedContentRead,
+    summary="Confirmar o vínculo com o catálogo",
+)
+async def link_content(
+    kind: str,
+    public_id: str,
+    payload: CatalogLinkUpdate,
+    actor: CatalogWriter,
+    db: DbSession,
+    ctx: RequestCtx,
+) -> LinkedContentRead:
+    service = CatalogLinkService(db)
+    record = await service.link(
+        kind.upper(),
+        public_id,
+        subject_public_id=payload.subject_public_id,
+        topic_public_id=payload.topic_public_id,
+        actor=actor,
+        context=ctx,
+    )
+    subject_id = record.subject_id
+    topic_id = record.topic_id
+    return LinkedContentRead(
+        kind=kind.upper(),
+        public_id=record.public_id,
+        title=record.title,
+        subject_public_id=(await service.subject_public_id(subject_id) if subject_id else None),
+        topic_public_id=(await service.topic_public_id(topic_id) if topic_id else None),
+    )

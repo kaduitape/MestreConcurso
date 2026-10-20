@@ -233,6 +233,9 @@ class CompetitionRead(BaseModel):
     source_url: str | None = None
     notes: str | None = None
     is_published: bool = False
+    #: Em que ponto da esteira editorial a ficha está. Quem manda na
+    #: visibilidade é ele; `is_published` é o espelho.
+    editorial_status: str = "DRAFT"
     organization: OrganizationRead
     exam_board: ExamBoardRead | None = None
     positions: list[PositionRead] = Field(default_factory=list)
@@ -252,6 +255,7 @@ class CompetitionSummary(BaseModel):
     vacancies_total: int | None = None
     salary_max_cents: int | None = None
     is_published: bool = False
+    editorial_status: str = "DRAFT"
     organization: OrganizationRead
     exam_board: ExamBoardRead | None = None
 
@@ -297,3 +301,53 @@ class CompetitionUpdate(BaseModel):
     source_url: str | None = Field(default=None, max_length=500)
     notes: str | None = None
     is_published: bool | None = None
+
+
+class CompetitionEditorialUpdate(BaseModel):
+    """Movimento na esteira editorial da ficha do concurso."""
+
+    editorial_status: str = Field(pattern="^(DRAFT|PROCESSING|REVIEW|PUBLISHED|ARCHIVED)$")
+
+
+class CatalogMatchCandidate(BaseModel):
+    """Um candidato do catálogo, com a nota e o motivo dela."""
+
+    public_id: str
+    name: str
+    path: str = ""
+    score: float
+    reason: str
+    reason_label: str
+    is_strong: bool
+
+
+class CatalogMatchRead(BaseModel):
+    query: str
+    candidates: list[CatalogMatchCandidate] = Field(default_factory=list)
+
+
+class PendingLinkRead(BaseModel):
+    """Conteúdo esperando vínculo, com as disciplinas candidatas."""
+
+    kind: str
+    public_id: str
+    title: str
+    subject_text: str
+    topic_text: str
+    subject_public_id: str | None = None
+    subject_suggestions: CatalogMatchRead
+
+
+class CatalogLinkUpdate(BaseModel):
+    """O vínculo confirmado por uma pessoa. Vazio desfaz."""
+
+    subject_public_id: str | None = None
+    topic_public_id: str | None = None
+
+
+class LinkedContentRead(BaseModel):
+    kind: str
+    public_id: str
+    title: str
+    subject_public_id: str | None = None
+    topic_public_id: str | None = None

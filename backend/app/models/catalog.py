@@ -35,6 +35,23 @@ class CompetitionStatus(StrEnum):
     CANCELED = "CANCELED"
 
 
+class CompetitionEditorialStatus(StrEnum):
+    """Em que ponto da esteira **editorial** o registro está.
+
+    É outro eixo que o ``CompetitionStatus``: aquele descreve o concurso no
+    mundo (inscrições abertas, provas por vir), este descreve o nosso registro
+    dele (ainda rascunho, em revisão, publicado). Misturar os dois apagaria
+    informação real — um concurso com inscrições abertas pode ter ficha ainda
+    em rascunho aqui dentro.
+    """
+
+    DRAFT = "DRAFT"
+    PROCESSING = "PROCESSING"
+    REVIEW = "REVIEW"
+    PUBLISHED = "PUBLISHED"
+    ARCHIVED = "ARCHIVED"
+
+
 class EducationLevel(StrEnum):
     FUNDAMENTAL = "FUNDAMENTAL"
     MEDIO = "MEDIO"
@@ -113,7 +130,12 @@ class Competition(IdMixin, PublicIdMixin, TimestampMixin, Base):
     exam_date: Mapped[date | None] = mapped_column(Date)
     source_url: Mapped[str | None] = mapped_column(String(500))
     notes: Mapped[str | None] = mapped_column(MediumText)
+    #: Visibilidade para quem estuda. Continua sendo o que as consultas filtram;
+    #: quem o move é o estado editorial abaixo, nunca o contrário.
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    editorial_status: Mapped[str] = mapped_column(
+        String(20), default=CompetitionEditorialStatus.DRAFT, index=True
+    )
 
     organization: Mapped[Organization] = relationship(lazy="selectin")
     exam_board: Mapped[ExamBoard | None] = relationship(

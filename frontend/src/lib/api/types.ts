@@ -386,6 +386,8 @@ export interface CompetitionSummary {
   vacancies_total: number | null
   salary_max_cents: number | null
   is_published: boolean
+  /** Ponto da esteira editorial. Quem manda na visibilidade é ele. */
+  editorial_status: CompetitionEditorialStatus
   organization: Organization
   exam_board: ExamBoard | null
 }
@@ -2302,4 +2304,66 @@ export interface MindMapPanelSpec {
   guidance: string
   color_token: string
   icon: string
+}
+
+/* --- Esteira editorial, vínculo com o catálogo e concurso principal ------ */
+
+export type CompetitionEditorialStatus =
+  | 'DRAFT'
+  | 'PROCESSING'
+  | 'REVIEW'
+  | 'PUBLISHED'
+  | 'ARCHIVED'
+
+/** Conteúdo que ainda pode precisar de vínculo com o catálogo. */
+export type LinkableKind = 'TRAINING' | 'MINDMAP'
+
+export interface CatalogMatchCandidate {
+  public_id: string
+  name: string
+  path: string
+  /** Nota de 0 a 1. É sugestão: nada é aplicado por ela. */
+  score: number
+  reason: string
+  reason_label: string
+  is_strong: boolean
+}
+
+export interface CatalogMatch {
+  query: string
+  candidates: CatalogMatchCandidate[]
+}
+
+export interface PendingLink {
+  kind: LinkableKind
+  public_id: string
+  title: string
+  subject_text: string
+  topic_text: string
+  subject_public_id: string | null
+  subject_suggestions: CatalogMatch
+}
+
+export interface LinkedContent {
+  kind: LinkableKind
+  public_id: string
+  title: string
+  subject_public_id: string | null
+  topic_public_id: string | null
+}
+
+export interface CatalogLinkInput {
+  subject_public_id: string | null
+  topic_public_id: string | null
+}
+
+export interface StudyFocus {
+  competition_public_id: string | null
+  competition_name: string | null
+  organization_name: string | null
+  exam_date: string | null
+  /** `null` quando não há data de prova. Nunca negativo. */
+  days_remaining: number | null
+  /** Por que não há contagem. A tela mostra isto no lugar do número. */
+  unavailable_reason: string | null
 }

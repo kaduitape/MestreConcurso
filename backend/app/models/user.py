@@ -113,5 +113,10 @@ class Profile(IdMixin, TimestampMixin, Base):
     bio: Mapped[str | None] = mapped_column(String(500))
     preferences: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
     onboarding_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: O concurso que o candidato declara estar perseguindo. É o que dá sentido
+    #: à contagem regressiva e ao painel; sem ele a plataforma não inventa um.
+    primary_competition_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("competitions.id", ondelete="SET NULL"), index=True
+    )
 
     user: Mapped[User] = relationship(back_populates="profile")

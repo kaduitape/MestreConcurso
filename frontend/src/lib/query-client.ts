@@ -119,4 +119,8 @@ export const queryKeys = {
   adminMindmaps: (params: unknown) => ['admin', 'mindmaps', params] as const,
   adminMindmap: (publicId: string) => ['admin', 'mindmaps', publicId] as const,
   mindmapPanels: ['admin', 'mindmaps', 'panels'] as const,
+  pendingLinks: (params: unknown) => ['admin', 'catalog', 'links', params] as const,
+  linkTopics: (kind: string, publicId: string, subjectId: string) =>
+    ['admin', 'catalog', 'links', kind, publicId, subjectId] as const,
+  studyFocus: ['users', 'me', 'focus'] as const,
 }

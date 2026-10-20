@@ -4,6 +4,7 @@ import { OrganizationsSection } from './organizations-section'
 import { CompetitionsSection } from './competitions-section'
 import { SubjectsSection } from './subjects-section'
 import { NoticesSection } from './notices-section'
+import { CatalogLinksSection } from './catalog-links-section'
 
 export function CatalogSection() {
   return (
@@ -14,6 +15,7 @@ export function CatalogSection() {
         <TabsTrigger value="orgaos">Órgãos</TabsTrigger>
         <TabsTrigger value="disciplinas">Disciplinas</TabsTrigger>
         <TabsTrigger value="editais">Editais</TabsTrigger>
+        <TabsTrigger value="vinculos">Vínculos</TabsTrigger>
       </TabsList>
       <TabsContent value="concursos">
         <CompetitionsSection />
@@ -29,6 +31,9 @@ export function CatalogSection() {
       </TabsContent>
       <TabsContent value="editais">
         <NoticesSection />
+      </TabsContent>
+      <TabsContent value="vinculos">
+        <CatalogLinksSection />
       </TabsContent>
     </Tabs>
   )
