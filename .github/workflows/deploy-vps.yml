@@ -98,6 +98,23 @@ jobs:
           fi
           echo "[deploy] API respondeu por dentro"
 
+          # 1.1) O carimbo de versão precisa estar na cabeça.
+          # Um deploy já ficou verde com o schema novo carimbado na revisão
+          # anterior: o Alembic rodou o DDL e não confirmou o carimbo, e quem
+          # quebrou foi o deploy SEGUINTE, repetindo uma migração que já tinha
+          # rodado. A causa está corrigida; esta checagem é o alarme.
+          versao=$($compose exec -T api alembic current </dev/null 2>/dev/null | tail -n 1 || true)
+          if [ -z "$versao" ]; then
+            echo "[deploy] aviso: não consegui ler a versão do banco; seguindo"
+          elif echo "$versao" | grep -q '(head)'; then
+            echo "[deploy] banco na cabeça das migrations: $versao"
+          else
+            echo "[deploy] o banco NÃO está na cabeça das migrations: $versao"
+            echo "[deploy] o schema pode ter subido sem o carimbo — ver docs/30."
+            $compose logs --tail=100 api
+            exit 1
+          fi
+
           # 2) O caminho que o usuário realmente usa: navegador -> nginx -> API.
           # Checar só a API por dentro deixa passar um proxy apontando para um
           # contêiner que não existe mais: o deploy fica verde e todo /api/

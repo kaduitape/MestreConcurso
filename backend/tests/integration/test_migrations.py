@@ -6,7 +6,8 @@ import asyncio
 
 import pytest
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect
+from alembic.script import ScriptDirectory
+from sqlalchemy import create_engine, inspect, text
 
 from alembic import command
 from app.core.config import settings
@@ -116,6 +117,69 @@ def test_a_half_applied_migration_can_still_reach_head(alembic_config: Config) -
         assert "mind_maps" in tables
     finally:
         engine.dispose()
+
+    command.downgrade(alembic_config, "base")
+
+
+def _stamped_version() -> str | None:
+    engine = create_engine(_sync_url())
+    try:
+        with engine.connect() as connection:
+            if "alembic_version" not in inspect(engine).get_table_names():
+                return None
+            return connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
+    finally:
+        engine.dispose()
+
+
+def test_a_lost_version_stamp_can_still_reach_head(alembic_config: Config) -> None:
+    """O banco com o schema novo e o carimbo antigo precisa se endireitar.
+
+    Aconteceu em produção: a trava de migração abria transação na conexão que o
+    Alembic ia usar, ele deixava de confirmar o carimbo, e o DDL do MySQL —
+    que se auto-confirma — subiu sozinho. O deploy ficou verde com o schema da
+    Fase 1 carimbado na revisão anterior, e o deploy seguinte morreu repetindo
+    ``ADD COLUMN editorial_status``.
+
+    A causa está em ``app/db/migration_lock.py``. Aqui se cobra o conserto:
+    aplica a revisão, devolve o carimbo **sem desfazer o schema**, e exige que
+    subir de novo chegue ao topo.
+    """
+    command.upgrade(alembic_config, "81ed603d085c")
+    command.stamp(alembic_config, "fea78a95bd3e")
+
+    command.upgrade(alembic_config, "head")
+
+    engine = create_engine(_sync_url())
+    try:
+        inspector = inspect(engine)
+        columns = {column["name"] for column in inspector.get_columns("competitions")}
+        assert "editorial_status" in columns
+        # Nada foi duplicado pelo caminho.
+        indexes = [index["name"] for index in inspector.get_indexes("competitions")]
+        assert indexes.count("ix_competitions_editorial_status") == 1
+        chaves = inspector.get_foreign_keys("training_lessons")
+        vinculos = [
+            fk for fk in chaves if set(fk["constrained_columns"]) & {"subject_id", "topic_id"}
+        ]
+        assert len(vinculos) == 2
+        assert "agent_runs" in set(inspector.get_table_names())
+    finally:
+        engine.dispose()
+
+    command.downgrade(alembic_config, "base")
+
+
+def test_upgrade_head_leaves_the_stamp_at_head(alembic_config: Config) -> None:
+    """Carimbo que não avança é o defeito mais caro deste projeto.
+
+    Ele não quebra o deploy que o perdeu — quebra o seguinte, repetindo uma
+    migração que já rodou.
+    """
+    command.upgrade(alembic_config, "head")
+
+    topo = ScriptDirectory.from_config(alembic_config).get_current_head()
+    assert _stamped_version() == topo
 
     command.downgrade(alembic_config, "base")
 

@@ -122,9 +122,7 @@ class StudyFocusService:
                     code="competition_not_published",
                 )
             if competition.editorial_status == CompetitionEditorialStatus.ARCHIVED:
-                raise ValidationError(
-                    "Esse concurso foi arquivado.", code="competition_archived"
-                )
+                raise ValidationError("Esse concurso foi arquivado.", code="competition_archived")
             profile.primary_competition_id = competition.id
 
         await self.audit.record(

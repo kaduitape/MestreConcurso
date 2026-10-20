@@ -2387,3 +2387,56 @@ export interface AIBudgetInput {
   monthly_limit_cents: string
   per_run_limit_cents: string
 }
+
+/* --- Orquestrador de agentes -------------------------------------------- */
+
+export type AgentStepStatus =
+  | 'PENDING'
+  | 'RUNNING'
+  | 'DONE'
+  | 'SKIPPED'
+  | 'FAILED'
+  | 'BUDGET_BLOCKED'
+
+export type AgentRunStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED' | 'CANCELED'
+
+export interface AgentStep {
+  key: string
+  label: string
+  description: string
+  status: AgentStepStatus
+  depends_on: string[]
+  attempts: number
+  max_attempts: number
+  /** O que aconteceu, em português. Obrigatório quando o passo foi pulado. */
+  detail: string | null
+  /** Falso quando o agente está declarado mas ainda não existe. */
+  is_implemented: boolean
+}
+
+export interface AgentRun {
+  public_id: string
+  competition_public_id: string | null
+  status: AgentRunStatus
+  error: string | null
+  cost_cents: string
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+  steps: AgentStep[]
+}
+
+export interface AgentCatalogEntry {
+  key: string
+  label: string
+  description: string
+  depends_on: string[]
+  is_implemented: boolean
+  pending_reason: string | null
+}
+
+export interface AgentCatalog {
+  /** Cada lista interna pode rodar em paralelo. */
+  layers: string[][]
+  agents: AgentCatalogEntry[]
+}

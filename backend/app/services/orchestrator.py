@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError
@@ -110,10 +110,13 @@ class OrchestratorService:
             raise NotFoundError("Execução não encontrada.")
         return found
 
-    async def list(self, *, limit: int, offset: int) -> tuple[list[AgentRun], int]:
+    async def list_runs(self, *, limit: int, offset: int) -> tuple[list[AgentRun], int]:
         base = select(AgentRun).order_by(AgentRun.created_at.desc())
         rows = list((await self.session.execute(base.limit(limit).offset(offset))).scalars().all())
-        total = len(list((await self.session.execute(select(AgentRun))).scalars().all()))
+        # Contar no banco, não na memória: a lista de execuções só cresce.
+        total = int(
+            (await self.session.execute(select(func.count()).select_from(AgentRun))).scalar_one()
+        )
         return rows, total
 
     def view(self, run: AgentRun) -> list[StepView]:

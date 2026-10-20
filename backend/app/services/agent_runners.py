@@ -5,12 +5,14 @@ que têm implementação de verdade — e isso é deliberado: registrar um agent
 não faz nada o deixaria **verde** na tela de acompanhamento, que é pior do que
 deixá-lo pulado. Pulado traz o motivo escrito; verde mente.
 
-Os dois registrados reutilizam serviços que já estavam em produção:
+Os três registrados reutilizam serviços que já estavam em produção:
 
 * **Analista de editais** → o pipeline de análise, com suas sete etapas e a
   conferência de cada citação no PDF.
 * **Inteligência estatística** → o cálculo de incidência da banca, que já
   separa frequência observada de estimativa e carrega o tamanho da amostra.
+* **Tutor adaptativo** → o Priority Score, que reúne os sinais reais do
+  candidato e diz o que faltou quando um sinal não existe.
 
 O orquestrador não refaz o trabalho deles. Ele os chama na ordem certa e
 registra o que aconteceu.
@@ -25,6 +27,8 @@ from app.domain.agents import AgentKey
 from app.models.agent_run import AgentRun
 from app.models.catalog import Competition
 from app.models.notice import Notice, NoticeKind
+from app.models.study import StudyPlan, StudyPlanStatus
+from app.models.user import User
 from app.services.auth import RequestContext
 from app.services.orchestrator import AgentOutcome, registry
 
@@ -115,16 +119,85 @@ async def run_statistics(session: AsyncSession, run: AgentRun) -> AgentOutcome:
     )
 
 
+async def run_tutor(session: AsyncSession, run: AgentRun) -> AgentOutcome:
+    """Recalcula a ordem de estudo de quem está estudando para este concurso.
+
+    Nenhuma IA entra aqui: o Priority Score soma sinais reais do candidato
+    (desempenho, incidência, progresso) e marca como ausente o sinal que não
+    existe. Um número inventado seria pior que nenhum.
+    """
+    from app.services.priority import PriorityService
+
+    if run.competition_id is None:
+        return AgentOutcome(detail="A execução não está ligada a um concurso.", skipped=True)
+
+    candidatos = list(
+        (
+            await session.execute(
+                select(User)
+                .join(StudyPlan, StudyPlan.user_id == User.id)
+                .where(
+                    StudyPlan.competition_id == run.competition_id,
+                    StudyPlan.status == StudyPlanStatus.ACTIVE,
+                )
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not candidatos:
+        # Ausência de candidato não é falha: é ausência de insumo. O motivo
+        # escrito evita que alguém procure um erro que não há.
+        return AgentOutcome(
+            detail=(
+                "Nenhum candidato tem plano de estudo ativo para este concurso, "
+                "então não há prioridade para recalcular."
+            ),
+            skipped=True,
+        )
+
+    service = PriorityService(session)
+    linhas = 0
+    sem_sinal = 0
+    for candidato in candidatos:
+        report = await service.compute(candidato)
+        linhas += len(report.scores)
+        if not report.scores:
+            sem_sinal += 1
+
+    detalhe = f"{len(candidatos)} candidatos recalculados e {linhas} linhas de ordem de estudo."
+    if sem_sinal:
+        detalhe += (
+            f" {sem_sinal} ficaram sem nenhuma linha por falta de sinal — "
+            "o relatório de cada candidato diz o que faltou."
+        )
+    return AgentOutcome(
+        detail=detalhe,
+        result={
+            "candidates": len(candidatos),
+            "priority_rows": linhas,
+            "candidates_without_signal": sem_sinal,
+        },
+    )
+
+
 def register_default_agents() -> None:
     """Liga as chaves do catálogo às implementações reais.
 
-    Só estes dois. Os outros seis continuam declarados e pulados com o motivo
-    que o catálogo traz — professor, memorização e mestre de batalhas dependem
+    Só estes três — e são exatamente os três que o catálogo declara como
+    construídos. Os outros cinco continuam declarados e pulados com o motivo
+    que o catálogo traz: professor, memorização e mestre de batalhas dependem
     da geração em massa (Fase 4), o auditor é a Fase 3 e o analista de
     melhorias ainda não teve o desenho aprovado.
+
+    Catálogo e registro precisam contar a mesma história. Um agente declarado
+    como construído sem implementação registrada seria pulado dizendo "ainda
+    não foi implementado", contradizendo a própria ficha dele na tela.
     """
     registry.register(AgentKey.NOTICE_ANALYST, run_notice_analyst)
     registry.register(AgentKey.STATISTICS, run_statistics)
+    registry.register(AgentKey.TUTOR, run_tutor)
 
 
 register_default_agents()
