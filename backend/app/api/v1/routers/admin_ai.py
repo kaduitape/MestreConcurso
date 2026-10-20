@@ -15,6 +15,8 @@ from app.models.audit import AuditAction
 from app.models.user import User
 from app.schemas.ai import (
     AIAvailableProviders,
+    AIBudgetRead,
+    AIBudgetUpdate,
     AICacheStatsRead,
     AIFeatureBindingRead,
     AIFeatureBindingUpdate,
@@ -27,6 +29,7 @@ from app.schemas.ai import (
     ConnectionCheckRead,
 )
 from app.schemas.common import MessageResponse
+from app.services.ai_budget import AIBudgetService
 from app.services.ai_cache import AICacheService
 from app.services.ai_settings import AISettingsService
 from app.services.audit import AuditService
@@ -247,3 +250,45 @@ async def purge_cache(
     return MessageResponse(
         message=f"{removed} entrada(s) removida(s) do cache.", detail={"removed": removed}
     )
+
+
+# --------------------------------------------------------------------------- #
+# Teto de gasto
+#
+# Os limites vivem no banco e são editáveis aqui — nunca no código. Com o
+# controle desligado a medição continua, que é o que permite descobrir qual
+# teto faz sentido antes de ligá-lo.
+# --------------------------------------------------------------------------- #
+def _budget(overview: object) -> AIBudgetRead:
+    from app.services.ai_budget import BudgetOverview
+
+    assert isinstance(overview, BudgetOverview)
+    return AIBudgetRead(
+        is_enabled=overview.limits.is_enabled,
+        monthly_limit_cents=overview.limits.monthly_cents,
+        per_run_limit_cents=overview.limits.per_run_cents,
+        spent_month_cents=overview.spent_month_cents,
+        calls_month=overview.calls_month,
+        is_complete=overview.is_complete,
+        models_without_price=overview.models_without_price,
+    )
+
+
+@router.get("/budget", response_model=AIBudgetRead, summary="Teto de gasto e consumo do mês")
+async def get_budget(_: AiReader, db: DbSession) -> AIBudgetRead:
+    return _budget(await AIBudgetService(db).overview())
+
+
+@router.put("/budget", response_model=AIBudgetRead, summary="Definir o teto de gasto")
+async def set_budget(
+    payload: AIBudgetUpdate, actor: AiWriter, db: DbSession, ctx: RequestCtx
+) -> AIBudgetRead:
+    service = AIBudgetService(db)
+    await service.set_limits(
+        actor,
+        ctx,
+        is_enabled=payload.is_enabled,
+        monthly_limit_cents=payload.monthly_limit_cents,
+        per_run_limit_cents=payload.per_run_limit_cents,
+    )
+    return _budget(await service.overview())

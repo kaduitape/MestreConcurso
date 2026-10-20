@@ -172,6 +172,25 @@ class AICacheEntry(IdMixin, Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class AIBudget(IdMixin, TimestampMixin, Base):
+    """Teto de gasto com IA. **Não mora no código** — mora aqui e é editável.
+
+    Zero em um limite quer dizer "sem teto para este". ``is_enabled`` desligado
+    não interrompe a medição: continuar medindo com o corte desligado é o que
+    permite descobrir qual teto faz sentido antes de ligá-lo.
+    """
+
+    __tablename__ = "ai_budgets"
+    __table_args__ = (UniqueConstraint("scope", name="uq_ai_budgets_scope"),)
+
+    scope: Mapped[str] = mapped_column(String(40), default="GLOBAL")
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    monthly_limit_cents: Mapped[Decimal] = mapped_column(
+        Numeric(12, 6), default=Decimal("0")
+    )
+    per_run_limit_cents: Mapped[Decimal] = mapped_column(Numeric(12, 6), default=Decimal("0"))
+
+
 class AIUsage(IdMixin, Base):
     """Consumo real de tokens — base para custo, limites e auditoria."""
 

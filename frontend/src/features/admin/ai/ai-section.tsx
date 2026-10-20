@@ -11,6 +11,7 @@ import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/lib/query-client'
 import { ProviderCard } from './provider-card'
 import { FeatureBindings } from './feature-bindings'
+import { BudgetCard } from './budget-card'
 import { CacheCard } from './cache-card'
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -92,6 +93,7 @@ export function AiSection() {
       )}
 
       <FeatureBindings providers={providers.data ?? []} />
+      <BudgetCard />
       <CacheCard />
     </div>
   )

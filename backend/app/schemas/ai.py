@@ -122,3 +122,24 @@ class AIAvailableProviders(BaseModel):
 
     available: list[str]
     configured: list[str]
+
+
+class AIBudgetRead(BaseModel):
+    """Teto de gasto e o que já foi consumido no mês."""
+
+    is_enabled: bool = False
+    monthly_limit_cents: Decimal = Decimal("0")
+    per_run_limit_cents: Decimal = Decimal("0")
+    spent_month_cents: Decimal = Decimal("0")
+    calls_month: int = 0
+    #: Falso quando algum modelo usado no mês não tem preço cadastrado.
+    is_complete: bool = True
+    #: Quais modelos — é o que permite consertar o cadastro.
+    models_without_price: list[str] = Field(default_factory=list)
+
+
+class AIBudgetUpdate(BaseModel):
+    is_enabled: bool = False
+    #: Zero quer dizer "sem teto para este".
+    monthly_limit_cents: Decimal = Field(default=Decimal("0"), ge=0)
+    per_run_limit_cents: Decimal = Field(default=Decimal("0"), ge=0)

@@ -1,5 +1,7 @@
 import { api } from './client'
 import type {
+  AIBudget,
+  AIBudgetInput,
   AIAvailableProviders,
   AICacheStats,
   AIFeatureBinding,
@@ -42,6 +44,9 @@ export const aiApi = {
       cache_ttl_hours?: number | null
     },
   ) => api.put<AIFeatureBinding>(`/admin/ai/features/${feature}`, input),
+
+  budget: () => api.get<AIBudget>('/admin/ai/budget'),
+  setBudget: (input: AIBudgetInput) => api.put<AIBudget>('/admin/ai/budget', input),
 
   cacheStats: () => api.get<AICacheStats>('/admin/ai/cache'),
 

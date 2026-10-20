@@ -186,6 +186,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [Mapas mentais](docs/mapas-mentais.md) | painéis com cor fixa, revisão humana antes de publicar e o texto como texto |
 | [27 — Evolução com agentes: diagnóstico](docs/27-evolucao-agentes-diagnostico.md) | o que já existe, as lacunas reais, os riscos e o plano em fases |
 | [28 — Fase 1: vínculo e concurso principal](docs/28-fase1-vinculo-e-concurso-principal.md) | conteúdo ligado ao catálogo por decisão humana, e a contagem regressiva sem número inventado |
+| [29 — Fase 2: medição e teto de custo](docs/29-fase2-medicao-e-teto-de-custo.md) | todo gasto com IA contado num lugar só, e um teto que corta de verdade |
 
 ## Como executar
 

@@ -36,6 +36,7 @@ class AuditAction(StrEnum):
     AI_MODELS_SYNCED = "ai.models_synced"
     AI_BINDING_UPDATED = "ai.binding_updated"
     AI_CACHE_PURGED = "ai.cache_purged"
+    AI_BUDGET_UPDATED = "ai.budget_updated"
     CATALOG_CREATED = "catalog.created"
     CATALOG_UPDATED = "catalog.updated"
     CATALOG_DELETED = "catalog.deleted"
