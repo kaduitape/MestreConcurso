@@ -10,8 +10,15 @@ dependencies = [
     "pydantic>=2.11",
     "pydantic-settings>=2.10",
     "email-validator>=2.2",
-    "sqlalchemy[asyncio]>=2.0.36",
-    "alembic>=1.16",
+    # Versões fixas, e não faixa aberta: o par SQLAlchemy + Alembic foi o que
+    # produziu o carimbo de versão perdido de 20/10 (ver docs/30). O defeito
+    # dependia de um detalhe de comportamento das duas bibliotecas juntas —
+    # quando o Alembic considera a transação "externa" e para de confirmar —, e
+    # com faixa aberta cada build do contêiner podia trazer esse detalhe
+    # mudado sem ninguém pedir. Subir qualquer uma delas passa a ser uma
+    # alteração explícita, com a suíte rodando antes.
+    "sqlalchemy[asyncio]==2.1.5",
+    "alembic==1.20.0",
     "asyncmy>=0.2.10",
     "greenlet>=3.1",
     "argon2-cffi>=25.1",
