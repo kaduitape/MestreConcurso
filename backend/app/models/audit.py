@@ -57,6 +57,8 @@ class AuditAction(StrEnum):
     SIMULATION_FINISHED = "simulation.finished"
     INTELLIGENCE_RECOMPUTED = "intelligence.recomputed"
     GAME_RULE_UPDATED = "game.rule_updated"
+    CONTENT_AUDIT_RULE_UPDATED = "content_audit.rule_updated"
+    CONTENT_AUDITED = "content_audit.audited"
     TRAINING_CREATED = "training.created"
     TRAINING_GENERATED = "training.generated"
     TRAINING_UPDATED = "training.updated"

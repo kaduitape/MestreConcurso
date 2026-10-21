@@ -110,9 +110,21 @@ def test_a_new_run_starts_with_everything_pending() -> None:
 
 def test_an_unimplemented_agent_already_carries_its_reason() -> None:
     passos = {step.key: step for step in initial_steps()}
-    auditor = passos[AgentKey.AUDITOR]
-    assert auditor.is_implemented is False
-    assert auditor.detail and "Fase 3" in auditor.detail
+    professor = passos[AgentKey.TEACHER]
+    assert professor.is_implemented is False
+    assert professor.detail and "Fase 4" in professor.detail
+
+
+def test_the_auditor_does_not_wait_for_agents_that_do_not_exist() -> None:
+    """O portão de qualidade confere o que **já está publicado**.
+
+    Ele nasceu declarado como dependente da geração em massa; amarrá-lo a
+    agentes que ainda não existem deixaria o portão parado esperando a Fase 4.
+    """
+    auditor = AGENT_BY_KEY[AgentKey.AUDITOR]
+
+    assert auditor.is_implemented is True
+    assert auditor.depends_on == ()
 
 
 def test_blocked_by_lists_what_is_missing() -> None:

@@ -127,4 +127,6 @@ export const queryKeys = {
   agentCatalog: ['admin', 'agents', 'catalog'] as const,
   agentRuns: (params: unknown) => ['admin', 'agents', params] as const,
   agentRun: (publicId: string) => ['admin', 'agents', publicId] as const,
+  auditRules: ['admin', 'content-audit', 'rules'] as const,
+  audits: (params: unknown) => ['admin', 'content-audit', params] as const,
 }

@@ -5,7 +5,7 @@ que têm implementação de verdade — e isso é deliberado: registrar um agent
 não faz nada o deixaria **verde** na tela de acompanhamento, que é pior do que
 deixá-lo pulado. Pulado traz o motivo escrito; verde mente.
 
-Os três registrados reutilizam serviços que já estavam em produção:
+Os quatro registrados reutilizam serviços que já estavam em produção:
 
 * **Analista de editais** → o pipeline de análise, com suas sete etapas e a
   conferência de cada citação no PDF.
@@ -13,6 +13,8 @@ Os três registrados reutilizam serviços que já estavam em produção:
   separa frequência observada de estimativa e carrega o tamanho da amostra.
 * **Tutor adaptativo** → o Priority Score, que reúne os sinais reais do
   candidato e diz o que faltou quando um sinal não existe.
+* **Auditor de qualidade** → o portão de regras determinísticas, que varre o
+  conteúdo publicado do concurso e declara o próprio alcance.
 
 O orquestrador não refaz o trabalho deles. Ele os chama na ordem certa e
 registra o que aconteceu.
@@ -182,14 +184,57 @@ async def run_tutor(session: AsyncSession, run: AgentRun) -> AgentOutcome:
     )
 
 
+async def run_auditor(session: AsyncSession, run: AgentRun) -> AgentOutcome:
+    """Varre o conteúdo publicado do concurso com as regras do auditor.
+
+    Nenhuma IA: as regras são determinísticas e a conta aparece. Um auditor que
+    julga por modelo de linguagem não repete o mesmo veredito sobre a mesma
+    questão, e um portão que muda de ideia não é portão.
+    """
+    from app.services.content_audit import ContentAuditService
+
+    if run.competition_id is None:
+        return AgentOutcome(detail="A execução não está ligada a um concurso.", skipped=True)
+
+    resultado = await ContentAuditService(session).sweep_competition(run.competition_id)
+
+    if resultado.audited == 0:
+        detalhe = "Não há conteúdo publicado ligado a este concurso para conferir."
+        if resultado.notes:
+            detalhe = f"{detalhe} {' '.join(resultado.notes)}"
+        return AgentOutcome(detail=detalhe, skipped=True)
+
+    detalhe = (
+        f"{resultado.audited} conteúdos conferidos: {resultado.blocked} com bloqueio, "
+        f"{resultado.warned} com aviso e {resultado.clean} limpos."
+    )
+    if resultado.not_checked:
+        # O que não deu para conferir é parte do resultado, não rodapé.
+        detalhe += f" {resultado.not_checked} itens ficaram sem conferência."
+    if resultado.notes:
+        detalhe += " " + " ".join(resultado.notes)
+
+    return AgentOutcome(
+        detail=detalhe,
+        result={
+            "audited": resultado.audited,
+            "blocked": resultado.blocked,
+            "warned": resultado.warned,
+            "clean": resultado.clean,
+            "not_checked": resultado.not_checked,
+            "notes": list(resultado.notes),
+        },
+    )
+
+
 def register_default_agents() -> None:
     """Liga as chaves do catálogo às implementações reais.
 
-    Só estes três — e são exatamente os três que o catálogo declara como
-    construídos. Os outros cinco continuam declarados e pulados com o motivo
+    Só estes quatro — e são exatamente os quatro que o catálogo declara como
+    construídos. Os outros quatro continuam declarados e pulados com o motivo
     que o catálogo traz: professor, memorização e mestre de batalhas dependem
-    da geração em massa (Fase 4), o auditor é a Fase 3 e o analista de
-    melhorias ainda não teve o desenho aprovado.
+    da geração em massa (Fase 4), e o analista de melhorias ainda não teve o
+    desenho aprovado.
 
     Catálogo e registro precisam contar a mesma história. Um agente declarado
     como construído sem implementação registrada seria pulado dizendo "ainda
@@ -198,6 +243,7 @@ def register_default_agents() -> None:
     registry.register(AgentKey.NOTICE_ANALYST, run_notice_analyst)
     registry.register(AgentKey.STATISTICS, run_statistics)
     registry.register(AgentKey.TUTOR, run_tutor)
+    registry.register(AgentKey.AUDITOR, run_auditor)
 
 
 register_default_agents()

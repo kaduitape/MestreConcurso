@@ -14,6 +14,7 @@ import { BattleArtSection } from './battle-art-section'
 import { TrainingStudioSection } from './training/training-studio-section'
 import { MindMapStudioSection } from './mindmap/mindmap-studio-section'
 import { AgentsSection } from './agents/agents-section'
+import { ContentAuditSection } from './audit/content-audit-section'
 import { useAuth } from '@/providers/auth-provider'
 
 export function AdminPage() {
@@ -39,6 +40,9 @@ export function AdminPage() {
           )}
           {hasPermission('ai_settings:read') && (
             <TabsTrigger value="agentes">Agentes</TabsTrigger>
+          )}
+          {hasPermission('content_audit:read') && (
+            <TabsTrigger value="qualidade">Qualidade</TabsTrigger>
           )}
           {hasPermission('training:read') && <TabsTrigger value="estudio">Estúdio</TabsTrigger>}
           {hasPermission('users:read') && <TabsTrigger value="usuarios">Usuários</TabsTrigger>}
@@ -67,6 +71,9 @@ export function AdminPage() {
         </TabsContent>
         <TabsContent value="agentes">
           <AgentsSection />
+        </TabsContent>
+        <TabsContent value="qualidade">
+          <ContentAuditSection />
         </TabsContent>
         <TabsContent value="estudio">
           <div className="space-y-6">

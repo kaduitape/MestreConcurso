@@ -110,10 +110,10 @@ async def test_an_unbuilt_agent_is_skipped_never_done(
 
     assert executado.status_code == 200, executado.text
     body = executado.json()
-    auditor = _step(body, AgentKey.AUDITOR)
-    assert auditor["status"] == "SKIPPED"
-    assert auditor["status"] != "DONE"
-    assert auditor["detail"], "pulado sem motivo vira mistério"
+    professor = _step(body, AgentKey.TEACHER)
+    assert professor["status"] == "SKIPPED"
+    assert professor["status"] != "DONE"
+    assert professor["detail"], "pulado sem motivo vira mistério"
 
 
 async def test_a_run_without_a_notice_skips_the_analyst_with_the_reason(
@@ -285,6 +285,31 @@ async def test_every_agent_declared_as_built_has_an_implementation(
         assert construido == registrado, (
             f"{agente['key']}: catálogo diz construído={construido}, registro diz {registrado}"
         )
+
+
+async def test_the_auditor_runs_and_declares_what_it_could_not_check(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """O auditor é o portão da Fase 3: ele roda sem depender de geração em massa.
+
+    Sem conteúdo publicado não há o que conferir — e o motivo escrito inclui o
+    que ficou fora do alcance da varredura.
+    """
+    admin = await create_admin(client, emails, email="agt15@exemplo.com.br")
+    run = await _run(client, admin)
+
+    body = (
+        await client.post(
+            f"/api/v1/admin/agents/{run['public_id']}/run/{AgentKey.AUDITOR}",
+            headers=admin.auth_header,
+        )
+    ).json()
+
+    auditor = _step(body, AgentKey.AUDITOR)
+    assert auditor["is_implemented"] is True
+    assert auditor["status"] == "SKIPPED"
+    assert auditor["attempts"] == 1, "ele rodou e não achou conteúdo: gasta tentativa"
+    assert "edital analisado" in auditor["detail"]
 
 
 async def test_an_unknown_agent_is_refused(

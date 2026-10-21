@@ -48,6 +48,7 @@ from app.services.ai_cache import AICacheService, fingerprint
 from app.services.ai_settings import AISettingsService
 from app.services.audit import AuditService
 from app.services.auth import RequestContext
+from app.services.content_audit import ContentAuditService
 
 logger = get_logger(__name__)
 
@@ -306,6 +307,7 @@ class MindMapService:
             raise ConflictError(
                 "Um mapa sem painéis não vai para quem estuda.", code="mindmap_empty"
             )
+        await ContentAuditService(self.session).gate_mind_map(lesson, actor=actor)
         lesson.status = MindMapStatus.PUBLISHED
         lesson.published_at = datetime.now(UTC)
         await self.audit.record(

@@ -140,11 +140,14 @@ AGENTS: tuple[AgentSpec, ...] = (
         key=AgentKey.AUDITOR,
         label="Auditor de qualidade",
         description=(
-            "Confere o conteúdo produzido pelos outros agentes antes de qualquer publicação."
+            "Confere o conteúdo publicado do concurso com regras determinísticas e "
+            "diz o que não deu para conferir."
         ),
-        depends_on=(AgentKey.MEMORY, AgentKey.BATTLE_MASTER),
-        is_implemented=False,
-        pending_reason="O auditor é a Fase 3, e vem antes de qualquer geração em massa.",
+        # Sem dependência de propósito. O auditor começou declarado como
+        # dependente da geração em massa, mas o trabalho dele é outro: conferir
+        # o que **já está publicado**. Amarrá-lo a agentes que ainda não
+        # existem deixaria o portão de qualidade parado esperando a Fase 4.
+        max_attempts=2,
     ),
     AgentSpec(
         key=AgentKey.IMPROVEMENTS,

@@ -2309,11 +2309,7 @@ export interface MindMapPanelSpec {
 /* --- Esteira editorial, vínculo com o catálogo e concurso principal ------ */
 
 export type CompetitionEditorialStatus =
-  | 'DRAFT'
-  | 'PROCESSING'
-  | 'REVIEW'
-  | 'PUBLISHED'
-  | 'ARCHIVED'
+  'DRAFT' | 'PROCESSING' | 'REVIEW' | 'PUBLISHED' | 'ARCHIVED'
 
 /** Conteúdo que ainda pode precisar de vínculo com o catálogo. */
 export type LinkableKind = 'TRAINING' | 'MINDMAP'
@@ -2391,12 +2387,7 @@ export interface AIBudgetInput {
 /* --- Orquestrador de agentes -------------------------------------------- */
 
 export type AgentStepStatus =
-  | 'PENDING'
-  | 'RUNNING'
-  | 'DONE'
-  | 'SKIPPED'
-  | 'FAILED'
-  | 'BUDGET_BLOCKED'
+  'PENDING' | 'RUNNING' | 'DONE' | 'SKIPPED' | 'FAILED' | 'BUDGET_BLOCKED'
 
 export type AgentRunStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED' | 'CANCELED'
 
@@ -2439,4 +2430,50 @@ export interface AgentCatalog {
   /** Cada lista interna pode rodar em paralelo. */
   layers: string[][]
   agents: AgentCatalogEntry[]
+}
+
+/* --- Auditoria de conteúdo ----------------------------------------------- */
+
+/** `NOT_CHECKED` não é defeito nem suspeita: é o que não deu para conferir. */
+export type AuditSeverity = 'BLOCKER' | 'WARNING' | 'NOT_CHECKED'
+
+export type AuditVerdict = 'CLEAN' | 'WARNED' | 'BLOCKED'
+
+export interface AuditFinding {
+  rule: string
+  severity: AuditSeverity
+  message: string
+  evidence: Record<string, unknown>
+}
+
+export interface ContentAudit {
+  public_id: string
+  target_kind: string
+  target_public_id: string
+  verdict: AuditVerdict
+  /** PUBLISH (portão), MANUAL (alguém pediu) ou AGENT (varredura). */
+  trigger: string
+  blocked_publication: boolean
+  findings: AuditFinding[]
+  /** Contagens e o alcance da conferência. */
+  summary: Record<string, number | string>
+  created_at: string
+}
+
+export interface AuditRule {
+  key: string
+  label: string
+  description: string
+  applies_to: string[]
+  /** O padrão do código; a configuração do painel vence. */
+  default_severity: string
+  severity: string
+  is_enabled: boolean
+  config: Record<string, number | string>
+}
+
+export interface AuditRuleInput {
+  is_enabled: boolean
+  severity: string
+  config?: Record<string, number | string> | null
 }
