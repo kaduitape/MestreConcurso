@@ -165,6 +165,32 @@ class AIBudgetService:
             models_without_price=sorted(str(item) for item in sem_preco),
         )
 
+    async def month_spend_and_limit(self) -> tuple[Decimal, Decimal]:
+        """Gasto do mês e teto mensal, **sem criar nada**.
+
+        ``_row()`` insere a linha de configuração quando ela não existe, e isso
+        é aceitável em quem vai gravar — não em quem só quer ler. O roteador
+        consulta esta pressão a cada chamada de IA: inserir ali abriria uma
+        escrita no caminho de uma decisão que deveria ser só leitura, e no
+        SQLite dos testes isso tranca a transação de quem só queria decidir
+        qual modelo usar.
+        """
+        row = (
+            await self.session.execute(select(AIBudget).where(AIBudget.scope == GLOBAL_SCOPE))
+        ).scalar_one_or_none()
+        limite = Decimal(row.monthly_limit_cents or 0) if row is not None else Decimal("0")
+        if limite <= 0:
+            # Sem teto não há percentual de teto; nem vale consultar o gasto.
+            return Decimal("0"), limite
+        gasto = (
+            await self.session.execute(
+                select(func.coalesce(func.sum(AIUsage.cost_cents), 0)).where(
+                    AIUsage.created_at >= _month_start()
+                )
+            )
+        ).scalar_one()
+        return Decimal(gasto or 0), limite
+
     async def state(self, *, spent_run_cents: Decimal = Decimal("0")) -> BudgetState:
         resumo = await self.overview()
         return BudgetState(
@@ -200,6 +226,7 @@ async def record_usage(
     status: str = "SUCCESS",
     error_code: str | None = None,
     cached: bool = False,
+    routing_decision_id: int | None = None,
 ) -> CostEstimate:
     """Grava o consumo numa sessão própria.
 
@@ -229,6 +256,7 @@ async def record_usage(
                     status=status,
                     error_code=error_code,
                     cached=cached,
+                    routing_decision_id=routing_decision_id,
                 )
             )
             await session.commit()

@@ -28,6 +28,9 @@ export const queryKeys = {
   aiAvailable: ['admin', 'ai', 'available'] as const,
   aiFeatures: ['admin', 'ai', 'features'] as const,
   aiCache: ['admin', 'ai', 'cache'] as const,
+  aiRoutes: (feature?: string) => ['admin', 'ai', 'routes', feature ?? 'all'] as const,
+  aiRouteDecisions: (feature?: string) =>
+    ['admin', 'ai', 'routes', 'decisions', feature ?? 'all'] as const,
   adminBoards: (params: unknown) => ['admin', 'catalog', 'boards', params] as const,
   adminOrganizations: (params: unknown) =>
     ['admin', 'catalog', 'organizations', params] as const,
@@ -131,4 +134,5 @@ export const queryKeys = {
   audits: (params: unknown) => ['admin', 'content-audit', params] as const,
   generationPlans: (params: unknown) => ['admin', 'generation', params] as const,
   generationPlan: (publicId: string) => ['admin', 'generation', publicId] as const,
+  noticeDiffs: (params: unknown) => ['admin', 'notice-diffs', params] as const,
 }

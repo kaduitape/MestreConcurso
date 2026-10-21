@@ -90,6 +90,7 @@ from app.models.notice_analysis import (
     NoticeSubject,
     NoticeTopic,
 )
+from app.models.notice_diff import NoticeDiff
 from app.models.question import (
     Alternative,
     Exam,
@@ -198,6 +199,7 @@ __all__ = [
     "MissionScope",
     "MissionStatus",
     "Notice",
+    "NoticeDiff",
     "NoticeEvent",
     "NoticeEventKind",
     "NoticeFact",

@@ -164,12 +164,78 @@ export interface AIFeatureBinding {
   feature: string
   label: string
   description: string
+  kind: string
+  /** Falso para embedding e voz: as duas não aceitam roteamento nem reserva. */
+  is_routable: boolean
   is_enabled: boolean
   provider_slug: string | null
   model_slug: string | null
+  fallback_provider_slug: string | null
+  fallback_model_slug: string | null
+  fallback_is_usable: boolean
   temperature: string | null
   max_output_tokens: number | null
   cache_ttl_hours: number | null
+}
+
+/** Regra do roteador: qual modelo atende quando as condições valem. */
+export interface AIModelRoute {
+  id: number
+  feature: string
+  feature_label: string
+  label: string
+  priority: number
+  is_enabled: boolean
+  provider_slug: string | null
+  model_slug: string | null
+  model_is_usable: boolean
+  min_input_chars: number | null
+  max_input_chars: number | null
+  requires_json: boolean | null
+  min_budget_used_pct: string | null
+  required_signals: string[]
+}
+
+export type AIRouteOutcome =
+  | 'MATCHED'
+  | 'NOT_MATCHED'
+  | 'NOT_EVALUATED'
+  | 'DISABLED'
+  | 'UNUSABLE'
+
+export interface AIRouteConditionTrace {
+  signal: string
+  description: string
+  outcome: AIRouteOutcome
+  observed: string | null
+}
+
+export interface AIRouteRuleTrace {
+  rule_id: number
+  label: string
+  priority: number
+  outcome: AIRouteOutcome
+  detail: string
+  missing_signals: string[]
+  conditions: AIRouteConditionTrace[]
+}
+
+export type AIRouteReason = 'BINDING_DEFAULT' | 'RULE_MATCHED' | 'FALLBACK_AFTER_ERROR'
+
+/** Por que este modelo foi usado nesta execução. */
+export interface AIRoutingDecision {
+  id: number
+  feature: string
+  feature_label: string
+  model_slug: string
+  provider_slug: string
+  reason: AIRouteReason
+  route_id: number | null
+  route_label: string | null
+  explanation: string
+  signals: Record<string, string | number | boolean>
+  trace: AIRouteRuleTrace[]
+  created_at: string
 }
 
 export interface AICacheStats {
@@ -2533,4 +2599,50 @@ export interface GenerationPlanInput {
   style?: string
   target_duration_minutes?: number
   max_panels?: number
+}
+
+/* --- Retificação de edital ----------------------------------------------- */
+
+export type NoticeChangeKind = 'ADDED' | 'REMOVED' | 'CHANGED'
+export type NoticeChangeScope = 'SUBJECT' | 'TOPIC' | 'EVENT' | 'FACT'
+export type NoticeImpactAction = 'ORPHANED' | 'MISSING'
+
+export interface NoticeChange {
+  scope: NoticeChangeScope
+  kind: NoticeChangeKind
+  label: string
+  before: string | null
+  after: string | null
+  detail: string
+  topic_id: number | null
+  subject_id: number | null
+  /** Procedência do dado novo: conferido no PDF ou deduzido pela IA. */
+  evidence_level: string | null
+}
+
+export interface NoticeImpact {
+  action: NoticeImpactAction
+  topic_label: string
+  topic_id: number | null
+  reason: string
+  content: { kind: string; public_id: string; title: string } | null
+}
+
+export interface NoticeDiff {
+  public_id: string
+  competition_public_id: string | null
+  from_notice_title: string
+  to_notice_title: string
+  changes: NoticeChange[]
+  impacts: NoticeImpact[]
+  summary: {
+    added?: number
+    removed?: number
+    changed?: number
+    orphaned?: number
+    missing?: number
+    inferred?: number
+  }
+  reviewed_at: string | null
+  created_at: string
 }

@@ -40,6 +40,7 @@ from app.domain.mindmap import (
     to_dict,
     validate_content,
 )
+from app.domain.model_routing import Signals as RoutingSignals
 from app.models.ai import AIFeature
 from app.models.audit import AuditAction
 from app.models.mindmap import MindMap, MindMapStatus
@@ -190,10 +191,14 @@ class MindMapService:
             # A resolução do provedor entra no try junto com a chamada: sem IA
             # configurada ela falha aqui, e um mapa travado em GENERATING para
             # sempre seria pior do que o erro — ninguém saberia que parou.
-            resolved = await AISettingsService(self.session).resolve_feature(
-                AIFeature.MINDMAP_GENERATION
-            )
             messages = _prompt(lesson)
+            resolved = await AISettingsService(self.session).resolve_feature(
+                AIFeature.MINDMAP_GENERATION,
+                signals=RoutingSignals(
+                    input_chars=sum(len(message.content) for message in messages),
+                    needs_json=True,
+                ),
+            )
             cache_key = fingerprint(
                 feature=AIFeature.MINDMAP_GENERATION,
                 model_slug=resolved.model_slug,

@@ -87,9 +87,17 @@ class AIFeatureBindingRead(BaseModel):
     feature: str
     label: str
     description: str
+    kind: str = "chat"
+    #: Falso para embedding e voz, que não aceitam regra de roteamento.
+    is_routable: bool = True
     is_enabled: bool = False
     provider_slug: str | None = None
     model_slug: str | None = None
+    #: Modelo que atende quando o principal devolve limite de requisições ou
+    #: indisponibilidade. Vazio = sem reserva, e o erro sobe.
+    fallback_provider_slug: str | None = None
+    fallback_model_slug: str | None = None
+    fallback_is_usable: bool = False
     temperature: Decimal | None = None
     max_output_tokens: int | None = None
     cache_ttl_hours: int | None = None
@@ -100,6 +108,8 @@ class AIFeatureBindingUpdate(BaseModel):
 
     provider_slug: str | None = None
     model_slug: str | None = None
+    fallback_provider_slug: str | None = None
+    fallback_model_slug: str | None = None
     is_enabled: bool = False
     temperature: Decimal | None = Field(default=None, ge=0, le=2)
     max_output_tokens: int | None = Field(default=None, ge=64, le=32_000)
@@ -143,3 +153,100 @@ class AIBudgetUpdate(BaseModel):
     #: Zero quer dizer "sem teto para este".
     monthly_limit_cents: Decimal = Field(default=Decimal("0"), ge=0)
     per_run_limit_cents: Decimal = Field(default=Decimal("0"), ge=0)
+
+
+# --------------------------------------------------------------------------- #
+# Roteador de modelos (Fase 6)
+# --------------------------------------------------------------------------- #
+class AIModelRouteRead(BaseModel):
+    """Uma regra de roteamento como ela está cadastrada."""
+
+    model_config = ConfigDict(protected_namespaces=())
+
+    id: int
+    feature: str
+    feature_label: str
+    label: str
+    priority: int
+    is_enabled: bool
+    provider_slug: str | None = None
+    model_slug: str | None = None
+    #: Falso quando o modelo da regra não está utilizável — e a regra, por
+    #: isso, nunca se aplica. A tela precisa dizer isso em vez de mostrar uma
+    #: regra ligada que não faz nada.
+    model_is_usable: bool = False
+    min_input_chars: int | None = None
+    max_input_chars: int | None = None
+    requires_json: bool | None = None
+    min_budget_used_pct: Decimal | None = None
+    #: Sinais de que esta regra depende; vazio quando ela vale sempre.
+    required_signals: list[str] = Field(default_factory=list)
+
+
+class AIModelRouteCreate(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    feature: str
+    label: str = Field(min_length=3, max_length=120)
+    priority: int = Field(default=100, ge=0, le=1000)
+    is_enabled: bool = False
+    provider_slug: str
+    model_slug: str
+    min_input_chars: int | None = Field(default=None, ge=0, le=10_000_000)
+    max_input_chars: int | None = Field(default=None, ge=0, le=10_000_000)
+    requires_json: bool | None = None
+    min_budget_used_pct: Decimal | None = Field(default=None, ge=0, le=999)
+
+
+class AIModelRouteUpdate(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    label: str | None = Field(default=None, min_length=3, max_length=120)
+    priority: int | None = Field(default=None, ge=0, le=1000)
+    is_enabled: bool | None = None
+    provider_slug: str | None = None
+    model_slug: str | None = None
+    min_input_chars: int | None = Field(default=None, ge=0, le=10_000_000)
+    max_input_chars: int | None = Field(default=None, ge=0, le=10_000_000)
+    requires_json: bool | None = None
+    min_budget_used_pct: Decimal | None = Field(default=None, ge=0, le=999)
+    #: Limpa todas as condições antes de aplicar as informadas. Sem este campo,
+    #: um ``null`` no corpo seria indistinguível de "não quis mexer nesta".
+    clear_conditions: bool = False
+
+
+class AIRouteConditionTrace(BaseModel):
+    signal: str
+    description: str
+    outcome: str
+    observed: str | None = None
+
+
+class AIRouteRuleTrace(BaseModel):
+    rule_id: int
+    label: str
+    priority: int
+    outcome: str
+    detail: str
+    missing_signals: list[str] = Field(default_factory=list)
+    conditions: list[AIRouteConditionTrace] = Field(default_factory=list)
+
+
+class AIRoutingDecisionRead(BaseModel):
+    """Por que este modelo foi usado nesta execução."""
+
+    model_config = ConfigDict(protected_namespaces=())
+
+    id: int
+    feature: str
+    feature_label: str
+    model_slug: str
+    provider_slug: str
+    reason: str
+    route_id: int | None = None
+    route_label: str | None = None
+    explanation: str
+    #: Só o que a chamada informou de verdade.
+    signals: dict[str, object] = Field(default_factory=dict)
+    trace: list[AIRouteRuleTrace] = Field(default_factory=list)
+    created_at: datetime

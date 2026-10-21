@@ -211,6 +211,81 @@ class AIUsage(IdMixin, Base):
     status: Mapped[str] = mapped_column(String(20), default="SUCCESS")
     error_code: Mapped[str | None] = mapped_column(String(60))
     cached: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: Qual decisão de roteamento escolheu este modelo. É o que liga o gasto à
+    #: explicação: sem esta coluna, "por que este modelo?" só se responde por
+    #: aproximação de horário.
+    routing_decision_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("ai_routing_decisions.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class AIModelRoute(IdMixin, TimestampMixin, Base):
+    """Regra de roteamento de modelo. **Não mora no código** — mora aqui.
+
+    Trocar "edital acima de 80 mil caracteres usa o modelo grande" é um
+    ``UPDATE``, não um deploy. As condições são colunas, e não um JSON de
+    expressão, porque uma condição que o banco sabe ler é uma condição que a
+    tela sabe mostrar e o teste sabe conferir — e porque uma linguagem de
+    expressão guardada em texto é uma caixa preta com passo extra.
+
+    Condição nula quer dizer "não condiciona por isto". Regra sem nenhuma
+    condição vale para toda chamada da funcionalidade, e o rastro diz isso em
+    texto em vez de deixar a pessoa deduzir.
+    """
+
+    __tablename__ = "ai_model_routes"
+    __table_args__ = (Index("ix_ai_model_routes_feature_priority", "feature", "priority"),)
+
+    feature: Mapped[str] = mapped_column(String(60), index=True)
+    label: Mapped[str] = mapped_column(String(120))
+    priority: Mapped[int] = mapped_column(Integer, default=100)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    model_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("ai_models.id", ondelete="SET NULL")
+    )
+
+    #: Condições. Todas as preenchidas precisam valer ao mesmo tempo.
+    min_input_chars: Mapped[int | None] = mapped_column(Integer)
+    max_input_chars: Mapped[int | None] = mapped_column(Integer)
+    requires_json: Mapped[bool | None] = mapped_column(Boolean)
+    min_budget_used_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+
+    model: Mapped[AIModel | None] = relationship(lazy="selectin")
+
+
+class AIRoutingDecision(IdMixin, Base):
+    """Por que este modelo foi usado nesta execução.
+
+    Uma linha por resolução de funcionalidade. ``model_slug`` e
+    ``provider_slug`` são texto, além da chave estrangeira: o registro precisa
+    continuar legível depois que alguém apagar o modelo do cadastro, e um
+    histórico que vira ``NULL`` não explica nada.
+    """
+
+    __tablename__ = "ai_routing_decisions"
+    __table_args__ = (Index("ix_ai_routing_decisions_feature_created_at", "feature", "created_at"),)
+
+    feature: Mapped[str] = mapped_column(String(60))
+    model_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("ai_models.id", ondelete="SET NULL")
+    )
+    model_slug: Mapped[str] = mapped_column(String(120))
+    provider_slug: Mapped[str] = mapped_column(String(40))
+    reason: Mapped[str] = mapped_column(String(30))
+    route_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("ai_model_routes.id", ondelete="SET NULL")
+    )
+    #: O rótulo da regra também em texto, pelo mesmo motivo do ``model_slug``.
+    route_label: Mapped[str | None] = mapped_column(String(120))
+    explanation: Mapped[str] = mapped_column(String(500))
+    #: Só os sinais realmente informados pela chamada.
+    signals: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
+    #: Uma entrada por regra avaliada, com resultado e condições.
+    trace: Mapped[list[dict[str, Any]]] = mapped_column(JsonType, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )

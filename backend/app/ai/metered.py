@@ -49,6 +49,7 @@ class MeteredProvider(AIProvider):
         input_cost_per_1k: Decimal | None,
         output_cost_per_1k: Decimal | None,
         user_id: int | None = None,
+        routing_decision_id: int | None = None,
     ) -> None:
         super().__init__(inner.credentials)
         self.inner = inner
@@ -59,6 +60,10 @@ class MeteredProvider(AIProvider):
         self.input_cost_per_1k = input_cost_per_1k
         self.output_cost_per_1k = output_cost_per_1k
         self.user_id = user_id
+        #: Liga cada linha de gasto à explicação de por que este modelo foi
+        #: usado. Sem isso, "por que este modelo?" só se responde por
+        #: aproximação de horário entre duas tabelas.
+        self.routing_decision_id = routing_decision_id
 
     # ------------------------------------------------------------------ #
     # Passagem direta: não custam token, não entram na conta.
@@ -107,6 +112,7 @@ class MeteredProvider(AIProvider):
             user_id=self.user_id,
             status=status,
             error_code=error_code,
+            routing_decision_id=self.routing_decision_id,
         )
 
     async def complete(self, request: CompletionRequest) -> CompletionResult:

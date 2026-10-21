@@ -37,6 +37,7 @@ from app.ai.prompts import get_prompt, latest_version
 from app.ai.vector_store import VectorStore
 from app.core.errors import NotFoundError, ValidationError
 from app.core.logging import get_logger
+from app.domain.model_routing import Signals as RoutingSignals
 from app.domain.tutor import (
     ClaimKind,
     Intent,
@@ -322,7 +323,13 @@ class TutorService:
             "Redigindo com base nos trechos",
             f"{len(outcome.passages)} trecho(s) recuperado(s)",
         )
-        resolved = await self.ai_settings.resolve_feature(AIFeature.CHAT_TUTOR)
+        # A pergunta é montada antes de resolver o modelo: o tamanho dela, com
+        # os trechos recuperados, é o sinal que o roteador usa para escolher.
+        pergunta = self._user_prompt(text, outcome.passages, computed)
+        resolved = await self.ai_settings.resolve_feature(
+            AIFeature.CHAT_TUTOR,
+            signals=RoutingSignals(input_chars=len(pergunta), needs_json=True),
+        )
         version = latest_version(
             TEACHER_PROMPT if conversation.mode == ChatMode.TEACHER else TUTOR_PROMPT
         )
@@ -339,12 +346,7 @@ class TutorService:
                     content=item.content,
                 )
             )
-        messages.append(
-            ProviderMessage(
-                role="user",
-                content=self._user_prompt(text, outcome.passages, computed),
-            )
-        )
+        messages.append(ProviderMessage(role="user", content=pergunta))
 
         try:
             completion = await resolved.provider.complete(

@@ -41,6 +41,7 @@ from app.core.config import settings
 from app.core.errors import AppError, ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.domain.evidence import ChunkRef, coverage_summary, verify_quote
+from app.domain.model_routing import Signals as RoutingSignals
 from app.models.ai import AIFeature
 from app.models.audit import AuditAction
 from app.models.document import Document, DocumentChunk, DocumentKind, DocumentStatus
@@ -452,7 +453,17 @@ class NoticeAnalysisService:
         chunks: list[DocumentChunk],
         progress: AnalysisProgress,
     ) -> tuple[NoticeExtraction, bool, str, str]:
-        resolved = await self.ai_settings.resolve_feature(AIFeature.NOTICE_EXTRACTION)
+        # O contexto é montado antes de resolver o modelo porque o tamanho dele
+        # é um sinal do roteador: um edital de 8 páginas e um de 300 são a mesma
+        # funcionalidade e não são o mesmo trabalho. Montar antes não custa
+        # nada — as duas funções são puras e não falam com ninguém.
+        selected = select_chunks_for_extraction(chunks)
+        context = build_document_context(selected)
+
+        resolved = await self.ai_settings.resolve_feature(
+            AIFeature.NOTICE_EXTRACTION,
+            signals=RoutingSignals(input_chars=len(context), needs_json=True),
+        )
         version = latest_version(PROMPT_SLUG)
         prompt = get_prompt(PROMPT_SLUG, version)
 
@@ -475,8 +486,6 @@ class NoticeAnalysisService:
             )
 
         await progress.update("ai", StepStatus.RUNNING, f"modelo {resolved.model_slug}")
-        selected = select_chunks_for_extraction(chunks)
-        context = build_document_context(selected)
 
         request = CompletionRequest(
             messages=[
