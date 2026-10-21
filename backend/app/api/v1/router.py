@@ -21,6 +21,7 @@ from app.api.v1.routers import (
     intelligence,
     mindmap,
     notice_analysis,
+    notice_diff,
     questions,
     study,
     training,
@@ -47,6 +48,7 @@ api_router.include_router(admin_ai.router)
 api_router.include_router(agents.router)
 api_router.include_router(content_audit.router)
 api_router.include_router(generation.router)
+api_router.include_router(notice_diff.router)
 api_router.include_router(admin_catalog.router)
 api_router.include_router(admin_notices.router)
 api_router.include_router(mindmap.admin_router)

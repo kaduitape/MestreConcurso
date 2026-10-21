@@ -131,4 +131,5 @@ export const queryKeys = {
   audits: (params: unknown) => ['admin', 'content-audit', params] as const,
   generationPlans: (params: unknown) => ['admin', 'generation', params] as const,
   generationPlan: (publicId: string) => ['admin', 'generation', publicId] as const,
+  noticeDiffs: (params: unknown) => ['admin', 'notice-diffs', params] as const,
 }

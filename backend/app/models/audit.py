@@ -62,6 +62,8 @@ class AuditAction(StrEnum):
     GENERATION_PLANNED = "generation.planned"
     GENERATION_CONFIRMED = "generation.confirmed"
     GENERATION_CANCELED = "generation.canceled"
+    NOTICE_DIFF_CREATED = "notice.diff_created"
+    NOTICE_DIFF_REVIEWED = "notice.diff_reviewed"
     TRAINING_CREATED = "training.created"
     TRAINING_GENERATED = "training.generated"
     TRAINING_UPDATED = "training.updated"

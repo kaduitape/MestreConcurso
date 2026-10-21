@@ -2534,3 +2534,49 @@ export interface GenerationPlanInput {
   target_duration_minutes?: number
   max_panels?: number
 }
+
+/* --- Retificação de edital ----------------------------------------------- */
+
+export type NoticeChangeKind = 'ADDED' | 'REMOVED' | 'CHANGED'
+export type NoticeChangeScope = 'SUBJECT' | 'TOPIC' | 'EVENT' | 'FACT'
+export type NoticeImpactAction = 'ORPHANED' | 'MISSING'
+
+export interface NoticeChange {
+  scope: NoticeChangeScope
+  kind: NoticeChangeKind
+  label: string
+  before: string | null
+  after: string | null
+  detail: string
+  topic_id: number | null
+  subject_id: number | null
+  /** Procedência do dado novo: conferido no PDF ou deduzido pela IA. */
+  evidence_level: string | null
+}
+
+export interface NoticeImpact {
+  action: NoticeImpactAction
+  topic_label: string
+  topic_id: number | null
+  reason: string
+  content: { kind: string; public_id: string; title: string } | null
+}
+
+export interface NoticeDiff {
+  public_id: string
+  competition_public_id: string | null
+  from_notice_title: string
+  to_notice_title: string
+  changes: NoticeChange[]
+  impacts: NoticeImpact[]
+  summary: {
+    added?: number
+    removed?: number
+    changed?: number
+    orphaned?: number
+    missing?: number
+    inferred?: number
+  }
+  reviewed_at: string | null
+  created_at: string
+}
