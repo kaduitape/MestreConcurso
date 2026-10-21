@@ -15,6 +15,7 @@ import { TrainingStudioSection } from './training/training-studio-section'
 import { MindMapStudioSection } from './mindmap/mindmap-studio-section'
 import { AgentsSection } from './agents/agents-section'
 import { ContentAuditSection } from './audit/content-audit-section'
+import { GenerationSection } from './generation/generation-section'
 import { useAuth } from '@/providers/auth-provider'
 
 export function AdminPage() {
@@ -77,6 +78,7 @@ export function AdminPage() {
         </TabsContent>
         <TabsContent value="estudio">
           <div className="space-y-6">
+            {hasPermission('training:write') && <GenerationSection />}
             <TrainingStudioSection />
             <MindMapStudioSection />
           </div>

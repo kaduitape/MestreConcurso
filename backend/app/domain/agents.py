@@ -104,12 +104,12 @@ AGENTS: tuple[AgentSpec, ...] = (
     AgentSpec(
         key=AgentKey.TEACHER,
         label="Professor",
-        description="Gera aulas e mapas mentais por tópico do edital.",
-        depends_on=(AgentKey.STATISTICS,),
-        is_implemented=False,
-        pending_reason=(
-            "A geração em massa por tópico é a Fase 4. Hoje a aula é criada uma a uma no Estúdio."
+        description=(
+            "Executa os planos de geração já confirmados: aulas e mapas mentais "
+            "por tópico do edital, sempre como rascunho."
         ),
+        depends_on=(AgentKey.STATISTICS,),
+        max_attempts=2,
     ),
     AgentSpec(
         key=AgentKey.MEMORY,
@@ -117,7 +117,10 @@ AGENTS: tuple[AgentSpec, ...] = (
         description="Gera flashcards ligados aos tópicos do edital.",
         depends_on=(AgentKey.TEACHER,),
         is_implemented=False,
-        pending_reason="Depende da geração em massa, que é a Fase 4.",
+        pending_reason=(
+            "Flashcard aqui é pessoal de cada candidato: não há onde guardar um "
+            "baralho oficial por tópico. Gerar em massa exige esse desenho antes."
+        ),
     ),
     AgentSpec(
         key=AgentKey.BATTLE_MASTER,
@@ -125,7 +128,10 @@ AGENTS: tuple[AgentSpec, ...] = (
         description="Gera questões e desafios por tópico.",
         depends_on=(AgentKey.TEACHER,),
         is_implemented=False,
-        pending_reason="Depende da geração em massa, que é a Fase 4.",
+        pending_reason=(
+            "A plataforma classifica questão por IA, mas não gera: falta a "
+            "funcionalidade, com validação de gabarito, antes de produzir em massa."
+        ),
     ),
     AgentSpec(
         key=AgentKey.TUTOR,

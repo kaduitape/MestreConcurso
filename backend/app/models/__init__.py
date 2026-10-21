@@ -68,6 +68,7 @@ from app.models.game import (
     UserAchievement,
     XPTransaction,
 )
+from app.models.generation import GenerationItem, GenerationPlan
 from app.models.intelligence import (
     AnalysisSource,
     BoardProfileMetric,
@@ -183,6 +184,8 @@ __all__ = [
     "FlashcardReview",
     "GameRule",
     "GamificationProfile",
+    "GenerationItem",
+    "GenerationPlan",
     "GovernmentSphere",
     "InvoiceLine",
     "KnowledgeSource",

@@ -2477,3 +2477,60 @@ export interface AuditRuleInput {
   severity: string
   config?: Record<string, number | string> | null
 }
+
+/* --- Geração em massa por tópico ----------------------------------------- */
+
+export type GenerationPlanStatus = 'DRAFT' | 'CONFIRMED' | 'RUNNING' | 'DONE' | 'CANCELED'
+
+export type GenerationItemStatus =
+  'PENDING' | 'DONE' | 'REUSED' | 'FAILED' | 'BUDGET_BLOCKED' | 'CANCELED'
+
+export interface GenerationItem {
+  topic_name: string
+  subject_name: string
+  kind: string
+  /** GENERATE ou REUSE — decidido quando o plano foi montado. */
+  decision: 'GENERATE' | 'REUSE'
+  status: GenerationItemStatus
+  reason: string | null
+  target_public_id: string | null
+  cost_cents: string
+}
+
+export interface GenerationPlan {
+  public_id: string
+  competition_public_id: string | null
+  status: GenerationPlanStatus
+  kinds: string[]
+  options: Record<string, string | number>
+  /** Com `estimate_is_known` falso, é só a parte que deu para estimar. */
+  estimate_cents: string
+  estimate_is_known: boolean
+  estimate_basis: {
+    features?: Record<string, { items: number; samples: number; median_cents: string | null }>
+    unknown_features?: string[]
+  }
+  spent_cents: string
+  confirmed_at: string | null
+  finished_at: string | null
+  created_at: string
+  items: GenerationItem[]
+  progress: {
+    total: number
+    pending: number
+    done: number
+    reused: number
+    failed: number
+    blocked: number
+  }
+}
+
+export interface GenerationPlanInput {
+  competition_public_id: string
+  kinds: string[]
+  character_name?: string
+  level?: string
+  style?: string
+  target_duration_minutes?: number
+  max_panels?: number
+}

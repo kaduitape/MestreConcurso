@@ -312,6 +312,31 @@ async def test_the_auditor_runs_and_declares_what_it_could_not_check(
     assert "edital analisado" in auditor["detail"]
 
 
+async def test_the_teacher_does_not_authorize_its_own_spending(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """O agente executa plano de geração; quem autoriza o gasto é uma pessoa.
+
+    Se o Professor pudesse confirmar o próprio plano, a confirmação — que é
+    onde a estimativa é olhada — não valeria nada.
+    """
+    admin = await create_admin(client, emails, email="agt16@exemplo.com.br")
+    run = await _run(client, admin)
+
+    body = (
+        await client.post(
+            f"/api/v1/admin/agents/{run['public_id']}/run/{AgentKey.TEACHER}",
+            headers=admin.auth_header,
+        )
+    ).json()
+
+    professor = _step(body, AgentKey.TEACHER)
+    assert professor["is_implemented"] is True
+    # Depende da estatística, então nem chega a rodar nesta execução vazia.
+    assert professor["status"] == "SKIPPED"
+    assert "depende de" in (professor["detail"] or "").lower()
+
+
 async def test_an_unknown_agent_is_refused(
     client: AsyncClient, emails: CapturingDispatcher
 ) -> None:
