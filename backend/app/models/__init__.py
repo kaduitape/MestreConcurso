@@ -43,6 +43,7 @@ from app.models.catalog import (
     Subject,
     Topic,
 )
+from app.models.content_audit import ContentAudit, ContentAuditRule
 from app.models.document import (
     Document,
     DocumentChunk,
@@ -162,6 +163,8 @@ __all__ = [
     "Competition",
     "CompetitionStatus",
     "ConsentLog",
+    "ContentAudit",
+    "ContentAuditRule",
     "Conversation",
     "Coupon",
     "CouponRedemption",

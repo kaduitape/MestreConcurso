@@ -26,6 +26,7 @@ from app.services.ai_cache import AICacheService, fingerprint
 from app.services.ai_settings import AISettingsService
 from app.services.audit import AuditService
 from app.services.auth import RequestContext
+from app.services.content_audit import ContentAuditService
 from app.services.game_engine import GameEngine
 
 PROMPT_VERSION = "v1"
@@ -380,6 +381,10 @@ class TrainingService:
     ) -> TrainingLesson:
         if not lesson.script.get("scenes"):
             raise ValidationError("Gere e revise ao menos uma cena antes de publicar.")
+        # O portão de qualidade roda **antes** de mudar o estado: conteúdo
+        # barrado não chega a ficar publicado nem por um instante. O laudo é
+        # gravado mesmo quando a publicação é recusada.
+        await ContentAuditService(self.session).gate_lesson(lesson, actor=actor)
         lesson.status = TrainingStatus.PUBLISHED
         lesson.published_at = datetime.now(UTC)
         await self.audit.record(

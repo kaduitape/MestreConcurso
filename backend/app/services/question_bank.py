@@ -38,6 +38,7 @@ from app.services.ai_cache import AICacheService, fingerprint
 from app.services.ai_settings import AISettingsService
 from app.services.audit import AuditService
 from app.services.auth import RequestContext
+from app.services.content_audit import ContentAuditService
 
 logger = get_logger(__name__)
 
@@ -108,6 +109,14 @@ class QuestionBankService:
         self.session.add(question)
         await self.session.flush()
 
+        if question.status == QuestionStatus.PUBLISHED:
+            # Questão nasce publicada: o portão de qualidade é aqui, não só na
+            # revisão. Sem laudo gravado de propósito — recusada, ela não chega
+            # a existir, e um laudo apontando para o nada só sujaria o histórico.
+            auditor = ContentAuditService(self.session)
+            findings, _ = await auditor.evaluate_question(question)
+            auditor.refuse_from(findings)
+
         await self.audit.record(
             AuditAction.QUESTION_CREATED,
             actor=actor,
@@ -134,8 +143,14 @@ class QuestionBankService:
             question.checksum = statement_checksum(data["statement"])
         if subject_public_id is not None:
             question.subject_id = await self._subject_id(subject_public_id)
+        anterior = question.status
         for field, value in data.items():
             setattr(question, field, value)
+
+        if question.status == QuestionStatus.PUBLISHED and anterior != QuestionStatus.PUBLISHED:
+            # Editar também publica: a edição que promove a questão passa pelo
+            # mesmo portão, senão ele seria uma porta com a janela aberta ao lado.
+            await ContentAuditService(self.session).gate_question(question, actor=actor)
 
         await self.audit.record(
             AuditAction.QUESTION_UPDATED,
@@ -169,6 +184,38 @@ class QuestionBankService:
             resource_id=public_id,
         )
         await self.session.commit()
+
+    async def _audit_import_row(
+        self, item: dict[str, Any], statement: str, alternatives: list[dict[str, Any]]
+    ) -> None:
+        """Roda as regras do auditor sobre a linha, antes de criar qualquer coisa."""
+        from app.domain.content_audit import AuditableAlternative, AuditableQuestion
+        from app.domain.content_audit import audit_question as rodar_regras
+
+        auditor = ContentAuditService(self.session)
+        alvo = AuditableQuestion(
+            public_id="(em importação)",
+            kind=item.get("kind", "MULTIPLE_CHOICE"),
+            origin=item.get("origin", QuestionOrigin.OFFICIAL),
+            statement=statement,
+            explanation=item.get("explanation"),
+            alternatives=tuple(
+                AuditableAlternative(
+                    letter=str(alternative.get("letter", "")),
+                    text=str(alternative.get("content", "")),
+                    is_correct=bool(alternative.get("is_correct")),
+                )
+                for alternative in alternatives
+            ),
+            subject_id=None,
+            topic_id=None,
+            generated_by_ai=item.get("origin") == QuestionOrigin.AI_GENERATED,
+            human_reviewed=False,
+            duplicates=(),
+            topic_in_notice=None,
+        )
+        findings = rodar_regras(alvo, await auditor.settings())
+        auditor.refuse_from(findings)
 
     def _validate_alternatives(
         self, alternatives: list[dict[str, Any]], *, kind: str | None
@@ -251,6 +298,12 @@ class QuestionBankService:
                 statement = str(item["statement"]).strip()
                 alternatives = item.get("alternatives") or []
                 self._validate_alternatives(alternatives, kind=item.get("kind"))
+                if item.get("status", QuestionStatus.PUBLISHED) == QuestionStatus.PUBLISHED:
+                    # O lote entra publicado: as mesmas regras do portão valem
+                    # aqui. A comparação de duplicata fica de fora porque o
+                    # checksum já barra o enunciado igual, e varrer o banco a
+                    # cada linha transformaria a importação numa espera.
+                    await self._audit_import_row(item, statement, alternatives)
 
                 checksum = statement_checksum(statement)
                 if await self.questions.get_by_checksum(checksum) is not None:
@@ -284,8 +337,12 @@ class QuestionBankService:
                 self.session.add(question)
                 await self.session.flush()
                 created += 1
-            except (KeyError, ValidationError, TypeError) as exc:
-                message = exc.message if isinstance(exc, ValidationError) else str(exc)
+            except (KeyError, ValidationError, ConflictError, TypeError) as exc:
+                # A linha barrada pelo auditor entra como erro da linha, não
+                # derruba o lote: o resto da importação continua valendo.
+                message = (
+                    exc.message if isinstance(exc, ValidationError | ConflictError) else str(exc)
+                )
                 errors.append(f"questão {index}: {message}")
 
         await self.audit.record(
@@ -400,9 +457,12 @@ class QuestionBankService:
             question.difficulty = difficulty
 
         question.ai_suggestion = {**(question.ai_suggestion or {}), "applied": True}
-        question.status = QuestionStatus.PUBLISHED
+        # A revisão é registrada antes do portão porque é ela que o auditor
+        # cobra: questão de IA sem conferência humana não publica.
         question.reviewed_by_user_id = actor.id
         question.reviewed_at = datetime.now(UTC)
+        await ContentAuditService(self.session).gate_question(question, actor=actor)
+        question.status = QuestionStatus.PUBLISHED
 
         await self.audit.record(
             AuditAction.QUESTION_CLASSIFIED,

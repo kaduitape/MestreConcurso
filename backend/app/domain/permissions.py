@@ -44,6 +44,8 @@ BILLING_READ = "billing:read"
 BILLING_WRITE = "billing:write"
 TRAINING_READ = "training:read"
 TRAINING_WRITE = "training:write"
+CONTENT_AUDIT_READ = "content_audit:read"
+CONTENT_AUDIT_WRITE = "content_audit:write"
 
 PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec(USERS_READ, "Listar e visualizar usuários"),
@@ -69,6 +71,11 @@ PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec(BILLING_WRITE, "Editar planos, limites, cupons e o provedor de pagamento"),
     PermissionSpec(TRAINING_READ, "Consultar treinamentos no Estúdio"),
     PermissionSpec(TRAINING_WRITE, "Criar, gerar, editar e publicar treinamentos"),
+    PermissionSpec(CONTENT_AUDIT_READ, "Ver laudos de auditoria de conteúdo"),
+    PermissionSpec(
+        CONTENT_AUDIT_WRITE,
+        "Rodar auditorias e configurar as regras que barram publicação",
+    ),
 )
 
 
@@ -111,6 +118,9 @@ ROLES: tuple[RoleSpec, ...] = (
             BILLING_READ,
             TRAINING_READ,
             TRAINING_WRITE,
+            # A equipe precisa ver por que a publicação foi barrada; desligar
+            # uma regra de bloqueio continua sendo decisão de administrador.
+            CONTENT_AUDIT_READ,
         ),
     ),
     RoleSpec(
