@@ -86,3 +86,26 @@ mudança para a história inteira não se justificava neste conserto.
 - `upgrade head` termina com o carimbo **na cabeça** — não na revisão anterior.
 - O banco com o schema novo e o carimbo antigo consegue se endireitar, sem
   duplicar índice nem chave estrangeira pelo caminho.
+
+## Versões fixadas depois do incidente
+
+O defeito não estava só no nosso código: ele dependia de um detalhe de
+comportamento do **par** SQLAlchemy + Alembic — quando o Alembic considera a
+transação "externa" e, a partir daí, não confirma mais nada. Esse detalhe pode
+mudar entre versões.
+
+As duas bibliotecas estavam declaradas em faixa aberta (`>=`), então cada build
+do contêiner trazia o que fosse mais novo no dia. Agora estão **fixas**:
+
+```toml
+"sqlalchemy[asyncio]==2.1.5",
+"alembic==1.20.0",
+```
+
+Subir qualquer uma passa a ser uma alteração explícita, com a suíte rodando
+antes — que é exatamente a conferência que faltava.
+
+Fica registrado o que **não** foi feito: as outras dependências continuam em
+faixa aberta. Um arquivo de bloqueio para o backend inteiro resolveria o
+problema por completo, e continua sendo a recomendação; esta mudança fecha o
+caso conhecido, não a categoria.
