@@ -19,6 +19,7 @@ celery_app = Celery(
         "app.workers.tasks.maintenance",
         "app.workers.tasks.documents",
         "app.workers.tasks.billing",
+        "app.workers.tasks.generation",
     ],
 )
 

@@ -189,6 +189,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [29 — Fase 2: medição e teto de custo](docs/29-fase2-medicao-e-teto-de-custo.md) | todo gasto com IA contado num lugar só, um teto que corta de verdade e o orquestrador dos agentes |
 | [30 — O carimbo de versão perdido](docs/30-carimbo-de-versao-perdido.md) | o deploy verde que quebrou o seguinte: causa, reprodução e conserto |
 | [31 — Fase 3: o auditor](docs/31-fase3-auditor.md) | o portão determinístico que barra publicação e diz o que não deu para conferir |
+| [32 — Fase 4: geração em massa](docs/32-fase4-geracao-em-massa.md) | plano por tópico, estimativa a partir do custo medido e reaproveitamento entre concursos |
 
 ## Como executar
 

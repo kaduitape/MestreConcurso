@@ -109,10 +109,12 @@ def test_a_new_run_starts_with_everything_pending() -> None:
 
 
 def test_an_unimplemented_agent_already_carries_its_reason() -> None:
+    """E o motivo diz o que falta, não só que falta."""
     passos = {step.key: step for step in initial_steps()}
-    professor = passos[AgentKey.TEACHER]
-    assert professor.is_implemented is False
-    assert professor.detail and "Fase 4" in professor.detail
+    memorizacao = passos[AgentKey.MEMORY]
+
+    assert memorizacao.is_implemented is False
+    assert memorizacao.detail and "baralho oficial" in memorizacao.detail
 
 
 def test_the_auditor_does_not_wait_for_agents_that_do_not_exist() -> None:

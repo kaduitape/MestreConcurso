@@ -5,7 +5,7 @@ que têm implementação de verdade — e isso é deliberado: registrar um agent
 não faz nada o deixaria **verde** na tela de acompanhamento, que é pior do que
 deixá-lo pulado. Pulado traz o motivo escrito; verde mente.
 
-Os quatro registrados reutilizam serviços que já estavam em produção:
+Os cinco registrados reutilizam serviços que já estavam em produção:
 
 * **Analista de editais** → o pipeline de análise, com suas sete etapas e a
   conferência de cada citação no PDF.
@@ -15,6 +15,8 @@ Os quatro registrados reutilizam serviços que já estavam em produção:
   candidato e diz o que faltou quando um sinal não existe.
 * **Auditor de qualidade** → o portão de regras determinísticas, que varre o
   conteúdo publicado do concurso e declara o próprio alcance.
+* **Professor** → os planos de geração em massa **já confirmados por uma
+  pessoa**. O agente executa; quem autoriza o gasto é gente.
 
 O orquestrador não refaz o trabalho deles. Ele os chama na ordem certa e
 registra o que aconteceu.
@@ -227,14 +229,90 @@ async def run_auditor(session: AsyncSession, run: AgentRun) -> AgentOutcome:
     )
 
 
+async def run_teacher(session: AsyncSession, run: AgentRun) -> AgentOutcome:
+    """Executa os planos de geração confirmados deste concurso.
+
+    O agente **não confirma plano**. Montar o plano mostra a estimativa, e
+    disparar centenas de chamadas de IA é decisão de uma pessoa — se o agente
+    pudesse confirmar sozinho, a confirmação não valeria nada.
+    """
+    from app.domain.generation import PlanStatus
+    from app.models.generation import GenerationPlan
+    from app.models.user import User as UserModel
+    from app.services.auth import RequestContext
+    from app.services.generation import GenerationService
+
+    if run.competition_id is None:
+        return AgentOutcome(detail="A execução não está ligada a um concurso.", skipped=True)
+
+    planos = list(
+        (
+            await session.execute(
+                select(GenerationPlan).where(
+                    GenerationPlan.competition_id == run.competition_id,
+                    GenerationPlan.status.in_([PlanStatus.CONFIRMED, PlanStatus.RUNNING]),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not planos:
+        return AgentOutcome(
+            detail=(
+                "Não há plano de geração confirmado para este concurso. "
+                "Monte o plano no painel, confira a estimativa e confirme — "
+                "o agente executa, mas não autoriza o gasto."
+            ),
+            skipped=True,
+        )
+
+    service = GenerationService(session)
+    gerados = reaproveitados = falhos = barrados = restantes = 0
+    for plano in planos:
+        actor = (
+            await session.execute(
+                select(UserModel).where(UserModel.id == plano.confirmed_by_user_id)
+            )
+        ).scalar_one_or_none()
+        if actor is None:
+            continue
+        resultado = await service.run(plano, actor, RequestContext())
+        gerados += resultado.generated
+        reaproveitados += resultado.reused
+        falhos += resultado.failed
+        barrados += resultado.blocked
+        restantes += resultado.remaining
+
+    detalhe = (
+        f"{gerados} rascunhos gerados, {reaproveitados} tópicos reaproveitados e {falhos} falhas."
+    )
+    if barrados:
+        detalhe += f" {barrados} itens barrados pelo teto de gasto."
+    if restantes:
+        detalhe += f" {restantes} itens continuam na fila para a próxima passada."
+    detalhe += " Nada foi publicado: rascunho de IA espera conferência humana."
+
+    return AgentOutcome(
+        detail=detalhe,
+        result={
+            "generated": gerados,
+            "reused": reaproveitados,
+            "failed": falhos,
+            "blocked": barrados,
+            "remaining": restantes,
+        },
+    )
+
+
 def register_default_agents() -> None:
     """Liga as chaves do catálogo às implementações reais.
 
-    Só estes quatro — e são exatamente os quatro que o catálogo declara como
-    construídos. Os outros quatro continuam declarados e pulados com o motivo
-    que o catálogo traz: professor, memorização e mestre de batalhas dependem
-    da geração em massa (Fase 4), e o analista de melhorias ainda não teve o
-    desenho aprovado.
+    Só estes cinco — e são exatamente os cinco que o catálogo declara como
+    construídos. Os outros três continuam declarados e pulados com o motivo que
+    o catálogo traz: memorização não tem onde guardar baralho oficial, mestre de
+    batalhas depende de uma geração de questões que ainda não existe, e o
+    analista de melhorias não teve o desenho aprovado.
 
     Catálogo e registro precisam contar a mesma história. Um agente declarado
     como construído sem implementação registrada seria pulado dizendo "ainda
@@ -244,6 +322,7 @@ def register_default_agents() -> None:
     registry.register(AgentKey.STATISTICS, run_statistics)
     registry.register(AgentKey.TUTOR, run_tutor)
     registry.register(AgentKey.AUDITOR, run_auditor)
+    registry.register(AgentKey.TEACHER, run_teacher)
 
 
 register_default_agents()
