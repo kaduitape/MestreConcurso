@@ -73,11 +73,20 @@ export function FeatureBindings({ providers }: { providers: AIProvider[] }) {
       provider_slug: string | null
       model_slug: string | null
       is_enabled: boolean
+      /**
+       * A reserva viaja em toda gravação. Omiti-la apagaria a reserva no
+       * servidor a cada troca de modelo ou de interruptor — um efeito
+       * colateral que ninguém pediu.
+       */
+      fallback_provider_slug: string | null
+      fallback_model_slug: string | null
     }) =>
       aiApi.setFeature(input.feature, {
         provider_slug: input.provider_slug,
         model_slug: input.model_slug,
         is_enabled: input.is_enabled,
+        fallback_provider_slug: input.fallback_provider_slug,
+        fallback_model_slug: input.fallback_model_slug,
       }),
     onSuccess: () => {
       toast.success('Configuração atualizada.')
@@ -112,7 +121,11 @@ export function FeatureBindings({ providers }: { providers: AIProvider[] }) {
         <CardTitle>Modelo por funcionalidade</CardTitle>
         <CardDescription>
           Cada recurso da plataforma escolhe seu próprio modelo. Enquanto uma funcionalidade
-          estiver desligada, ela simplesmente não chama a IA — e nada é cobrado.
+          estiver desligada, ela simplesmente não chama a IA — e nada é cobrado. A reserva só
+          entra quando o modelo principal responde com limite de requisições ou indisponibilidade;
+          chave inválida não cai na reserva, porque isso esconderia a configuração errada.
+          Embedding e narração não têm reserva: trocar o modelo mudaria o espaço dos vetores ou a
+          voz do narrador no meio da aula.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -120,6 +133,10 @@ export function FeatureBindings({ providers }: { providers: AIProvider[] }) {
           const current =
             feature.provider_slug && feature.model_slug
               ? `${feature.provider_slug}::${feature.model_slug}`
+              : ''
+          const reserva =
+            feature.fallback_provider_slug && feature.fallback_model_slug
+              ? `${feature.fallback_provider_slug}::${feature.fallback_model_slug}`
               : ''
           const allowed = options.filter((option) => isAllowed(feature.feature, option))
           const suggested = recommend(feature.feature, options)
@@ -149,6 +166,8 @@ export function FeatureBindings({ providers }: { providers: AIProvider[] }) {
                       provider_slug: providerSlug || null,
                       model_slug: modelSlug || null,
                       is_enabled: feature.is_enabled && Boolean(event.target.value),
+                      fallback_provider_slug: feature.fallback_provider_slug,
+                      fallback_model_slug: feature.fallback_model_slug,
                     })
                   }}
                 >
@@ -175,6 +194,8 @@ export function FeatureBindings({ providers }: { providers: AIProvider[] }) {
                       provider_slug: providerSlug,
                       model_slug: modelSlug,
                       is_enabled: true,
+                      fallback_provider_slug: feature.fallback_provider_slug,
+                      fallback_model_slug: feature.fallback_model_slug,
                     })
                   }}
                 >
@@ -190,10 +211,49 @@ export function FeatureBindings({ providers }: { providers: AIProvider[] }) {
                       provider_slug: feature.provider_slug,
                       model_slug: feature.model_slug,
                       is_enabled: value,
+                      fallback_provider_slug: feature.fallback_provider_slug,
+                      fallback_model_slug: feature.fallback_model_slug,
                     })
                   }
                 />
               </div>
+
+              {feature.is_routable && (
+                <div className="flex flex-wrap items-center gap-2 lg:w-72">
+                  <label className="text-[0.68rem] text-slate-500">
+                    Reserva
+                    <Select
+                      className="mt-1 h-9"
+                      aria-label={`Modelo de reserva para ${feature.label}`}
+                      value={reserva}
+                      disabled={allowed.length === 0 || update.isPending}
+                      onChange={(event) => {
+                        const [providerSlug, modelSlug] = event.target.value.split('::')
+                        update.mutate({
+                          feature: feature.feature,
+                          provider_slug: feature.provider_slug,
+                          model_slug: feature.model_slug,
+                          is_enabled: feature.is_enabled,
+                          fallback_provider_slug: providerSlug || null,
+                          fallback_model_slug: modelSlug || null,
+                        })
+                      }}
+                    >
+                      <option value="">sem reserva — o erro sobe</option>
+                      {allowed
+                        .filter((option) => option.value !== current)
+                        .map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                    </Select>
+                  </label>
+                  {feature.fallback_model_slug && !feature.fallback_is_usable && (
+                    <Badge variant="warning">reserva indisponível</Badge>
+                  )}
+                </div>
+              )}
             </div>
           )
         })}

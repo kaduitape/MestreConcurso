@@ -4,10 +4,17 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from app.models.ai import AICacheEntry, AIFeatureBinding, AIModel, AIProviderConfig
+from app.models.ai import (
+    AICacheEntry,
+    AIFeatureBinding,
+    AIModel,
+    AIModelRoute,
+    AIProviderConfig,
+    AIRoutingDecision,
+)
 from app.repositories.base import BaseRepository
 
 
@@ -82,3 +89,48 @@ class AICacheRepository(BaseRepository[AICacheEntry]):
     async def get_by_fingerprint(self, fingerprint: str) -> AICacheEntry | None:
         stmt = select(AICacheEntry).where(AICacheEntry.fingerprint == fingerprint)
         return (await self.session.execute(stmt)).scalar_one_or_none()
+
+
+class AIModelRouteRepository(BaseRepository[AIModelRoute]):
+    model = AIModelRoute
+
+    async def list_for_feature(self, feature: str) -> Sequence[AIModelRoute]:
+        stmt = (
+            select(AIModelRoute)
+            .where(AIModelRoute.feature == feature)
+            .options(selectinload(AIModelRoute.model).selectinload(AIModel.provider))
+            .order_by(AIModelRoute.priority, AIModelRoute.id)
+        )
+        return (await self.session.execute(stmt)).scalars().all()
+
+    async def list_all(self) -> Sequence[AIModelRoute]:
+        stmt = (
+            select(AIModelRoute)
+            .options(selectinload(AIModelRoute.model).selectinload(AIModel.provider))
+            .order_by(AIModelRoute.feature, AIModelRoute.priority, AIModelRoute.id)
+        )
+        return (await self.session.execute(stmt)).scalars().all()
+
+    async def get_with_model(self, route_id: int) -> AIModelRoute | None:
+        stmt = (
+            select(AIModelRoute)
+            .where(AIModelRoute.id == route_id)
+            .options(selectinload(AIModelRoute.model).selectinload(AIModel.provider))
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
+    async def count_for_feature(self, feature: str) -> int:
+        stmt = select(func.count(AIModelRoute.id)).where(AIModelRoute.feature == feature)
+        return int((await self.session.execute(stmt)).scalar_one() or 0)
+
+
+class AIRoutingDecisionRepository(BaseRepository[AIRoutingDecision]):
+    model = AIRoutingDecision
+
+    async def recent(
+        self, *, feature: str | None = None, limit: int = 50
+    ) -> Sequence[AIRoutingDecision]:
+        stmt = select(AIRoutingDecision).order_by(AIRoutingDecision.id.desc()).limit(limit)
+        if feature:
+            stmt = stmt.where(AIRoutingDecision.feature == feature)
+        return (await self.session.execute(stmt)).scalars().all()

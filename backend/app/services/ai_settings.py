@@ -16,11 +16,15 @@ from app.ai.base import (
     ProviderError,
     ProviderNotConfiguredError,
 )
+from app.ai.fallback import FallbackProvider
 from app.ai.metered import MeteredProvider
 from app.ai.registry import available_provider_slugs, build_provider
 from app.core.crypto import decrypt_secret, encrypt_secret, secret_hint
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
+from app.domain.model_routing import Decision as RoutingDecision
+from app.domain.model_routing import Signals as RoutingSignals
+from app.domain.model_routing import after_error
 from app.models.ai import AIFeature, AIFeatureBinding, AIModel, AIProviderConfig
 from app.models.audit import AuditAction
 from app.models.user import User
@@ -48,13 +52,20 @@ PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
 
 @dataclass(frozen=True, slots=True)
 class ResolvedModel:
-    """Modelo pronto para uso, já com o provedor instanciado."""
+    """Modelo pronto para uso, já com o provedor instanciado.
+
+    ``decision`` responde "por que este modelo?" sem consultar o banco: ela é a
+    mesma decisão que foi gravada em ``ai_routing_decisions`` e que cada linha
+    de ``ai_usage`` desta chamada aponta.
+    """
 
     provider: AIProvider
     provider_slug: str
     model_slug: str
     binding: AIFeatureBinding
     model: AIModel
+    decision: RoutingDecision | None = None
+    decision_id: int | None = None
 
 
 class AISettingsService:
@@ -342,6 +353,8 @@ class AISettingsService:
         model_slug: str | None,
         is_enabled: bool,
         temperature: Decimal | None,
+        fallback_provider_slug: str | None = None,
+        fallback_model_slug: str | None = None,
         max_output_tokens: int | None,
         cache_ttl_hours: int | None,
         actor: User,
@@ -375,7 +388,26 @@ class AISettingsService:
             binding = AIFeatureBinding(feature=feature)
             self.session.add(binding)
 
-        binding.model_id = model.id if model else None
+        reserva: AIModel | None = None
+        if fallback_provider_slug and fallback_model_slug:
+            provider_reserva = await self.get_provider(fallback_provider_slug)
+            reserva = await self.models.get_by_slug(provider_reserva.id, fallback_model_slug)
+            if reserva is None:
+                raise NotFoundError("Modelo de reserva não encontrado neste provedor.")
+            if model is not None and reserva.id == model.id:
+                raise ValidationError(
+                    "O modelo de reserva precisa ser diferente do principal: usar o "
+                    "mesmo modelo repetiria a chamada que acabou de falhar.",
+                    code="ai_fallback_same_model",
+                )
+
+        # Atribuir o relacionamento, e não só a coluna da chave estrangeira: a
+        # fábrica de sessões usa ``expire_on_commit=False``, então um vínculo
+        # que já estava carregado continuaria com o relacionamento antigo em
+        # memória depois do commit — e a resposta sairia dizendo que não há
+        # reserva quando acabamos de gravar uma.
+        binding.model = model
+        binding.fallback_model = reserva
         binding.is_enabled = is_enabled
         if temperature is not None:
             binding.temperature = temperature
@@ -388,19 +420,54 @@ class AISettingsService:
             actor_ip=context.ip_address,
             resource_type="ai_feature",
             resource_id=feature,
-            meta={"model": model.slug if model else None, "enabled": is_enabled},
+            meta={
+                "model": model.slug if model else None,
+                "fallback_model": reserva.slug if reserva else None,
+                "enabled": is_enabled,
+            },
         )
         await self.session.commit()
         resolved = await self.bindings.get_by_feature(feature)
         assert resolved is not None
         return resolved
 
-    async def resolve_feature(self, feature: str) -> ResolvedModel:
+    def _metered(
+        self,
+        feature: str,
+        model: AIModel,
+        *,
+        decision_id: int | None = None,
+    ) -> MeteredProvider:
+        """Provedor embrulhado pelo medidor, com o preço do modelo escolhido."""
+        return MeteredProvider(
+            self.build_client(model.provider),
+            feature=feature,
+            model_slug=model.slug,
+            input_cost_per_1k=(
+                Decimal(model.input_cost_per_1k) if model.input_cost_per_1k is not None else None
+            ),
+            output_cost_per_1k=(
+                Decimal(model.output_cost_per_1k) if model.output_cost_per_1k is not None else None
+            ),
+            routing_decision_id=decision_id,
+        )
+
+    async def resolve_feature(
+        self, feature: str, *, signals: RoutingSignals | None = None
+    ) -> ResolvedModel:
         """Provedor + modelo ativos para a funcionalidade, prontos para uso.
 
         Levanta ``ProviderNotConfiguredError`` quando nada foi configurado — a plataforma
         prefere avisar a fingir que respondeu.
+
+        ``signals`` é o que a chamada sabe sobre si mesma (tamanho da entrada,
+        exigência de JSON). O roteador decide sobre o que foi informado e marca
+        como **não avaliada** a regra que dependia de um sinal ausente — nunca
+        trata ausência como zero. Quem não informa nada continua recebendo o
+        modelo vinculado à funcionalidade, como antes desta fase.
         """
+        from app.services.model_router import ModelRouterService, model_is_usable
+
         binding = await self.bindings.get_by_feature(feature)
         if binding is None or not binding.is_enabled or binding.model is None:
             raise ProviderNotConfiguredError(
@@ -412,28 +479,51 @@ class AISettingsService:
         if not provider_config.is_active:
             raise ProviderNotConfiguredError("O provedor desta funcionalidade está inativo.")
 
+        router = ModelRouterService(self.session)
+        outcome = await router.decide(feature, binding=binding, declared=signals)
+        escolhido = outcome.model
+        if escolhido.provider is None or not escolhido.provider.is_active:  # pragma: no cover
+            # O roteador só escolhe modelo utilizável; isto é cinto de segurança
+            # para o caso de o provedor ser desativado entre a leitura e o uso.
+            raise ProviderNotConfiguredError("O provedor do modelo escolhido está inativo.")
+
         # O provedor sai daqui já embrulhado pelo medidor. É o único ponto da
         # aplicação onde isso acontece: medir em cada um dos nove lugares que
         # chamam IA daria nove chances de esquecer, e o esquecido não aparece
         # na conta — que é exatamente o defeito que a medição veio consertar.
-        return ResolvedModel(
-            provider=MeteredProvider(
-                self.build_client(provider_config),
+        provider: AIProvider = self._metered(feature, escolhido, decision_id=outcome.decision_id)
+
+        reserva = binding.fallback_model
+        if reserva is not None and reserva.id != escolhido.id and model_is_usable(reserva):
+
+            async def build_reserve(error_code: str) -> AIProvider:
+                # A decisão do desvio é gravada aqui, e não antes: registrar um
+                # desvio que talvez não aconteça seria afirmar o que não houve.
+                desvio = after_error(
+                    failed_model_slug=escolhido.slug,
+                    error_code=error_code,
+                    model_id=reserva.id,
+                    model_slug=reserva.slug,
+                    provider_slug=reserva.provider.slug if reserva.provider else None,
+                    signals=outcome.decision.signals,
+                )
+                return self._metered(
+                    feature, reserva, decision_id=await router.record(feature, desvio)
+                )
+
+            provider = FallbackProvider(
+                provider,
+                build_reserve=build_reserve,
+                primary_model_slug=escolhido.slug,
                 feature=feature,
-                model_slug=model.slug,
-                input_cost_per_1k=(
-                    Decimal(model.input_cost_per_1k)
-                    if model.input_cost_per_1k is not None
-                    else None
-                ),
-                output_cost_per_1k=(
-                    Decimal(model.output_cost_per_1k)
-                    if model.output_cost_per_1k is not None
-                    else None
-                ),
-            ),
-            provider_slug=provider_config.slug,
-            model_slug=model.slug,
+            )
+
+        return ResolvedModel(
+            provider=provider,
+            provider_slug=escolhido.provider.slug,
+            model_slug=escolhido.slug,
             binding=binding,
-            model=model,
+            model=escolhido,
+            decision=outcome.decision,
+            decision_id=outcome.decision_id,
         )

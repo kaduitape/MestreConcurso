@@ -191,6 +191,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [31 — Fase 3: o auditor](docs/31-fase3-auditor.md) | o portão determinístico que barra publicação e diz o que não deu para conferir |
 | [32 — Fase 4: geração em massa](docs/32-fase4-geracao-em-massa.md) | plano por tópico, estimativa a partir do custo medido e reaproveitamento entre concursos |
 | [33 — Fase 5: retificação](docs/33-fase5-retificacao.md) | o que mudou entre duas versões do edital, e o conteúdo que ficou órfão sem ser apagado |
+| [34 — Fase 6: roteador de modelos](docs/34-fase6-roteador.md) | a escolha do modelo decidida por sinais medidos, com o rastro de cada regra — e o JEV, que continua fora |
 
 ## Como executar
 

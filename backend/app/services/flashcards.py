@@ -26,6 +26,7 @@ from app.ai.prompts import get_prompt, latest_version
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.domain.evidence import MIN_QUOTE_LENGTH, normalize_for_match
+from app.domain.model_routing import Signals as RoutingSignals
 from app.models.ai import AIFeature
 from app.models.catalog import Subject
 from app.models.flashcard import CardOrigin, Flashcard
@@ -272,7 +273,10 @@ class FlashcardService:
         text = text[:MAX_MATERIAL_CHARS]
         wanted = max(1, min(quantity, MAX_GENERATED))
 
-        resolved = await self.ai_settings.resolve_feature(AIFeature.FLASHCARD_GENERATION)
+        resolved = await self.ai_settings.resolve_feature(
+            AIFeature.FLASHCARD_GENERATION,
+            signals=RoutingSignals(input_chars=len(text), needs_json=True),
+        )
         version = latest_version(GENERATE_PROMPT)
         prompt = get_prompt(GENERATE_PROMPT, version)
 

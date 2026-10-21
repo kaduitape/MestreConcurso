@@ -37,6 +37,8 @@ class AuditAction(StrEnum):
     AI_BINDING_UPDATED = "ai.binding_updated"
     AI_CACHE_PURGED = "ai.cache_purged"
     AI_BUDGET_UPDATED = "ai.budget_updated"
+    AI_ROUTE_UPDATED = "ai.route_updated"
+    AI_ROUTE_DELETED = "ai.route_deleted"
     AGENT_RUN_STARTED = "agent.run_started"
     AGENT_RUN_FINISHED = "agent.run_finished"
     AGENT_STEP_RUN = "agent.step_run"

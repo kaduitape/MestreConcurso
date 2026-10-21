@@ -96,3 +96,14 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
 )
 
 FEATURE_BY_SLUG: dict[str, FeatureSpec] = {spec.feature: spec for spec in FEATURE_SPECS}
+
+#: Tipos que aceitam regra de roteamento. Embedding fica fora porque vetor de
+#: outro modelo vive em outro espaço; voz fica fora porque a aula é narrada cena
+#: por cena e trocar de modelo trocaria o narrador no meio. Ver
+#: ``app/services/model_router.py``.
+ROUTABLE_KINDS = frozenset({"chat", "rerank"})
+
+
+def is_routable(feature: str) -> bool:
+    spec = FEATURE_BY_SLUG.get(feature)
+    return spec is not None and spec.kind in ROUTABLE_KINDS

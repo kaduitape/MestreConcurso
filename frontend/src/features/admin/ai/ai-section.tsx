@@ -13,6 +13,7 @@ import { ProviderCard } from './provider-card'
 import { FeatureBindings } from './feature-bindings'
 import { BudgetCard } from './budget-card'
 import { CacheCard } from './cache-card'
+import { ModelRouterCard } from './model-router-card'
 
 const PROVIDER_LABELS: Record<string, string> = {
   aisa: 'AISA.one',
@@ -93,6 +94,7 @@ export function AiSection() {
       )}
 
       <FeatureBindings providers={providers.data ?? []} />
+      <ModelRouterCard providers={providers.data ?? []} />
       <BudgetCard />
       <CacheCard />
     </div>

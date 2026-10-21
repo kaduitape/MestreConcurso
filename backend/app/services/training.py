@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.base import ChatMessage, CompletionRequest
 from app.core.errors import NotFoundError, ValidationError
 from app.domain.game import GameEvent, GameEventKind
+from app.domain.model_routing import Signals as RoutingSignals
 from app.models.ai import AIFeature
 from app.models.audit import AuditAction
 from app.models.catalog import Competition
@@ -278,8 +279,14 @@ class TrainingService:
         lesson.status = TrainingStatus.GENERATING
         lesson.generation_error = None
         await self.session.commit()
-        resolved = await AISettingsService(self.session).resolve_feature(AIFeature.TRAINING_SCRIPT)
         messages = _script_prompt(lesson)
+        resolved = await AISettingsService(self.session).resolve_feature(
+            AIFeature.TRAINING_SCRIPT,
+            signals=RoutingSignals(
+                input_chars=sum(len(message.content) for message in messages),
+                needs_json=True,
+            ),
+        )
         cache_payload = {"messages": [message.content for message in messages]}
         cache_key = fingerprint(
             feature=AIFeature.TRAINING_SCRIPT,

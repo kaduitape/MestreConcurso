@@ -9,8 +9,9 @@ from fastapi import APIRouter, Depends, Query, status
 from app.ai.registry import available_provider_slugs
 from app.api.deps import DbSession, RequestCtx, require_permissions
 from app.domain import permissions as perms
-from app.domain.ai_features import FEATURE_BY_SLUG
-from app.models.ai import AIFeatureBinding
+from app.domain.ai_features import FEATURE_BY_SLUG, is_routable
+from app.domain.model_routing import SignalKey
+from app.models.ai import AIFeatureBinding, AIModelRoute, AIRoutingDecision
 from app.models.audit import AuditAction
 from app.models.user import User
 from app.schemas.ai import (
@@ -21,11 +22,15 @@ from app.schemas.ai import (
     AIFeatureBindingRead,
     AIFeatureBindingUpdate,
     AIModelRead,
+    AIModelRouteCreate,
+    AIModelRouteRead,
+    AIModelRouteUpdate,
     AIModelUpdate,
     AIProviderCreate,
     AIProviderKeyInput,
     AIProviderRead,
     AIProviderUpdate,
+    AIRoutingDecisionRead,
     ConnectionCheckRead,
 )
 from app.schemas.common import MessageResponse
@@ -33,6 +38,7 @@ from app.services.ai_budget import AIBudgetService
 from app.services.ai_cache import AICacheService
 from app.services.ai_settings import AISettingsService
 from app.services.audit import AuditService
+from app.services.model_router import ModelRouterService, model_is_usable
 
 router = APIRouter(prefix="/admin/ai", tags=["admin · ia"])
 
@@ -43,13 +49,19 @@ AiWriter = Annotated[User, Depends(require_permissions(perms.AI_SETTINGS_WRITE))
 def _binding_read(feature: str, binding: AIFeatureBinding | None) -> AIFeatureBindingRead:
     spec = FEATURE_BY_SLUG[feature]
     model = binding.model if binding else None
+    reserva = binding.fallback_model if binding else None
     return AIFeatureBindingRead(
         feature=feature,
         label=spec.label,
         description=spec.description,
+        kind=spec.kind,
+        is_routable=is_routable(feature),
         is_enabled=bool(binding and binding.is_enabled),
         provider_slug=model.provider.slug if model else None,
         model_slug=model.slug if model else None,
+        fallback_provider_slug=(reserva.provider.slug if reserva and reserva.provider else None),
+        fallback_model_slug=reserva.slug if reserva else None,
+        fallback_is_usable=model_is_usable(reserva),
         temperature=binding.temperature if binding else None,
         max_output_tokens=binding.max_output_tokens if binding else None,
         cache_ttl_hours=binding.cache_ttl_hours if binding else None,
@@ -206,6 +218,8 @@ async def set_feature(
         feature,
         provider_slug=payload.provider_slug,
         model_slug=payload.model_slug,
+        fallback_provider_slug=payload.fallback_provider_slug,
+        fallback_model_slug=payload.fallback_model_slug,
         is_enabled=payload.is_enabled,
         temperature=payload.temperature,
         max_output_tokens=payload.max_output_tokens,
@@ -292,3 +306,154 @@ async def set_budget(
         per_run_limit_cents=payload.per_run_limit_cents,
     )
     return _budget(await service.overview())
+
+
+# --------------------------------------------------------------------------- #
+# Roteador de modelos (Fase 6)
+# --------------------------------------------------------------------------- #
+def _route_read(row: AIModelRoute) -> AIModelRouteRead:
+    exigidos: list[str] = []
+    if row.min_input_chars is not None or row.max_input_chars is not None:
+        exigidos.append(SignalKey.INPUT_CHARS.value)
+    if row.requires_json is not None:
+        exigidos.append(SignalKey.NEEDS_JSON.value)
+    if row.min_budget_used_pct is not None:
+        exigidos.append(SignalKey.BUDGET_USED_PCT.value)
+    spec = FEATURE_BY_SLUG.get(row.feature)
+    return AIModelRouteRead(
+        id=row.id,
+        feature=row.feature,
+        feature_label=spec.label if spec else row.feature,
+        label=row.label,
+        priority=row.priority,
+        is_enabled=bool(row.is_enabled),
+        provider_slug=row.model.provider.slug if row.model and row.model.provider else None,
+        model_slug=row.model.slug if row.model else None,
+        model_is_usable=model_is_usable(row.model),
+        min_input_chars=row.min_input_chars,
+        max_input_chars=row.max_input_chars,
+        requires_json=row.requires_json,
+        min_budget_used_pct=row.min_budget_used_pct,
+        required_signals=exigidos,
+    )
+
+
+def _decision_read(row: AIRoutingDecision) -> AIRoutingDecisionRead:
+    spec = FEATURE_BY_SLUG.get(row.feature)
+    return AIRoutingDecisionRead(
+        id=row.id,
+        feature=row.feature,
+        feature_label=spec.label if spec else row.feature,
+        model_slug=row.model_slug,
+        provider_slug=row.provider_slug,
+        reason=row.reason,
+        route_id=row.route_id,
+        route_label=row.route_label,
+        explanation=row.explanation,
+        signals=row.signals or {},
+        trace=row.trace or [],
+        created_at=row.created_at,
+    )
+
+
+@router.get(
+    "/routes",
+    response_model=list[AIModelRouteRead],
+    summary="Regras do roteador de modelos",
+)
+async def list_routes(
+    _: AiReader,
+    db: DbSession,
+    feature: Annotated[str | None, Query(description="Filtra por funcionalidade")] = None,
+) -> list[AIModelRouteRead]:
+    rows = await ModelRouterService(db).list_rules(feature=feature)
+    return [_route_read(row) for row in rows]
+
+
+@router.post(
+    "/routes",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AIModelRouteRead,
+    summary="Cadastrar regra de roteamento",
+)
+async def create_route(
+    payload: AIModelRouteCreate,
+    actor: AiWriter,
+    db: DbSession,
+    ctx: RequestCtx,
+) -> AIModelRouteRead:
+    row = await ModelRouterService(db).create_rule(
+        feature=payload.feature,
+        label=payload.label,
+        priority=payload.priority,
+        is_enabled=payload.is_enabled,
+        provider_slug=payload.provider_slug,
+        model_slug=payload.model_slug,
+        min_input_chars=payload.min_input_chars,
+        max_input_chars=payload.max_input_chars,
+        requires_json=payload.requires_json,
+        min_budget_used_pct=payload.min_budget_used_pct,
+        actor=actor,
+        context=ctx,
+    )
+    return _route_read(row)
+
+
+@router.patch(
+    "/routes/{route_id}",
+    response_model=AIModelRouteRead,
+    summary="Atualizar regra de roteamento",
+)
+async def update_route(
+    route_id: int,
+    payload: AIModelRouteUpdate,
+    actor: AiWriter,
+    db: DbSession,
+    ctx: RequestCtx,
+) -> AIModelRouteRead:
+    row = await ModelRouterService(db).update_rule(
+        route_id,
+        label=payload.label,
+        priority=payload.priority,
+        is_enabled=payload.is_enabled,
+        provider_slug=payload.provider_slug,
+        model_slug=payload.model_slug,
+        min_input_chars=payload.min_input_chars,
+        max_input_chars=payload.max_input_chars,
+        requires_json=payload.requires_json,
+        min_budget_used_pct=payload.min_budget_used_pct,
+        clear_conditions=payload.clear_conditions,
+        actor=actor,
+        context=ctx,
+    )
+    return _route_read(row)
+
+
+@router.delete(
+    "/routes/{route_id}",
+    response_model=MessageResponse,
+    summary="Remover regra de roteamento",
+)
+async def delete_route(
+    route_id: int,
+    actor: AiWriter,
+    db: DbSession,
+    ctx: RequestCtx,
+) -> MessageResponse:
+    await ModelRouterService(db).delete_rule(route_id, actor=actor, context=ctx)
+    return MessageResponse(message="Regra removida.")
+
+
+@router.get(
+    "/routes/decisions",
+    response_model=list[AIRoutingDecisionRead],
+    summary="Histórico: por que cada modelo foi usado",
+)
+async def list_decisions(
+    _: AiReader,
+    db: DbSession,
+    feature: Annotated[str | None, Query(description="Filtra por funcionalidade")] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> list[AIRoutingDecisionRead]:
+    rows = await ModelRouterService(db).history(feature=feature, limit=limit)
+    return [_decision_read(row) for row in rows]

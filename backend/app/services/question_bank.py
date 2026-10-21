@@ -21,6 +21,7 @@ from app.ai.base import ChatMessage, CompletionRequest, ProviderError
 from app.ai.prompts import get_prompt, latest_version
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
+from app.domain.model_routing import Signals as RoutingSignals
 from app.models.ai import AIFeature
 from app.models.audit import AuditAction
 from app.models.catalog import ExamBoard, Subject
@@ -363,7 +364,10 @@ class QuestionBankService:
     async def suggest_classification(self, public_id: str) -> dict[str, Any]:
         """Pede uma sugestão ao modelo e guarda ao lado da questão, sem aplicá-la."""
         question = await self.get_question(public_id)
-        resolved = await self.ai_settings.resolve_feature(AIFeature.QUESTION_CLASSIFY)
+        resolved = await self.ai_settings.resolve_feature(
+            AIFeature.QUESTION_CLASSIFY,
+            signals=RoutingSignals(input_chars=len(question.statement), needs_json=True),
+        )
         version = latest_version(CLASSIFY_PROMPT)
         prompt = get_prompt(CLASSIFY_PROMPT, version)
 
