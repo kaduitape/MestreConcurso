@@ -193,6 +193,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [33 — Fase 5: retificação](docs/33-fase5-retificacao.md) | o que mudou entre duas versões do edital, e o conteúdo que ficou órfão sem ser apagado |
 | [34 — Fase 6: roteador de modelos](docs/34-fase6-roteador.md) | a escolha do modelo decidida por sinais medidos, com o rastro de cada regra — e o JEV, que continua fora |
 | [35 — Fase 7: árvore e inventário](docs/35-fase7-arvore-e-inventario.md) | o edital ramo por ramo, com a lacuna da plataforma separada do desempenho do candidato |
+| [36 — Agente 8: desenho para aprovação](docs/36-agente-8-desenho.md) | o analista de melhorias desenhado pelos limites, com as decisões que faltam — nenhum código escrito |
 
 ## Como executar
 
