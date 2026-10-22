@@ -15,6 +15,7 @@ from app.domain.billing.plans import FeatureKey
 from app.domain.game import ACHIEVEMENTS_BY_SLUG, MODES, MODES_BY_KEY, ChallengeMode, evaluate
 from app.domain.game.battle import Loadout, Modifiers
 from app.domain.game.battle_art import CATALOGUE_BY_KEY
+from app.domain.game.knowledge_tree import Evidence
 from app.models.audit import AuditAction
 from app.models.game import (
     Duel,
@@ -64,6 +65,11 @@ from app.schemas.game import (
     GameRuleRead,
     GameRuleUpdate,
     JourneyRead,
+    KnowledgeEvidenceRead,
+    KnowledgeSubjectRead,
+    KnowledgeTopicRead,
+    KnowledgeTreeRead,
+    KnowledgeTreeSummaryRead,
     LeagueMemberRead,
     LeaguePreferencesRead,
     LeaguePreferencesUpdate,
@@ -114,6 +120,7 @@ from app.services.game_missions import MissionService
 from app.services.game_progress import DEFAULT_HISTORY_DAYS, GameProgressService
 from app.services.game_seasons import SeasonService
 from app.services.game_social import DuelView, SocialService
+from app.services.knowledge_tree import KnowledgeTreeService
 
 router = APIRouter(tags=["gamificação"])
 game_router = APIRouter(prefix="/game", tags=["gamificação"])
@@ -594,6 +601,10 @@ def _armory_read(view: ArmoryView) -> BattleArmoryRead:
                 modifiers=_modifiers_read(item.spec.modifiers),
                 is_unlocked=item.is_unlocked,
                 requirement_label=item.requirement_label,
+                requirement_current=item.requirement_current,
+                requirement_threshold=item.requirement_threshold,
+                requirement_progress=item.requirement_progress,
+                requirement_blocked=item.requirement_blocked,
             )
             for item in view.equipment
         ],
@@ -1679,3 +1690,84 @@ async def delete_battle_art(
 
 router.include_router(game_router)
 router.include_router(admin_router)
+
+
+# --------------------------------------------------------------------------- #
+# Fase 7 — árvore de conhecimento
+# --------------------------------------------------------------------------- #
+def _evidence_read(evidence: Evidence) -> KnowledgeEvidenceRead:
+    return KnowledgeEvidenceRead(
+        answers=evidence.answers,
+        correct=evidence.correct,
+        questions_available=evidence.questions_available,
+        lessons_available=evidence.lessons_available,
+        lessons_done=evidence.lessons_done,
+        mind_maps_available=evidence.mind_maps_available,
+        cards=evidence.cards,
+        reviews=evidence.reviews,
+        recalled=evidence.recalled,
+        days_since_activity=evidence.days_since_activity,
+        answers_missing=evidence.answers_missing,
+    )
+
+
+@game_router.get(
+    "/knowledge-tree",
+    response_model=KnowledgeTreeRead,
+    summary="Árvore de conhecimento do edital",
+)
+async def knowledge_tree(user: CurrentUser, db: DbSession) -> KnowledgeTreeRead:
+    """O conteúdo programático do edital, com o estado medido de cada ramo.
+
+    Nenhum estado aqui tranca conteúdo: todos são descritivos. Tópico que a
+    plataforma não consegue medir — sem vínculo com o catálogo ou sem material
+    — é declarado como tal, e não contado como desempenho ruim.
+    """
+    tree = await KnowledgeTreeService(db).tree(user)
+    return KnowledgeTreeRead(
+        competition_public_id=tree.competition_public_id,
+        competition_name=tree.competition_name,
+        notice_title=tree.notice_title,
+        subjects=[
+            KnowledgeSubjectRead(
+                label=subject.label,
+                state=subject.state,
+                reason=subject.reason,
+                subject_id=subject.subject_id,
+                color_token=subject.color_token,
+                weight=subject.weight,
+                questions_count=subject.questions_count,
+                evidence_level=subject.evidence_level,
+                accuracy=subject.accuracy,
+                evidence=_evidence_read(subject.evidence),
+                topics=[
+                    KnowledgeTopicRead(
+                        label=topic.label,
+                        state=topic.state,
+                        reason=topic.reason,
+                        topic_id=topic.topic_id,
+                        descendants=topic.descendants,
+                        page_number=topic.page_number,
+                        accuracy=topic.accuracy,
+                        evidence=_evidence_read(topic.evidence),
+                    )
+                    for topic in subject.topics
+                ],
+            )
+            for subject in tree.subjects
+        ],
+        summary=KnowledgeTreeSummaryRead(
+            subjects=tree.summary.subjects,
+            topics=tree.summary.topics,
+            measured=tree.summary.measured,
+            mastered=tree.summary.mastered,
+            needs_review=tree.summary.needs_review,
+            in_progress=tree.summary.in_progress,
+            not_started=tree.summary.not_started,
+            not_linked=tree.summary.not_linked,
+            no_material=tree.summary.no_material,
+            measurable=tree.summary.measurable,
+        ),
+        attention=list(tree.attention),
+        unavailable_reason=tree.unavailable_reason,
+    )

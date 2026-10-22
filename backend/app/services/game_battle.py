@@ -21,7 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError
 from app.core.logging import get_logger
-from app.domain.game.achievements import ACHIEVEMENTS_BY_SLUG
+from app.domain.game.achievements import ACHIEVEMENTS_BY_SLUG, AchievementProgress
+from app.domain.game.achievements import evaluate as evaluate_achievements
 from app.domain.game.battle import (
     CLASSES,
     CLASSES_BY_SLUG,
@@ -86,6 +87,7 @@ from app.repositories.game import (
 )
 from app.services.battle_art import BattleArtService
 from app.services.game_challenges import ChallengeService, RunView
+from app.services.game_engine import GameEngine
 from app.services.game_seasons import SeasonService
 
 logger = get_logger(__name__)
@@ -176,6 +178,37 @@ class EquipmentOffer:
     is_unlocked: bool
     #: Nome da conquista que libera a peça, para a tela dizer o caminho.
     requirement_label: str | None = None
+    #: Onde o candidato está na conquista que libera a peça, com o número real.
+    #: Cadeado com nome de conquista e sem distância ainda é quase uma
+    #: armadilha: a pessoa não sabe se falta uma questão ou novecentas.
+    requirement_current: float | None = None
+    requirement_threshold: float | None = None
+    #: ``None`` quando a conquista tem guarda não atendida — aí o progresso do
+    #: contador sozinho enganaria, e o motivo vai em ``requirement_blocked``.
+    requirement_progress: float | None = None
+    requirement_blocked: str | None = None
+
+
+def _requirement_distance(progress: AchievementProgress | None) -> dict[str, float | str | None]:
+    """A distância até a conquista que libera a peça, como ela já é calculada.
+
+    ``ratio`` nulo não vira zero nem é omitido: a conquista tem uma guarda que
+    ainda não foi atendida, e nesse caso o progresso do contador sozinho faria
+    a pessoa achar que está perto sem estar. O motivo vai junto.
+    """
+    if progress is None:
+        return {
+            "requirement_current": None,
+            "requirement_threshold": None,
+            "requirement_progress": None,
+            "requirement_blocked": None,
+        }
+    return {
+        "requirement_current": progress.current,
+        "requirement_threshold": progress.spec.threshold,
+        "requirement_progress": progress.ratio,
+        "requirement_blocked": progress.blocked_reason,
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -682,6 +715,13 @@ class BattleService:
         """O arsenal: classes, peças, o que está travado e por qual conquista."""
         unlocked = await self._unlocked(user)
         current = await self.loadout_of(user)
+        # O progresso de cada conquista sai da mesma avaliação que concede as
+        # conquistas — não de uma segunda conta paralela que poderia divergir.
+        metrics = await GameEngine(self.session).collect_metrics(user)
+        progresso = {
+            item.spec.slug: item
+            for item in evaluate_achievements(metrics, already_unlocked=unlocked).progress
+        }
         return ArmoryView(
             loadout=current,
             classes=list(CLASSES),
@@ -695,6 +735,7 @@ class BattleService:
                         if item.requires_achievement in ACHIEVEMENTS_BY_SLUG
                         else None
                     ),
+                    **_requirement_distance(progresso.get(item.requires_achievement or "")),
                 )
                 for item in EQUIPMENT_CATALOGUE
             ],

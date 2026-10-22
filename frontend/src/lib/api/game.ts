@@ -12,18 +12,19 @@ import type {
   BattleViewport,
   BoardBattle,
   ChallengeMode,
-  Duel,
-  DuelHistoryEntry,
   ClaimResult,
   DailyBoard,
+  Duel,
+  DuelHistoryEntry,
   GameProfile,
   GameRule,
   GameRun,
   Journey,
+  KnowledgeTree,
   League,
-  PublishedCard,
   LeaguePreferences,
   Page,
+  PublishedCard,
   RankHistory,
   RunAnswerResult,
   RunHistoryEntry,
@@ -60,6 +61,8 @@ export const gameApi = {
   journey: () => api.get<Journey>('/game/journey'),
 
   territory: () => api.get<TerritoryMap>('/game/territory'),
+
+  knowledgeTree: () => api.get<KnowledgeTree>('/game/knowledge-tree'),
 
   season: () => api.get<Season>('/game/season'),
 
