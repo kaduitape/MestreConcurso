@@ -59,10 +59,12 @@ from app.domain.improvements import (
     Finding,
     FindingStatus,
     QuestionStats,
+    RefusalGroup,
     RouteActivity,
     TopicGap,
     inert_routes,
     model_error_rates,
+    refused_resources,
     suspect_answer_keys,
     topics_without_material,
 )
@@ -74,6 +76,7 @@ from app.models.mindmap import MindMap
 from app.models.notice import Notice
 from app.models.notice_analysis import NoticeSubject, NoticeTopic
 from app.models.question import Alternative, Question, QuestionAttempt
+from app.models.refusal import ResourceRefusal
 from app.models.training import TrainingLesson
 from app.models.user import User
 from app.services.audit import AuditService
@@ -360,6 +363,8 @@ class ImprovementService:
                 resultados.append(await self._run_model_errors(scan, view.config))
             elif key == DetectorKey.ROUTE_INERT:
                 resultados.append(await self._run_inert_routes(scan, view.config))
+            elif key == DetectorKey.REFUSED_RESOURCE:
+                resultados.append(await self._run_refusals(scan, view.config))
         return resultados
 
     async def _reconcile(
@@ -426,20 +431,22 @@ class ImprovementService:
         fichas: list[DetectorReport] = []
         for resultado in resultados:
             view = configuracoes[resultado.detector]
-            row = (
+            # Nome próprio: `row` acima é um achado, e reaproveitá-lo aqui para a
+            # ficha do detector confundia dois tipos no mesmo método.
+            ficha = (
                 await scan.execute(
                     select(ImprovementDetectorSetting).where(
                         ImprovementDetectorSetting.key == resultado.detector
                     )
                 )
             ).scalar_one_or_none()
-            if row is None:
-                row = ImprovementDetectorSetting(key=resultado.detector, config={})
-                scan.add(row)
-            row.last_run_at = agora
-            row.last_status = resultado.status
-            row.last_detail = resultado.detail[:500]
-            row.last_found = len(resultado.findings)
+            if ficha is None:
+                ficha = ImprovementDetectorSetting(key=resultado.detector, config={})
+                scan.add(ficha)
+            ficha.last_run_at = agora
+            ficha.last_status = resultado.status
+            ficha.last_detail = resultado.detail[:500]
+            ficha.last_found = len(resultado.findings)
             fichas.append(
                 DetectorReport(
                     key=resultado.detector,
@@ -641,7 +648,9 @@ class ImprovementService:
         if not topicos:
             return topics_without_material([], min_topics=minimo, top_topics=topo)
 
-        subarvores = await topic_subtrees(scan, {int(linha[1]) for linha in topicos})
+        subarvores = await topic_subtrees(
+            scan, {int(linha[1]) for linha in topicos if linha[1] is not None}
+        )
         alcance = {item for ids in subarvores.values() for item in ids}
         com_material = await self._topics_with_material(scan, alcance)
 
@@ -661,7 +670,7 @@ class ImprovementService:
                 ),
             )
             for topico in topicos:
-                if int(topico[0]) != int(linha[6]):
+                if topico[1] is None or int(topico[0]) != int(linha[6] or 0):
                     continue
                 vinculados[competition_id] = vinculados.get(competition_id, 0) + 1
                 ids = subarvores.get(int(topico[1]), set())
@@ -853,4 +862,67 @@ class ImprovementService:
             min_decisions=minimo,
             rows_read=len(decisoes),
             max_rows=teto,
+        )
+
+    # ------------------------------------------------------------------ #
+    # Detector 5 — recurso recusado por falta de acervo
+    # ------------------------------------------------------------------ #
+    async def _run_refusals(self, scan: AsyncSession, config: dict[str, Any]) -> DetectorOutcome:
+        janela = int(config.get("window_days", 30))
+        minimo = int(config.get("min_refusals", 5))
+        corte = _cutoff(janela)
+
+        # A idade do registro: sem ela, "nenhuma recusa na janela" soa como
+        # acervo completo quando pode significar instrumentação recém-ligada.
+        primeira = _aware(
+            (await scan.execute(select(func.min(ResourceRefusal.created_at)))).scalar_one_or_none()
+        )
+        record_days = max(0, (datetime.now(UTC) - primeira).days) if primeira is not None else None
+
+        linhas = list(
+            (
+                await scan.execute(
+                    select(
+                        ResourceRefusal.kind,
+                        ResourceRefusal.variant,
+                        Subject.name,
+                        Competition.name,
+                        func.count(),
+                        func.count(func.distinct(ResourceRefusal.user_id)),
+                        func.max(ResourceRefusal.requested),
+                        func.min(ResourceRefusal.available),
+                        func.min(ResourceRefusal.detail),
+                    )
+                    .join(Subject, Subject.id == ResourceRefusal.subject_id, isouter=True)
+                    .join(
+                        Competition,
+                        Competition.id == ResourceRefusal.competition_id,
+                        isouter=True,
+                    )
+                    .where(ResourceRefusal.created_at >= corte)
+                    .group_by(
+                        ResourceRefusal.kind,
+                        ResourceRefusal.variant,
+                        Subject.name,
+                        Competition.name,
+                    )
+                )
+            ).all()
+        )
+        grupos = [
+            RefusalGroup(
+                kind=str(linha[0]),
+                variant=str(linha[1]) if linha[1] else None,
+                subject_label=str(linha[2]) if linha[2] else None,
+                competition_name=str(linha[3]) if linha[3] else None,
+                total=int(linha[4]),
+                distinct_users=int(linha[5] or 0),
+                worst_requested=int(linha[6]) if linha[6] is not None else None,
+                worst_available=int(linha[7]) if linha[7] is not None else None,
+                sample_detail=(str(linha[8])[:200] if linha[8] else None),
+            )
+            for linha in linhas
+        ]
+        return refused_resources(
+            grupos, window_days=janela, min_refusals=minimo, record_days=record_days
         )

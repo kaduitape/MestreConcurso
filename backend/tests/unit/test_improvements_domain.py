@@ -18,11 +18,13 @@ from app.domain.improvements import (
     DetectorStatus,
     FeatureErrors,
     QuestionStats,
+    RefusalGroup,
     RouteActivity,
     Severity,
     TopicGap,
     inert_routes,
     model_error_rates,
+    refused_resources,
     suspect_answer_keys,
     topics_without_material,
 )
@@ -49,7 +51,9 @@ def _question(**overrides: object) -> QuestionStats:
 # --------------------------------------------------------------------------- #
 def test_every_detector_declares_its_scope_and_its_thresholds() -> None:
     """Detector sem alcance declarado deixa "nada encontrado" virar garantia."""
-    assert len(DETECTORS) == 4
+    # Amarrado às chaves, não a um número: detector novo não deve exigir
+    # editar este teste, mas também não pode entrar sem ficha.
+    assert {spec.key for spec in DETECTORS} == {item.value for item in DetectorKey}
     for spec in DETECTORS:
         assert spec.scope, f"{spec.key} precisa dizer o que olha e o que não olha"
         assert spec.defaults, f"{spec.key} precisa ter limiares editáveis"
@@ -332,3 +336,86 @@ def test_without_enough_decisions_the_detector_declines() -> None:
 
     assert resultado.status is DetectorStatus.NOT_ENOUGH_DATA
     assert "10 decisão(ões) lidas" in resultado.detail
+
+
+# --------------------------------------------------------------------------- #
+# 5. Recurso recusado por falta de acervo
+# --------------------------------------------------------------------------- #
+def _refusal(**overrides: object) -> RefusalGroup:
+    base: dict[str, object] = {
+        "kind": "SIMULATION",
+        "variant": "BOARD",
+        "subject_label": "Direito Penal",
+        "competition_name": "Concurso de Teste",
+        "total": 12,
+        "distinct_users": 7,
+        "worst_requested": 30,
+        "worst_available": 4,
+        "sample_detail": "Não há questões suficientes desta banca.",
+    }
+    base.update(overrides)
+    return RefusalGroup(**base)  # type: ignore[arg-type]
+
+
+def test_a_repeated_refusal_becomes_a_finding_with_the_real_demand() -> None:
+    resultado = refused_resources([_refusal()], window_days=30, min_refusals=5, record_days=60)
+
+    achado = resultado.findings[0]
+    assert achado.severity is Severity.HIGH  # 7 candidatos distintos
+    assert "12 tentativa(s) de 7 candidato(s) distinto(s)" in achado.detail
+    assert "pedidas 30 questões e havia 4" in achado.detail
+    # A proposta diz que é pedido real, não suposição sobre o que falta.
+    assert "pedido real" in achado.proposal
+
+
+def test_one_person_trying_many_times_is_not_many_people() -> None:
+    """A diferença entre tentativas e candidatos muda a prioridade inteira."""
+    muitos = refused_resources(
+        [_refusal(total=40, distinct_users=1)], window_days=30, min_refusals=5, record_days=60
+    )
+    poucos = refused_resources(
+        [_refusal(total=8, distinct_users=6)], window_days=30, min_refusals=5, record_days=60
+    )
+
+    assert muitos.findings[0].severity is Severity.MEDIUM
+    assert poucos.findings[0].severity is Severity.HIGH
+    assert "40 tentativa(s) de 1 candidato(s)" in muitos.findings[0].detail
+
+
+def test_the_order_puts_the_refusal_that_hit_more_people_first() -> None:
+    resultado = refused_resources(
+        [
+            _refusal(subject_label="Poucos", total=30, distinct_users=2),
+            _refusal(subject_label="Muitos", total=10, distinct_users=9),
+        ],
+        window_days=30,
+        min_refusals=5,
+        record_days=60,
+    )
+
+    assert resultado.findings[0].evidence["subject"] == "Muitos"
+
+
+def test_a_record_younger_than_the_window_is_declared() -> None:
+    """Sem isso, "nenhuma recusa em 30 dias" soa como acervo completo quando o
+    registro pode ter dois dias de vida."""
+    resultado = refused_resources([], window_days=30, min_refusals=5, record_days=2)
+
+    assert resultado.status is DetectorStatus.NOT_ENOUGH_DATA
+    assert "registro de recusas tem 2 dia(s)" in resultado.detail
+
+
+def test_without_any_refusal_the_detector_declines() -> None:
+    resultado = refused_resources([], window_days=30, min_refusals=5, record_days=None)
+
+    assert resultado.status is DetectorStatus.NOT_ENOUGH_DATA
+    assert "nenhuma recusa registrada" in resultado.detail
+
+
+def test_below_the_minimum_the_detector_says_how_many_there_were() -> None:
+    resultado = refused_resources(
+        [_refusal(total=2, distinct_users=2)], window_days=30, min_refusals=5, record_days=60
+    )
+
+    assert resultado.status is DetectorStatus.NOT_ENOUGH_DATA
+    assert "2 recusa(s) registradas" in resultado.detail

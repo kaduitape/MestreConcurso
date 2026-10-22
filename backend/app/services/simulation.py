@@ -30,6 +30,7 @@ from app.models.question import (
     SimulationKind,
     SimulationQuestion,
 )
+from app.models.refusal import RefusalKind
 from app.models.study import StudyPlan, StudyPlanStatus
 from app.models.user import User
 from app.repositories.intelligence import UserPriorityRepository
@@ -43,6 +44,7 @@ from app.services.audit import AuditService
 from app.services.auth import RequestContext
 from app.services.game_engine import GameEngine
 from app.services.practice import PracticeService
+from app.services.refusals import record_refusal
 
 logger = get_logger(__name__)
 
@@ -101,7 +103,21 @@ class SimulationService:
             board_slug=board_slug,
         )
         if not selected:
-            raise ConflictError(self._empty_reason(kind), code="no_questions_available")
+            motivo = self._empty_reason(kind)
+            # A recusa é registrada ANTES de levantar: o erro desfaz a transação
+            # desta requisição, e o registro vive em sessão própria. Sem isto, o
+            # sinal mais direto de "o que falta no acervo" se perdia.
+            await record_refusal(
+                kind=RefusalKind.SIMULATION,
+                reason_code="no_questions_available",
+                detail=motivo,
+                user_id=user.id,
+                subject_id=config.get("subject_id") if isinstance(config, dict) else None,
+                requested=questions_count,
+                available=0,
+                variant=kind,
+            )
+            raise ConflictError(motivo, code="no_questions_available")
 
         simulation = Simulation(
             user_id=user.id,

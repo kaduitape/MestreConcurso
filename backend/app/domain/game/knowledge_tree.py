@@ -378,7 +378,7 @@ def attention_order(tree: list[SubjectNode] | tuple[SubjectNode, ...]) -> list[T
     estuda, e misturar as duas coisas transformaria lacuna da plataforma em
     tarefa do candidato.
     """
-    prioridade = {
+    prioridade: dict[str, int] = {
         NodeState.NEEDS_REVIEW: 0,
         NodeState.MEASURED: 1,
         NodeState.IN_PROGRESS: 2,
