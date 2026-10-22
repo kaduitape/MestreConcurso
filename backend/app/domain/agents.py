@@ -7,9 +7,9 @@ declara o que cada um depende e os executa na ordem certa.
 
 Três regras governam o que está aqui:
 
-*Agente que não existe não finge que rodou.* Dois dos oito (auditor e analista
-de melhorias) ainda não foram construídos, e dois outros só farão sentido na
-fase de geração em massa. Eles estão declarados, com ``is_implemented=False``, e
+*Agente que não existe não finge que rodou.* Dois dos oito (memorização e
+mestre de batalhas) ainda dependem de decisões de produto que não foram
+tomadas. Eles estão declarados, com ``is_implemented=False``, e
 o orquestrador os marca como **pulados com motivo escrito** — nunca como
 concluídos. Um passo verde que não fez nada é pior que um passo vermelho.
 
@@ -158,12 +158,14 @@ AGENTS: tuple[AgentSpec, ...] = (
     AgentSpec(
         key=AgentKey.IMPROVEMENTS,
         label="Analista de melhorias",
-        description="Analisa o funcionamento da plataforma e propõe melhorias.",
-        is_implemented=False,
-        pending_reason=(
-            "Desenho ainda não aprovado. Um agente que propõe alteração de "
-            "código precisa de limites discutidos antes de existir."
+        description=(
+            "Varre os registros da própria plataforma com detectores determinísticos "
+            "e grava achados com evidência para uma pessoa decidir. Não aplica nada, "
+            "não usa IA e não lê o repositório."
         ),
+        # Sem dependência: ele analisa o que já aconteceu, e amarrá-lo a outro
+        # agente deixaria a análise parada esperando uma execução que talvez
+        # nem fosse disparada.
     ),
 )
 

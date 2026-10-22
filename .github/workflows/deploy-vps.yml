@@ -115,6 +115,44 @@ jobs:
             exit 1
           fi
 
+          # 1.2) A credencial restrita do analista de melhorias (Agente 8).
+          # Só roda quando as duas variáveis estão no .env: é assim que o
+          # operador liga o isolamento. É idempotente e vem depois das
+          # migrations de propósito — a concessão é por tabela, e as tabelas
+          # precisam existir. Se falhar, o deploy segue: a aplicação detecta e
+          # diz no painel que a garantia é só do código, em vez de fingir um
+          # isolamento que não existe.
+          #
+          # O SQL entra por PIPE, não por heredoc. Heredoc aninhado seria lido
+          # do mesmo stdin que carrega este script (ver o aviso acima sobre
+          # `compose exec` drenando o heredoc) e o resto do deploy desapareceria
+          # sem erro. A senha vai por variável de ambiente, nunca por argumento:
+          # argumento de processo é legível por qualquer um na máquina.
+          ro_user=$(sed -n 's/^MYSQL_READONLY_USER=//p' .env | head -1 | tr -d "\"' ")
+          ro_pass=$(sed -n 's/^MYSQL_READONLY_PASSWORD=//p' .env | head -1 | tr -d "\"' ")
+          db_name=$(sed -n 's/^MYSQL_DATABASE=//p' .env | head -1 | tr -d "\"' ")
+          root_pass=$(sed -n 's/^MYSQL_ROOT_PASSWORD=//p' .env | head -1 | tr -d "\"' ")
+          [ -n "$db_name" ] || db_name=mestre_concurso
+          if [ -n "$ro_user" ] && [ -n "$ro_pass" ] && [ -n "$root_pass" ]; then
+            grant_sql=$(printf '%s\n' \
+              "CREATE USER IF NOT EXISTS '$ro_user'@'%' IDENTIFIED BY '$ro_pass';" \
+              "ALTER USER '$ro_user'@'%' IDENTIFIED BY '$ro_pass';" \
+              "GRANT SELECT ON \`$db_name\`.* TO '$ro_user'@'%';" \
+              "GRANT INSERT, UPDATE ON \`$db_name\`.improvement_findings TO '$ro_user'@'%';" \
+              "GRANT INSERT, UPDATE ON \`$db_name\`.improvement_detector_settings TO '$ro_user'@'%';" \
+              "FLUSH PRIVILEGES;")
+            if printf '%s\n' "$grant_sql" | $compose exec -T -e MYSQL_PWD="$root_pass" \
+              mysql mysql -uroot "$db_name" >/dev/null 2>&1; then
+              echo "[deploy] credencial restrita do analista: concessão em dia"
+            else
+              echo "[deploy] aviso: não consegui manter a credencial restrita do analista."
+              echo "[deploy] ele vai reportar isolamento apenas por código no painel."
+            fi
+          else
+            echo "[deploy] sem MYSQL_READONLY_USER/PASSWORD no .env: o analista roda"
+            echo "[deploy] sem credencial restrita, e o painel diz isso."
+          fi
+
           # 2) O caminho que o usuário realmente usa: navegador -> nginx -> API.
           # Checar só a API por dentro deixa passar um proxy apontando para um
           # contêiner que não existe mais: o deploy fica verde e todo /api/

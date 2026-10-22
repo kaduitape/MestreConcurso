@@ -185,12 +185,61 @@ async def test_a_single_agent_can_be_run_by_hand(
 
 
 async def test_an_unbuilt_agent_consumes_no_attempt(
-    client: AsyncClient, emails: CapturingDispatcher
+    client: AsyncClient, emails: CapturingDispatcher, db_session: AsyncSession
 ) -> None:
     """Duas coisas diferentes viram "pulado", e a contagem as separa:
     o agente que rodou e não achou o que fazer gasta tentativa; o que nem
-    existe, não."""
+    existe, não.
+
+    O exemplo de agente não construído é a memorização, que depende do
+    Professor. A dependência é concluída à mão aqui justamente para que o pulo
+    seja por **não existir**, e não por dependência: são motivos diferentes, e
+    é a diferença que este teste cobra.
+    """
+    from sqlalchemy import select
+
+    from app.models.agent_run import AgentRun, AgentStep
+
     admin = await create_admin(client, emails, email="agt12@exemplo.com.br")
+    run = await _run(client, admin)
+
+    linha = (
+        await db_session.execute(select(AgentRun).where(AgentRun.public_id == run["public_id"]))
+    ).scalar_one()
+    passo = (
+        await db_session.execute(
+            select(AgentStep).where(
+                AgentStep.run_id == linha.id, AgentStep.agent_key == AgentKey.TEACHER
+            )
+        )
+    ).scalar_one()
+    passo.status = "DONE"
+    await db_session.commit()
+
+    body = (
+        await client.post(
+            f"/api/v1/admin/agents/{run['public_id']}/run/{AgentKey.MEMORY}",
+            headers=admin.auth_header,
+        )
+    ).json()
+
+    memorizacao = _step(body, AgentKey.MEMORY)
+    assert memorizacao["status"] == "SKIPPED"
+    assert memorizacao["attempts"] == 0
+    assert memorizacao["is_implemented"] is False
+    assert "baralho oficial" in memorizacao["detail"]
+
+
+async def test_the_improvements_analyst_runs_and_declares_what_it_could_not_see(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """O Agente 8 roda sem depender de ninguém: ele analisa o que já aconteceu.
+
+    Numa instalação vazia ele não acha nada **e diz por quê** — detector sem
+    amostra não vira silêncio, e o passo declara qual garantia de isolamento
+    está valendo.
+    """
+    admin = await create_admin(client, emails, email="agt17@exemplo.com.br")
     run = await _run(client, admin)
 
     body = (
@@ -201,9 +250,14 @@ async def test_an_unbuilt_agent_consumes_no_attempt(
     ).json()
 
     melhorias = _step(body, AgentKey.IMPROVEMENTS)
-    assert melhorias["status"] == "SKIPPED"
-    assert melhorias["attempts"] == 0
-    assert melhorias["is_implemented"] is False
+    assert melhorias["is_implemented"] is True
+    assert melhorias["status"] == "DONE"
+    assert melhorias["attempts"] == 1
+    detalhe = melhorias["detail"] or ""
+    assert "falta de amostra" in detalhe
+    # Sem credencial restrita configurada, o passo diz que a garantia é só do
+    # código em vez de deixar parecer que há isolamento de banco.
+    assert "só do código" in detalhe
 
 
 async def test_a_manual_run_still_respects_the_dependency(

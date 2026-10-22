@@ -62,6 +62,47 @@ class KnowledgeTree:
     unavailable_reason: str | None = None
 
 
+async def topic_subtrees(session: AsyncSession, topic_ids: set[int]) -> dict[int, set[int]]:
+    """Para cada tópico informado, ele mesmo e os descendentes dele.
+
+    Usa o caminho materializado, na mesma convenção que ``delete_subtree`` do
+    repositório de catálogo: a raiz é o próprio id e o filho é ``<pai>/<id>``.
+    Uma consulta traz os tópicos das disciplinas envolvidas e o prefixo resolve
+    a descendência em memória, sem uma consulta recursiva por nó.
+
+    Mora no módulo, e não na classe, porque o analista de melhorias (Agente 8)
+    precisa da mesma descendência sem precisar de um usuário.
+    """
+    if not topic_ids:
+        return {}
+
+    raizes = list(
+        (
+            await session.execute(
+                select(Topic.id, Topic.path, Topic.subject_id).where(Topic.id.in_(topic_ids))
+            )
+        ).all()
+    )
+    subject_ids = {int(linha[2]) for linha in raizes}
+    todos = list(
+        (
+            await session.execute(
+                select(Topic.id, Topic.path).where(Topic.subject_id.in_(subject_ids))
+            )
+        ).all()
+    )
+
+    resultado: dict[int, set[int]] = {}
+    for raiz_id, raiz_path, _ in raizes:
+        ids = {int(raiz_id)}
+        caminho = str(raiz_path or "")
+        if caminho:
+            prefixo = f"{caminho}/"
+            ids.update(int(linha[0]) for linha in todos if str(linha[1] or "").startswith(prefixo))
+        resultado[int(raiz_id)] = ids
+    return resultado
+
+
 class KnowledgeTreeService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -249,42 +290,7 @@ class KnowledgeTreeService:
         return None
 
     async def _subtrees(self, topic_ids: set[int]) -> dict[int, set[int]]:
-        """Para cada tópico vinculado, ele mesmo e os descendentes dele.
-
-        Usa o caminho materializado: uma consulta traz todos os tópicos das
-        disciplinas envolvidas e o prefixo do caminho resolve a descendência em
-        memória, sem uma consulta recursiva por nó.
-        """
-        if not topic_ids:
-            return {}
-
-        raizes = list(
-            (
-                await self.session.execute(
-                    select(Topic.id, Topic.path, Topic.subject_id).where(Topic.id.in_(topic_ids))
-                )
-            ).all()
-        )
-        subject_ids = {int(linha[2]) for linha in raizes}
-        todos = list(
-            (
-                await self.session.execute(
-                    select(Topic.id, Topic.path).where(Topic.subject_id.in_(subject_ids))
-                )
-            ).all()
-        )
-
-        resultado: dict[int, set[int]] = {}
-        for raiz_id, raiz_path, _ in raizes:
-            ids = {int(raiz_id)}
-            caminho = str(raiz_path or "")
-            if caminho:
-                prefixo = f"{caminho}/"
-                ids.update(
-                    int(linha[0]) for linha in todos if str(linha[1] or "").startswith(prefixo)
-                )
-            resultado[int(raiz_id)] = ids
-        return resultado
+        return await topic_subtrees(self.session, topic_ids)
 
     async def _answers(self, user: User, topic_ids: set[int]) -> dict[int, tuple[int, int]]:
         """Respostas e acertos por tópico. Em branco não conta como erro."""

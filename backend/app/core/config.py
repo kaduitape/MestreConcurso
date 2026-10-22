@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     mysql_user: str = "mestre"
     mysql_password: str = ""
     database_url: str | None = None
+    # Credencial restrita do analista de melhorias (Agente 8, limite L4).
+    # Quando as duas estão preenchidas, o analista usa este usuário — que tem
+    # SELECT em tudo e escrita apenas nas duas tabelas de achados. Vazias, ele
+    # roda com a credencial da aplicação e **diz no painel** que a garantia é
+    # só do código. Nunca há volta silenciosa: credencial configurada que não
+    # conecta faz a varredura falhar, em vez de usar a credencial cheia.
+    mysql_readonly_user: str = ""
+    mysql_readonly_password: str = ""
     db_pool_size: int = 10
     db_max_overflow: int = 20
     db_pool_recycle: int = 1800
@@ -147,6 +155,22 @@ class Settings(BaseSettings):
             return self.database_url
         return (
             f"mysql+asyncmy://{self.mysql_user}:{self.mysql_password}"
+            f"@{self.mysql_host}:{self.mysql_port}/{self.mysql_database}?charset=utf8mb4"
+        )
+
+    @property
+    def readonly_sqlalchemy_url(self) -> str | None:
+        """URL do usuário restrito, ou ``None`` quando ele não foi configurado.
+
+        Deriva host, porta e banco da configuração normal: o usuário restrito
+        vive no mesmo banco, com permissão menor. Não é derivável a partir de
+        ``DATABASE_URL`` cheia (sqlite dos testes, por exemplo), e nesse caso
+        só vale se alguém informar os dois campos.
+        """
+        if not (self.mysql_readonly_user and self.mysql_readonly_password):
+            return None
+        return (
+            f"mysql+asyncmy://{self.mysql_readonly_user}:{self.mysql_readonly_password}"
             f"@{self.mysql_host}:{self.mysql_port}/{self.mysql_database}?charset=utf8mb4"
         )
 

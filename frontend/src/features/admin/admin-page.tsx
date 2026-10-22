@@ -16,6 +16,7 @@ import { MindMapStudioSection } from './mindmap/mindmap-studio-section'
 import { AgentsSection } from './agents/agents-section'
 import { ContentAuditSection } from './audit/content-audit-section'
 import { GenerationSection } from './generation/generation-section'
+import { ImprovementsSection } from './improvements/improvements-section'
 import { useAuth } from '@/providers/auth-provider'
 
 export function AdminPage() {
@@ -44,6 +45,9 @@ export function AdminPage() {
           )}
           {hasPermission('content_audit:read') && (
             <TabsTrigger value="qualidade">Qualidade</TabsTrigger>
+          )}
+          {hasPermission('improvements:read') && (
+            <TabsTrigger value="melhorias">Melhorias</TabsTrigger>
           )}
           {hasPermission('training:read') && <TabsTrigger value="estudio">Estúdio</TabsTrigger>}
           {hasPermission('users:read') && <TabsTrigger value="usuarios">Usuários</TabsTrigger>}
@@ -75,6 +79,9 @@ export function AdminPage() {
         </TabsContent>
         <TabsContent value="qualidade">
           <ContentAuditSection />
+        </TabsContent>
+        <TabsContent value="melhorias">
+          <ImprovementsSection />
         </TabsContent>
         <TabsContent value="estudio">
           <div className="space-y-6">
