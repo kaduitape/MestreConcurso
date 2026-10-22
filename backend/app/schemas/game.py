@@ -719,6 +719,14 @@ class BattleEquipmentRead(BaseModel):
     is_unlocked: bool
     #: Conquista que libera a peça, quando houver.
     requirement_label: str | None = None
+    #: Onde o candidato está nela, com o número real. Cadeado com nome de
+    #: conquista e sem distância não diz se falta uma questão ou novecentas.
+    requirement_current: float | None = None
+    requirement_threshold: float | None = None
+    #: ``None`` quando a conquista tem guarda não atendida — aí não há barra de
+    #: progresso honesta, e o motivo aparece em ``requirement_blocked``.
+    requirement_progress: float | None = None
+    requirement_blocked: str | None = None
 
 
 class BattleLoadoutRead(BaseModel):
@@ -869,3 +877,77 @@ class BattleAssetRead(BaseModel):
     size_bytes: int | None = None
     original_filename: str | None = None
     updated_at: datetime | None = None
+
+
+# --------------------------------------------------------------------------- #
+# Fase 7 — árvore de conhecimento
+# --------------------------------------------------------------------------- #
+class KnowledgeEvidenceRead(BaseModel):
+    """O que foi contado num ramo. Todo número aqui é derivado na leitura."""
+
+    answers: int = 0
+    correct: int = 0
+    questions_available: int = 0
+    lessons_available: int = 0
+    lessons_done: int = 0
+    mind_maps_available: int = 0
+    cards: int = 0
+    reviews: int = 0
+    recalled: int = 0
+    days_since_activity: int | None = None
+    #: Quantas respostas ainda faltam para a taxa de acerto aparecer.
+    answers_missing: int = 0
+
+
+class KnowledgeTopicRead(BaseModel):
+    label: str
+    state: str
+    #: Em texto, com o número que produziu o estado.
+    reason: str
+    topic_id: int | None = None
+    #: Subtópicos do catálogo que entraram na conta deste ramo.
+    descendants: int = 0
+    page_number: int | None = None
+    #: ``None`` quando a amostra não chega ao mínimo. Nunca zero por ausência.
+    accuracy: float | None = None
+    evidence: KnowledgeEvidenceRead
+
+
+class KnowledgeSubjectRead(BaseModel):
+    label: str
+    state: str
+    reason: str
+    subject_id: int | None = None
+    color_token: str = "subject-especifica"
+    #: Peso e número de questões como o edital declarou.
+    weight: str | None = None
+    questions_count: int | None = None
+    #: OFFICIAL quando saiu com citação conferida; INFERRED quando foi deduzido.
+    evidence_level: str = "INFERRED"
+    accuracy: float | None = None
+    evidence: KnowledgeEvidenceRead
+    topics: list[KnowledgeTopicRead] = Field(default_factory=list)
+
+
+class KnowledgeTreeSummaryRead(BaseModel):
+    subjects: int = 0
+    topics: int = 0
+    measured: int = 0
+    mastered: int = 0
+    needs_review: int = 0
+    in_progress: int = 0
+    not_started: int = 0
+    #: Lacunas da plataforma, contadas à parte do desempenho do candidato.
+    not_linked: int = 0
+    no_material: int = 0
+    measurable: int = 0
+
+
+class KnowledgeTreeRead(BaseModel):
+    competition_public_id: str | None = None
+    competition_name: str | None = None
+    notice_title: str | None = None
+    subjects: list[KnowledgeSubjectRead] = Field(default_factory=list)
+    summary: KnowledgeTreeSummaryRead = Field(default_factory=KnowledgeTreeSummaryRead)
+    attention: list[str] = Field(default_factory=list)
+    unavailable_reason: str | None = None

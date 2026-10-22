@@ -27,6 +27,54 @@ function ModifierLine({ modifiers }: { modifiers: BattleModifiers }) {
   return <span className="text-xs text-subtle">{modifierSummary(modifiers)}</span>
 }
 
+function numero(valor: number) {
+  // Inteiro quando é contagem, uma decimal quando é taxa — o acerto de 0,75
+  // não pode aparecer como "1".
+  return Number.isInteger(valor) ? valor.toLocaleString('pt-BR') : valor.toFixed(2)
+}
+
+/**
+ * A distância até a conquista que libera a peça.
+ *
+ * Cadeado com nome de conquista e sem distância ainda é quase uma armadilha: a
+ * pessoa não sabe se falta uma questão ou novecentas. Quando a conquista tem
+ * uma guarda não atendida, **não há barra** — o progresso do contador sozinho
+ * faria ela achar que está perto sem estar, e o motivo aparece no lugar.
+ */
+function RequirementLine({ item }: { item: BattleEquipment }) {
+  if (!item.requirement_label) return null
+
+  const temDistancia =
+    item.requirement_current !== null && item.requirement_threshold !== null
+  const faltaGuarda = item.requirement_progress === null && Boolean(item.requirement_blocked)
+
+  return (
+    <span className="mt-1 block text-xs text-game-gold">
+      Conquista: {item.requirement_label}
+      {temDistancia && !faltaGuarda && (
+        <>
+          {' — '}
+          {numero(item.requirement_current!)} de {numero(item.requirement_threshold!)}
+        </>
+      )}
+      {faltaGuarda && (
+        <span className="mt-0.5 block text-subtle">{item.requirement_blocked}</span>
+      )}
+      {item.requirement_progress !== null && (
+        <span
+          className="mt-1 block h-1 overflow-hidden rounded-full bg-white/10"
+          role="presentation"
+        >
+          <span
+            className="block h-full rounded-full bg-game-gold"
+            style={{ width: `${Math.round(item.requirement_progress * 100)}%` }}
+          />
+        </span>
+      )}
+    </span>
+  )
+}
+
 /**
  * O arsenal: classe e três peças.
  *
@@ -137,7 +185,13 @@ export function ArmoryPanel({
                     aria-label={
                       item.is_unlocked
                         ? `${item.name}: ${modifierSummary(item.modifiers)}.`
-                        : `${item.name}: travado pela conquista ${item.requirement_label}.`
+                        : `${item.name}: travado pela conquista ${item.requirement_label}` +
+                          (item.requirement_current !== null &&
+                          item.requirement_threshold !== null
+                            ? `, ${numero(item.requirement_current)} de ${numero(
+                                item.requirement_threshold,
+                              )}.`
+                            : '.')
                     }
                     className={cn(
                       'rounded-xl border p-3 text-left transition-colors',
@@ -156,12 +210,10 @@ export function ArmoryPanel({
                     </span>
                     <span className="block text-xs text-muted">{item.description}</span>
                     <ModifierLine modifiers={item.modifiers} />
-                    {!item.is_unlocked && item.requirement_label && (
-                      // Peça travada sem caminho é armadilha: o nome da
-                      // conquista aparece junto do cadeado.
-                      <span className="mt-1 block text-xs text-game-gold">
-                        Conquista: {item.requirement_label}
-                      </span>
+                    {!item.is_unlocked && (
+                      // Peça travada sem caminho é armadilha: junto do cadeado
+                      // vai o nome da conquista **e** a distância até ela.
+                      <RequirementLine item={item} />
                     )}
                   </button>
                 )

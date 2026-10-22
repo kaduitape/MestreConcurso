@@ -80,6 +80,7 @@ export const queryKeys = {
   gameBoardBattle: ['game', 'board-battle'] as const,
   gameJourney: ['game', 'journey'] as const,
   gameTerritory: ['game', 'territory'] as const,
+  gameKnowledgeTree: ['game', 'knowledge-tree'] as const,
   gameSeason: ['game', 'season'] as const,
   gameSeasonHistory: ['game', 'season', 'history'] as const,
   gameLeague: ['game', 'league'] as const,

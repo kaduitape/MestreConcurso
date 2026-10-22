@@ -75,6 +75,11 @@ const BoardBattlePage = lazy(() =>
 const JourneyPage = lazy(() =>
   import('@/features/game/journey-page').then((module) => ({ default: module.JourneyPage })),
 )
+const KnowledgeTreePage = lazy(() =>
+  import('@/features/game/knowledge-tree-page').then((module) => ({
+    default: module.KnowledgeTreePage,
+  })),
+)
 const SeasonPage = lazy(() =>
   import('@/features/game/season-page').then((module) => ({ default: module.SeasonPage })),
 )
@@ -213,6 +218,7 @@ export const router = createBrowserRouter([
           { path: '/progresso', element: lazyRoute(<GameProfilePage />) },
           { path: '/voce-vs-banca', element: lazyRoute(<BoardBattlePage />) },
           { path: '/jornada', element: lazyRoute(<JourneyPage />) },
+          { path: '/arvore-do-conhecimento', element: lazyRoute(<KnowledgeTreePage />) },
           { path: '/temporada', element: lazyRoute(<SeasonPage />) },
           { path: '/desafios', element: lazyRoute(<ChallengesPage />) },
           { path: '/arena', element: lazyRoute(<ArenaPage />) },

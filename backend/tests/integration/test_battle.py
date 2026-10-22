@@ -830,6 +830,33 @@ async def test_locked_equipment_says_which_achievement_unlocks_it(
         assert item["requirement_label"], "peça travada sem caminho é armadilha"
 
 
+async def test_locked_equipment_also_says_how_far_the_candidate_is(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """Cadeado com nome de conquista e sem distância ainda é quase armadilha.
+
+    Saber que a peça sai de "Mil questões" não diz se falta uma questão ou
+    novecentas. A distância vem da mesma avaliação que concede a conquista — e
+    quando ela tem guarda não atendida, não há barra: há o motivo escrito.
+    """
+    student = await create_user(client, emails, email="rpg34b@exemplo.com.br")
+
+    armory = await _armory(client, student)
+    travadas = [item for item in armory["equipment"] if not item["is_unlocked"]]
+
+    assert travadas
+    for item in travadas:
+        assert item["requirement_threshold"] is not None
+        assert item["requirement_current"] is not None
+        # Candidato recém-cadastrado: distância cheia, nunca "quase lá".
+        assert item["requirement_current"] == 0
+        if item["requirement_progress"] is None:
+            # Progresso ausente só é aceitável com o motivo dito.
+            assert item["requirement_blocked"]
+        else:
+            assert item["requirement_progress"] == 0
+
+
 async def test_equipping_something_not_earned_is_refused_with_the_reason(
     client: AsyncClient, emails: CapturingDispatcher
 ) -> None:

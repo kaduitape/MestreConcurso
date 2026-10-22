@@ -78,6 +78,8 @@ ignore = ["B008", "S101", "RUF001", "RUF002", "RUF003"]
 "app/schemas/study.py" = ["S105"]
 "app/domain/intelligence/priority.py" = ["S105"]
 "app/domain/game/territory.py" = ["S105"]
+"app/domain/game/knowledge_tree.py" = ["S105"]
+"app/schemas/game.py" = ["S105"]
 "alembic/*" = ["E501"]
 
 [tool.mypy]

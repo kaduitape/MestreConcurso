@@ -60,6 +60,10 @@ const armory: BattleArmory = {
       },
       is_unlocked: true,
       requirement_label: null,
+      requirement_current: null,
+      requirement_threshold: null,
+      requirement_progress: null,
+      requirement_blocked: null,
     },
     {
       slug: 'lamina-do-acerto',
@@ -74,6 +78,10 @@ const armory: BattleArmory = {
       },
       is_unlocked: false,
       requirement_label: 'Mil Questões',
+      requirement_current: 760,
+      requirement_threshold: 1000,
+      requirement_progress: 0.76,
+      requirement_blocked: null,
     },
     {
       slug: 'gibao-de-couro',
@@ -88,6 +96,10 @@ const armory: BattleArmory = {
       },
       is_unlocked: true,
       requirement_label: null,
+      requirement_current: null,
+      requirement_threshold: null,
+      requirement_progress: null,
+      requirement_blocked: null,
     },
     {
       slug: 'amuleto-de-latao',
@@ -102,6 +114,10 @@ const armory: BattleArmory = {
       },
       is_unlocked: true,
       requirement_label: null,
+      requirement_current: null,
+      requirement_threshold: null,
+      requirement_progress: null,
+      requirement_blocked: null,
     },
   ],
 }
@@ -164,7 +180,55 @@ describe('ArmoryPanel', () => {
     )
     const locked = screen.getByRole('button', { name: /travado pela conquista Mil Questões/ })
     expect(locked).toBeDisabled()
-    expect(screen.getByText('Conquista: Mil Questões')).toBeInTheDocument()
+    // O texto agora é quebrado em elementos: o nome da conquista e a distância.
+    expect(screen.getByText(/Conquista: Mil Questões/)).toBeInTheDocument()
+  })
+
+  it('peça travada também mostra a distância até a conquista', () => {
+    render(
+      <ArmoryPanel
+        armory={armory}
+        draft={draft}
+        onDraft={vi.fn()}
+        onSave={vi.fn()}
+        saving={false}
+      />,
+    )
+    // Cadeado com nome de conquista e sem distância não diz se falta uma
+    // questão ou novecentas.
+    expect(screen.getByText(/760 de 1.000/)).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /travado pela conquista Mil Questões, 760 de 1.000/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('conquista com guarda não atendida mostra o motivo, não uma barra', () => {
+    const comGuarda = {
+      ...armory,
+      equipment: armory.equipment.map((item) =>
+        item.slug === 'lamina-do-acerto'
+          ? {
+              ...item,
+              requirement_progress: null,
+              requirement_blocked: 'A taxa de acerto mínima ainda não foi atingida.',
+            }
+          : item,
+      ),
+    }
+    render(
+      <ArmoryPanel
+        armory={comGuarda}
+        draft={draft}
+        onDraft={vi.fn()}
+        onSave={vi.fn()}
+        saving={false}
+      />,
+    )
+    expect(
+      screen.getByText('A taxa de acerto mínima ainda não foi atingida.'),
+    ).toBeInTheDocument()
+    // Sem progresso honesto, nenhum número de distância é afirmado.
+    expect(screen.queryByText(/760 de 1.000/)).not.toBeInTheDocument()
   })
 
   it('salvar só fica disponível quando algo muda', async () => {

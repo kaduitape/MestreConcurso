@@ -2167,6 +2167,12 @@ export interface BattleEquipment {
   is_unlocked: boolean
   /** Conquista que libera a peça, quando houver. */
   requirement_label: string | null
+  /** Onde o candidato está na conquista que libera a peça. */
+  requirement_current: number | null
+  requirement_threshold: number | null
+  /** `null` quando a conquista tem guarda não atendida — aí vale o motivo. */
+  requirement_progress: number | null
+  requirement_blocked: string | null
 }
 
 export interface BattleLoadout {
@@ -2645,4 +2651,82 @@ export interface NoticeDiff {
   }
   reviewed_at: string | null
   created_at: string
+}
+
+
+// --------------------------------------------------------------------------- //
+// Fase 7 — árvore de conhecimento
+// --------------------------------------------------------------------------- //
+export type KnowledgeNodeState =
+  | 'MASTERED'
+  | 'NEEDS_REVIEW'
+  | 'MEASURED'
+  | 'IN_PROGRESS'
+  | 'NOT_STARTED'
+  | 'NOT_LINKED'
+  | 'NO_MATERIAL'
+
+/** O que foi contado num ramo. Todo número é derivado na leitura. */
+export interface KnowledgeEvidence {
+  answers: number
+  correct: number
+  questions_available: number
+  lessons_available: number
+  lessons_done: number
+  mind_maps_available: number
+  cards: number
+  reviews: number
+  recalled: number
+  days_since_activity: number | null
+  answers_missing: number
+}
+
+export interface KnowledgeTopic {
+  label: string
+  state: KnowledgeNodeState
+  reason: string
+  topic_id: number | null
+  descendants: number
+  page_number: number | null
+  /** `null` quando a amostra não chega ao mínimo. Nunca zero por ausência. */
+  accuracy: number | null
+  evidence: KnowledgeEvidence
+}
+
+export interface KnowledgeSubject {
+  label: string
+  state: KnowledgeNodeState
+  reason: string
+  subject_id: number | null
+  color_token: string
+  weight: string | null
+  questions_count: number | null
+  evidence_level: string
+  accuracy: number | null
+  evidence: KnowledgeEvidence
+  topics: KnowledgeTopic[]
+}
+
+export interface KnowledgeTreeSummary {
+  subjects: number
+  topics: number
+  measured: number
+  mastered: number
+  needs_review: number
+  in_progress: number
+  not_started: number
+  /** Lacunas da plataforma, contadas à parte do desempenho do candidato. */
+  not_linked: number
+  no_material: number
+  measurable: number
+}
+
+export interface KnowledgeTree {
+  competition_public_id: string | null
+  competition_name: string | null
+  notice_title: string | null
+  subjects: KnowledgeSubject[]
+  summary: KnowledgeTreeSummary
+  attention: string[]
+  unavailable_reason: string | null
 }
