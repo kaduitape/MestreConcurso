@@ -46,6 +46,8 @@ TRAINING_READ = "training:read"
 TRAINING_WRITE = "training:write"
 CONTENT_AUDIT_READ = "content_audit:read"
 CONTENT_AUDIT_WRITE = "content_audit:write"
+IMPROVEMENTS_READ = "improvements:read"
+IMPROVEMENTS_WRITE = "improvements:write"
 
 PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec(USERS_READ, "Listar e visualizar usuários"),
@@ -75,6 +77,11 @@ PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec(
         CONTENT_AUDIT_WRITE,
         "Rodar auditorias e configurar as regras que barram publicação",
+    ),
+    PermissionSpec(IMPROVEMENTS_READ, "Ver os achados do analista de melhorias"),
+    PermissionSpec(
+        IMPROVEMENTS_WRITE,
+        "Rodar a varredura, aceitar ou recusar achados e ajustar os limiares",
     ),
 )
 
@@ -121,6 +128,9 @@ ROLES: tuple[RoleSpec, ...] = (
             # A equipe precisa ver por que a publicação foi barrada; desligar
             # uma regra de bloqueio continua sendo decisão de administrador.
             CONTENT_AUDIT_READ,
+            # Ver os achados ajuda a curadoria a saber o que consertar; aceitar,
+            # recusar e mexer em limiar continua sendo de administrador.
+            IMPROVEMENTS_READ,
         ),
     ),
     RoleSpec(

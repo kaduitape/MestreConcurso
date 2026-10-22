@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -951,3 +952,87 @@ class KnowledgeTreeRead(BaseModel):
     summary: KnowledgeTreeSummaryRead = Field(default_factory=KnowledgeTreeSummaryRead)
     attention: list[str] = Field(default_factory=list)
     unavailable_reason: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# Agente 8 — analista de melhorias
+# --------------------------------------------------------------------------- #
+class ImprovementDetectorRead(BaseModel):
+    """A ficha de um detector, com o que a última passada conseguiu ver."""
+
+    key: str
+    label: str
+    description: str
+    #: O que o detector pode afirmar — e o que ele não olha.
+    scope: str
+    destination: str
+    is_enabled: bool = True
+    #: Limiares vigentes (banco por cima do padrão do código).
+    config: dict[str, int] = Field(default_factory=dict)
+    defaults: dict[str, int] = Field(default_factory=dict)
+    last_run_at: datetime | None = None
+    #: FOUND, CLEAN, NOT_ENOUGH_DATA ou DISABLED.
+    last_status: str | None = None
+    last_detail: str | None = None
+    last_found: int = 0
+
+
+class ImprovementDetectorUpdate(BaseModel):
+    is_enabled: bool | None = None
+    config: dict[str, int] | None = None
+
+
+class ImprovementFindingRead(BaseModel):
+    public_id: str
+    detector: str
+    detector_label: str
+    status: str
+    severity: str
+    destination: str
+    title: str
+    detail: str
+    #: A mudança proposta em texto. O analista não produz patch.
+    proposal: str
+    evidence: dict[str, object] = Field(default_factory=dict)
+    target_kind: str | None = None
+    target_public_id: str | None = None
+    #: Nulo quando não há custo medido — e aí nenhuma economia é afirmada.
+    measured_waste_cents: Decimal | None = None
+    first_seen_at: datetime
+    last_seen_at: datetime
+    seen_count: int = 1
+    decided_at: datetime | None = None
+    decision_reason: str | None = None
+    muted_until: datetime | None = None
+    resolved_at: datetime | None = None
+    reopened_count: int = 0
+
+
+class ImprovementFindingDecision(BaseModel):
+    #: ACCEPTED, REJECTED ou OPEN. RESOLVED não entra: um achado só fecha
+    #: quando o detector deixa de achá-lo.
+    status: str
+    #: Obrigatório na recusa.
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class ImprovementDetectorReport(BaseModel):
+    key: str
+    label: str
+    status: str
+    detail: str
+    found: int
+
+
+class ImprovementRunRead(BaseModel):
+    """O que a varredura fez, incluindo o que ela não pôde ver."""
+
+    #: DB_READONLY quando a credencial restrita está valendo; CODE_ONLY quando
+    #: a garantia é apenas do código.
+    isolation: str
+    detectors: list[ImprovementDetectorReport] = Field(default_factory=list)
+    opened: int = 0
+    updated: int = 0
+    resolved: int = 0
+    reopened: int = 0
+    muted: int = 0

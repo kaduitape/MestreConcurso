@@ -305,14 +305,67 @@ async def run_teacher(session: AsyncSession, run: AgentRun) -> AgentOutcome:
     )
 
 
+async def run_improvements(session: AsyncSession, run: AgentRun) -> AgentOutcome:
+    """Varre os registros da própria plataforma e grava achados para revisão.
+
+    Nenhuma IA, nenhuma escrita fora das duas tabelas de achados e nenhuma ação
+    aplicada: o analista propõe, uma pessoa decide. Quando a credencial restrita
+    está configurada, a varredura roda nela — e o detalhe do passo diz qual das
+    duas garantias está valendo, porque "isolado" e "isolado só no código" não
+    são a mesma coisa.
+    """
+    from app.services.improvements import ImprovementService, IsolationMode
+
+    relatorio = await ImprovementService(session).run()
+
+    sem_amostra = [item for item in relatorio.detectors if item.status == "NOT_ENOUGH_DATA"]
+    detalhe = (
+        f"{relatorio.opened} achado(s) novo(s), {relatorio.updated} atualizado(s), "
+        f"{relatorio.resolved} fechado(s) por terem deixado de aparecer e "
+        f"{relatorio.reopened} reaberto(s)."
+    )
+    if sem_amostra:
+        # Detector sem amostra é parte do resultado, não rodapé: ele não fechou
+        # nenhum achado antigo, e isso precisa estar dito.
+        detalhe += (
+            f" {len(sem_amostra)} detector(es) não rodaram por falta de amostra e "
+            "não fecharam nada."
+        )
+    detalhe += (
+        " Credencial restrita de banco em uso."
+        if relatorio.isolation == IsolationMode.DB_READONLY
+        else " Sem credencial restrita de banco: a garantia de leitura é só do código."
+    )
+
+    return AgentOutcome(
+        detail=detalhe,
+        result={
+            "isolation": relatorio.isolation,
+            "opened": relatorio.opened,
+            "updated": relatorio.updated,
+            "resolved": relatorio.resolved,
+            "reopened": relatorio.reopened,
+            "muted": relatorio.muted,
+            "detectors": [
+                {
+                    "key": item.key,
+                    "status": item.status,
+                    "found": item.found,
+                    "detail": item.detail,
+                }
+                for item in relatorio.detectors
+            ],
+        },
+    )
+
+
 def register_default_agents() -> None:
     """Liga as chaves do catálogo às implementações reais.
 
-    Só estes cinco — e são exatamente os cinco que o catálogo declara como
-    construídos. Os outros três continuam declarados e pulados com o motivo que
-    o catálogo traz: memorização não tem onde guardar baralho oficial, mestre de
-    batalhas depende de uma geração de questões que ainda não existe, e o
-    analista de melhorias não teve o desenho aprovado.
+    Só estes seis — e são exatamente os seis que o catálogo declara como
+    construídos. Os outros dois continuam declarados e pulados com o motivo que
+    o catálogo traz: memorização não tem onde guardar baralho oficial e mestre
+    de batalhas depende de uma geração de questões que ainda não existe.
 
     Catálogo e registro precisam contar a mesma história. Um agente declarado
     como construído sem implementação registrada seria pulado dizendo "ainda
@@ -323,6 +376,7 @@ def register_default_agents() -> None:
     registry.register(AgentKey.TUTOR, run_tutor)
     registry.register(AgentKey.AUDITOR, run_auditor)
     registry.register(AgentKey.TEACHER, run_teacher)
+    registry.register(AgentKey.IMPROVEMENTS, run_improvements)
 
 
 register_default_agents()

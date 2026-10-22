@@ -29,6 +29,9 @@ export const queryKeys = {
   aiFeatures: ['admin', 'ai', 'features'] as const,
   aiCache: ['admin', 'ai', 'cache'] as const,
   aiRoutes: (feature?: string) => ['admin', 'ai', 'routes', feature ?? 'all'] as const,
+  improvementDetectors: ['admin', 'improvements', 'detectors'] as const,
+  improvementFindings: (status?: string) =>
+    ['admin', 'improvements', 'findings', status ?? 'all'] as const,
   aiRouteDecisions: (feature?: string) =>
     ['admin', 'ai', 'routes', 'decisions', feature ?? 'all'] as const,
   adminBoards: (params: unknown) => ['admin', 'catalog', 'boards', params] as const,

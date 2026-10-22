@@ -2730,3 +2730,73 @@ export interface KnowledgeTree {
   attention: string[]
   unavailable_reason: string | null
 }
+
+
+// --------------------------------------------------------------------------- //
+// Agente 8 — analista de melhorias
+// --------------------------------------------------------------------------- //
+export type ImprovementDetectorStatus = 'FOUND' | 'CLEAN' | 'NOT_ENOUGH_DATA' | 'DISABLED'
+export type ImprovementSeverity = 'HIGH' | 'MEDIUM' | 'LOW'
+export type ImprovementFindingStatus = 'OPEN' | 'ACCEPTED' | 'REJECTED' | 'RESOLVED'
+/** DB_READONLY = o banco recusa escrita fora das duas tabelas de achados. */
+export type ImprovementIsolation = 'DB_READONLY' | 'CODE_ONLY'
+
+export interface ImprovementDetector {
+  key: string
+  label: string
+  description: string
+  /** O que o detector olha — e o que ele não olha. */
+  scope: string
+  destination: 'ADMIN' | 'DEVELOPMENT'
+  is_enabled: boolean
+  config: Record<string, number>
+  defaults: Record<string, number>
+  last_run_at: string | null
+  last_status: ImprovementDetectorStatus | null
+  last_detail: string | null
+  last_found: number
+}
+
+export interface ImprovementFinding {
+  public_id: string
+  detector: string
+  detector_label: string
+  status: ImprovementFindingStatus
+  severity: ImprovementSeverity
+  destination: 'ADMIN' | 'DEVELOPMENT'
+  title: string
+  detail: string
+  /** A mudança proposta em texto. O analista não produz patch. */
+  proposal: string
+  evidence: Record<string, unknown>
+  target_kind: string | null
+  target_public_id: string | null
+  /** Nulo quando não há custo medido — e aí nenhuma economia é afirmada. */
+  measured_waste_cents: string | null
+  first_seen_at: string
+  last_seen_at: string
+  seen_count: number
+  decided_at: string | null
+  decision_reason: string | null
+  muted_until: string | null
+  resolved_at: string | null
+  reopened_count: number
+}
+
+export interface ImprovementDetectorReport {
+  key: string
+  label: string
+  status: ImprovementDetectorStatus
+  detail: string
+  found: number
+}
+
+export interface ImprovementRun {
+  isolation: ImprovementIsolation
+  detectors: ImprovementDetectorReport[]
+  opened: number
+  updated: number
+  resolved: number
+  reopened: number
+  muted: number
+}

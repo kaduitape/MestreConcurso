@@ -69,6 +69,7 @@ from app.models.game import (
     XPTransaction,
 )
 from app.models.generation import GenerationItem, GenerationPlan
+from app.models.improvement import ImprovementDetectorSetting, ImprovementFinding
 from app.models.intelligence import (
     AnalysisSource,
     BoardProfileMetric,
@@ -188,6 +189,8 @@ __all__ = [
     "GenerationItem",
     "GenerationPlan",
     "GovernmentSphere",
+    "ImprovementDetectorSetting",
+    "ImprovementFinding",
     "InvoiceLine",
     "KnowledgeSource",
     "MasterScoreSnapshot",

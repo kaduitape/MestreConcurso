@@ -17,6 +17,8 @@ from app.core.config import settings
 
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
+_restricted_engine: AsyncEngine | None = None
+_restricted_session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
 def _engine_kwargs() -> dict[str, Any]:
@@ -63,6 +65,36 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
     return _session_factory
 
 
+def get_restricted_session_factory() -> async_sessionmaker[AsyncSession] | None:
+    """Fábrica de sessões do usuário restrito, ou ``None`` se não houver um.
+
+    Existe para o analista de melhorias (Agente 8): ele precisa ler tudo e só
+    pode escrever duas tabelas, e a única forma de **garantir** isso é um
+    usuário de banco com essa permissão. O código que confia apenas em si
+    mesmo não garante nada — basta um import errado no futuro.
+    """
+    global _restricted_engine, _restricted_session_factory
+    url = settings.readonly_sqlalchemy_url
+    if url is None:
+        return None
+    if _restricted_session_factory is None:
+        _restricted_engine = create_async_engine(
+            url,
+            echo=settings.db_echo,
+            future=True,
+            pool_pre_ping=True,
+            # Pool pequeno de propósito: é uma varredura ocasional, não um
+            # caminho de requisição.
+            pool_size=2,
+            max_overflow=2,
+            pool_recycle=settings.db_pool_recycle,
+        )
+        _restricted_session_factory = async_sessionmaker(
+            bind=_restricted_engine, expire_on_commit=False, autoflush=False
+        )
+    return _restricted_session_factory
+
+
 async def get_db_session() -> AsyncGenerator[AsyncSession]:
     """Dependência FastAPI: uma sessão por requisição, com rollback em erro."""
     factory = get_session_factory()
@@ -75,8 +107,12 @@ async def get_db_session() -> AsyncGenerator[AsyncSession]:
 
 
 async def dispose_engine() -> None:
-    global _engine, _session_factory
+    global _engine, _session_factory, _restricted_engine, _restricted_session_factory
     if _engine is not None:
         await _engine.dispose()
     _engine = None
     _session_factory = None
+    if _restricted_engine is not None:
+        await _restricted_engine.dispose()
+    _restricted_engine = None
+    _restricted_session_factory = None
