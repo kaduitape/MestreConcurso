@@ -109,6 +109,7 @@ from app.models.question import (
     SimulationQuestion,
 )
 from app.models.rbac import Permission, Role, role_permissions, user_roles
+from app.models.refusal import RefusalKind, ResourceRefusal
 from app.models.study import (
     StudyAvailability,
     StudyPeriod,
@@ -230,6 +231,8 @@ __all__ = [
     "QuestionOrigin",
     "QuestionStats",
     "QuestionStatus",
+    "RefusalKind",
+    "ResourceRefusal",
     "Role",
     "Simulation",
     "SimulationAttempt",

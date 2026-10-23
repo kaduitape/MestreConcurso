@@ -195,6 +195,7 @@ ambiente é necessária: a configuração é dado, não código.
 | [35 — Fase 7: árvore e inventário](docs/35-fase7-arvore-e-inventario.md) | o edital ramo por ramo, com a lacuna da plataforma separada do desempenho do candidato |
 | [36 — Agente 8: desenho para aprovação](docs/36-agente-8-desenho.md) | o analista de melhorias desenhado pelos limites, com as decisões que faltam — nenhum código escrito |
 | [37 — Agente 8: parte 1](docs/37-agente-8-parte1.md) | quatro detectores, achado com evidência e a credencial de banco que recusa escrita — provada |
+| [38 — Recusas por falta de acervo](docs/38-recusas-por-falta-de-acervo.md) | o pedido que a plataforma não pôde atender deixa de se perder, e vira prioridade de aquisição |
 
 ## Como executar
 

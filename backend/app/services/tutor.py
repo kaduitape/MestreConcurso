@@ -52,12 +52,14 @@ from app.models.catalog import Competition, Subject
 from app.models.intelligence import TopicIncidence, UserPriority
 from app.models.notice import Notice
 from app.models.question import QuestionAttempt
+from app.models.refusal import RefusalKind
 from app.models.study import StudyPlan, StudyPlanStatus
 from app.models.tutor import ChatMode, Conversation, Message, MessageRole, VideoResource
 from app.models.user import User
 from app.repositories.tutor import ConversationRepository, VideoResourceRepository
 from app.services.ai_cache import AICacheService
 from app.services.ai_settings import AISettingsService
+from app.services.refusals import record_refusal
 from app.services.retrieval import RetrievalService
 
 logger = get_logger(__name__)
@@ -311,6 +313,16 @@ class TutorService:
             answer = verify_answer([], [], refusal=outcome.blocked_reason)
             message = await self._store_answer(
                 conversation, user, answer, [], computed, model=None, version=None
+            )
+            # A recusa entra também no log de acervo. Aqui não há erro levantado
+            # — a conversa continua — mas o registro segue em sessão própria,
+            # para o analista contar as três recusas da mesma forma.
+            await record_refusal(
+                kind=RefusalKind.TUTOR_ANSWER,
+                reason_code="tutor_without_base",
+                detail=outcome.blocked_reason or "Sem base no material para responder.",
+                user_id=user.id,
+                variant=conversation.mode,
             )
             yield TutorStage("verify", "Sem base para responder", outcome.blocked_reason)
             yield TutorReply(

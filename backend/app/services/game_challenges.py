@@ -38,11 +38,13 @@ from app.models.catalog import Subject
 from app.models.game import GameRun
 from app.models.intelligence import UserPriority
 from app.models.question import Question, QuestionAttempt
+from app.models.refusal import RefusalKind
 from app.models.user import User
 from app.repositories.game import GameRunRepository
 from app.repositories.question import QuestionRepository
 from app.services.game_engine import GameEngine
 from app.services.practice import AnswerFeedback, PracticeService
+from app.services.refusals import record_refusal
 
 logger = get_logger(__name__)
 
@@ -84,13 +86,23 @@ class ChallengeService:
         if len(questions) < spec.questions:
             # Sem questões suficientes a rodada não acontece. Repetir enunciado
             # para completar o número seria fabricar desafio.
-            raise ConflictError(
-                (
-                    f"O banco tem {len(questions)} questão(ões) elegíveis para este modo e "
-                    f"são necessárias {spec.questions}. A rodada não foi criada."
-                ),
-                code="not_enough_questions",
+            motivo = (
+                f"O banco tem {len(questions)} questão(ões) elegíveis para este modo e "
+                f"são necessárias {spec.questions}. A rodada não foi criada."
             )
+            # Registrada antes de levantar, por sessão própria: o erro desfaz a
+            # transação desta requisição.
+            await record_refusal(
+                kind=RefusalKind.CHALLENGE,
+                reason_code="not_enough_questions",
+                detail=motivo,
+                user_id=user.id,
+                subject_id=subject.id if subject is not None else None,
+                requested=spec.questions,
+                available=len(questions),
+                variant=spec.mode,
+            )
+            raise ConflictError(motivo, code="not_enough_questions")
 
         run = GameRun(
             user_id=user.id,

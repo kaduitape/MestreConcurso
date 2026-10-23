@@ -17,10 +17,12 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.improvements import DETECTORS
 from app.models.catalog import Competition, Organization, Subject, Topic
 from app.models.notice import Notice
 from app.models.notice_analysis import NoticeSubject, NoticeTopic
 from app.models.question import Alternative, Question, QuestionAttempt
+from app.models.refusal import RefusalKind, ResourceRefusal
 from app.models.user import User
 from tests.conftest import CapturingDispatcher
 from tests.factories import (
@@ -135,7 +137,7 @@ async def test_on_an_empty_install_every_detector_says_what_it_lacks(
     relatorio = await _run(client, admin)
 
     assert relatorio["opened"] == 0
-    assert len(relatorio["detectors"]) == 4
+    assert len(relatorio["detectors"]) == len(DETECTORS)
     for item in relatorio["detectors"]:
         assert item["status"] == "NOT_ENOUGH_DATA"
         assert item["detail"], f"{item['key']} precisa dizer o que faltou"
@@ -160,7 +162,7 @@ async def test_the_detector_sheet_shows_the_last_pass(
 
     fichas = (await client.get(f"{BASE}/detectors", headers=admin.auth_header)).json()
 
-    assert len(fichas) == 4
+    assert len(fichas) == len(DETECTORS)
     for ficha in fichas:
         assert ficha["last_status"] == "NOT_ENOUGH_DATA"
         assert ficha["last_run_at"]
@@ -475,3 +477,97 @@ async def test_a_notice_topic_without_material_is_ranked_by_weight(
     assert achado["evidence"]["linked_topics"] == 2
     assert achado["evidence"]["topics_without_material"] == 2
     assert "plano de geração" in achado["proposal"]
+
+
+# --------------------------------------------------------------------------- #
+# Recusas por falta de acervo
+# --------------------------------------------------------------------------- #
+async def test_a_refused_simulation_is_recorded_even_though_the_request_failed(
+    client: AsyncClient, emails: CapturingDispatcher, db_session: AsyncSession
+) -> None:
+    """O teste que torna a instrumentação confiável.
+
+    A recusa levanta erro, e o erro desfaz a transação da requisição. Se o
+    registro estivesse na mesma sessão, ele seria gravado e perdido junto — e o
+    sinal mais direto de "o que falta no acervo" continuaria se perdendo.
+    """
+    candidato = await create_user(client, emails, email="rec1@exemplo.com.br")
+
+    recusado = await client.post(
+        "/api/v1/simulations",
+        headers=candidato.auth_header,
+        json={"kind": "ERRORS", "questions_count": 10},
+    )
+    assert recusado.status_code == 409
+    assert recusado.json()["error"]["code"] == "no_questions_available"
+
+    linhas = (await db_session.execute(select(ResourceRefusal))).scalars().all()
+    assert len(linhas) == 1
+    assert linhas[0].kind == RefusalKind.SIMULATION
+    assert linhas[0].reason_code == "no_questions_available"
+    assert linhas[0].requested == 10
+    assert linhas[0].variant == "ERRORS"
+    # O texto guardado é o mesmo que o candidato recebeu.
+    assert linhas[0].detail == recusado.json()["error"]["message"]
+
+
+async def test_a_refused_challenge_round_is_recorded_with_the_gap(
+    client: AsyncClient, emails: CapturingDispatcher, db_session: AsyncSession
+) -> None:
+    candidato = await create_user(client, emails, email="rec2@exemplo.com.br")
+
+    recusado = await client.post("/api/v1/game/challenges/SURVIVAL", headers=candidato.auth_header)
+    assert recusado.status_code == 409, recusado.text
+    assert recusado.json()["error"]["code"] == "not_enough_questions"
+
+    linhas = (await db_session.execute(select(ResourceRefusal))).scalars().all()
+    assert len(linhas) == 1
+    assert linhas[0].kind == RefusalKind.CHALLENGE
+    # O tamanho do buraco fica registrado: pediu tantas, havia tantas.
+    assert linhas[0].requested > 0
+    assert linhas[0].available == 0
+    assert linhas[0].detail == recusado.json()["error"]["message"]
+
+
+async def test_repeated_refusals_become_a_finding_that_separates_people_from_tries(
+    client: AsyncClient, emails: CapturingDispatcher, db_session: AsyncSession
+) -> None:
+    admin = await create_admin(client, emails, email="rec3@exemplo.com.br")
+
+    # Oito recusas de duas pessoas: o achado precisa dizer as duas coisas.
+    user = await _user_row(db_session, "rec3@exemplo.com.br")
+    for indice in range(8):
+        db_session.add(
+            ResourceRefusal(
+                kind=RefusalKind.SIMULATION,
+                reason_code="no_questions_available",
+                detail="Não há questões suficientes desta banca.",
+                variant="BOARD",
+                user_id=user.id if indice % 4 else None,
+                requested=30,
+                available=3,
+                created_at=datetime.now(UTC),
+            )
+        )
+    await db_session.commit()
+
+    relatorio = await _run(client, admin)
+
+    assert _detector(relatorio, "REFUSED_RESOURCE")["found"] == 1
+    achado = (await _findings(client, admin, detector="REFUSED_RESOURCE"))[0]
+    assert achado["evidence"]["refusals"] == 8
+    assert achado["evidence"]["distinct_users"] == 1
+    assert "8 tentativa(s) de 1 candidato(s) distinto(s)" in achado["detail"]
+    assert "pedidas 30 questões e havia 3" in achado["detail"]
+
+
+async def test_with_no_refusal_recorded_the_detector_declines(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    admin = await create_admin(client, emails, email="rec4@exemplo.com.br")
+
+    relatorio = await _run(client, admin)
+
+    ficha = _detector(relatorio, "REFUSED_RESOURCE")
+    assert ficha["status"] == "NOT_ENOUGH_DATA"
+    assert "nenhuma recusa registrada" in ficha["detail"]

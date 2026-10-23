@@ -45,6 +45,7 @@ class DetectorKey(StrEnum):
     TOPIC_WITHOUT_MATERIAL = "TOPIC_WITHOUT_MATERIAL"
     MODEL_ERROR_RATE = "MODEL_ERROR_RATE"
     ROUTE_INERT = "ROUTE_INERT"
+    REFUSED_RESOURCE = "REFUSED_RESOURCE"
 
 
 class Severity(StrEnum):
@@ -155,6 +156,26 @@ DETECTORS: tuple[DetectorSpec, ...] = (
             "window_days": 30,
             "min_decisions": 50,
             "max_rows": 2000,
+            "mute_days": DEFAULT_MUTE_DAYS,
+        },
+    ),
+    DetectorSpec(
+        key=DetectorKey.REFUSED_RESOURCE,
+        label="Recurso recusado por falta de acervo",
+        description=(
+            "Simulado, rodada de desafio ou resposta do tutor que a plataforma recusou "
+            "por não ter o material. É o pedido de alguém que não pôde ser atendido — "
+            "o sinal mais direto do que falta no acervo."
+        ),
+        destination=Destination.ADMIN,
+        scope=(
+            "Conta as recusas registradas na janela e separa candidatos distintos do "
+            "total de tentativas. Só vê recusas posteriores ao início do registro: "
+            "o que foi recusado antes dele não existe aqui."
+        ),
+        defaults={
+            "window_days": 30,
+            "min_refusals": 5,
             "mute_days": DEFAULT_MUTE_DAYS,
         },
     ),
@@ -659,5 +680,131 @@ def inert_routes(
         DetectorKey.ROUTE_INERT,
         DetectorStatus.FOUND,
         f"{len(achados)} de {len(elegiveis)} regra(s) com avaliações suficientes",
+        tuple(achados),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# 5. Recurso recusado por falta de acervo
+# --------------------------------------------------------------------------- #
+KIND_LABELS: dict[str, str] = {
+    "SIMULATION": "simulado",
+    "CHALLENGE": "rodada de desafio",
+    "TUTOR_ANSWER": "resposta do tutor",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class RefusalGroup:
+    """Recusas do mesmo tipo, variante e disciplina, já agrupadas."""
+
+    kind: str
+    variant: str | None
+    subject_label: str | None
+    competition_name: str | None
+    total: int
+    #: Candidatos distintos. Uma pessoa tentando quarenta vezes não é quarenta
+    #: pessoas, e a diferença muda completamente a prioridade.
+    distinct_users: int
+    #: Maior distância entre o que foi pedido e o que havia, quando há número.
+    worst_requested: int | None = None
+    worst_available: int | None = None
+    sample_detail: str | None = None
+
+
+def refused_resources(
+    groups: list[RefusalGroup] | tuple[RefusalGroup, ...],
+    *,
+    window_days: int,
+    min_refusals: int,
+    record_days: int | None,
+) -> DetectorOutcome:
+    """Recusas que se repetem, ordenadas por quantas pessoas elas atingiram.
+
+    ``record_days`` é a idade do registro de recusas. Quando ele é mais novo que
+    a janela, o detector **diz isso**: "nenhuma recusa nos últimos 30 dias" soa
+    como acervo completo, quando pode significar que o registro tem dois dias.
+    """
+    aviso = ""
+    if record_days is not None and record_days < window_days:
+        aviso = (
+            f" O registro de recusas tem {record_days} dia(s), menos que a janela de "
+            f"{window_days}: o que foi recusado antes dele não está sendo contado."
+        )
+
+    if not groups:
+        return DetectorOutcome(
+            DetectorKey.REFUSED_RESOURCE,
+            DetectorStatus.NOT_ENOUGH_DATA,
+            f"nenhuma recusa registrada em {window_days} dia(s).{aviso}",
+        )
+
+    elegiveis = [item for item in groups if item.total >= min_refusals]
+    if not elegiveis:
+        total = sum(item.total for item in groups)
+        return DetectorOutcome(
+            DetectorKey.REFUSED_RESOURCE,
+            DetectorStatus.NOT_ENOUGH_DATA,
+            f"nenhum grupo de recusas alcançou {min_refusals} ocorrências; "
+            f"{total} recusa(s) registradas na janela.{aviso}",
+        )
+
+    achados: list[Finding] = []
+    for item in sorted(
+        elegiveis, key=lambda grupo: (-grupo.distinct_users, -grupo.total, grupo.kind)
+    ):
+        rotulo = KIND_LABELS.get(item.kind, item.kind)
+        onde = f" em {item.subject_label}" if item.subject_label else ""
+        contagem = f"{item.total} tentativa(s) de {item.distinct_users} candidato(s) distinto(s)"
+        falta = ""
+        if item.worst_requested is not None and item.worst_available is not None:
+            falta = (
+                f" No pior caso foram pedidas {item.worst_requested} questões e havia "
+                f"{item.worst_available}."
+            )
+        achados.append(
+            Finding(
+                detector=DetectorKey.REFUSED_RESOURCE,
+                severity=Severity.HIGH if item.distinct_users >= 5 else Severity.MEDIUM,
+                destination=Destination.ADMIN,
+                fingerprint=fingerprint(
+                    DetectorKey.REFUSED_RESOURCE,
+                    f"{item.kind}:{item.variant or '-'}:{item.subject_label or '-'}",
+                ),
+                title=f"{rotulo}{onde} recusado por falta de acervo",
+                detail=(
+                    f"{contagem} em {window_days} dia(s)"
+                    + (f", no modo/tipo {item.variant}" if item.variant else "")
+                    + "."
+                    + falta
+                    + (f' Motivo mostrado: "{item.sample_detail}"' if item.sample_detail else "")
+                    + aviso
+                ),
+                proposal=(
+                    "Importar ou gerar questões para este recorte — é um pedido real que a "
+                    "plataforma não conseguiu atender, não uma suposição sobre o que falta. "
+                    "A tela de geração em massa estima o custo antes de disparar."
+                ),
+                evidence={
+                    "window_days": window_days,
+                    "kind": item.kind,
+                    "variant": item.variant,
+                    "subject": item.subject_label,
+                    "competition": item.competition_name,
+                    "refusals": item.total,
+                    "distinct_users": item.distinct_users,
+                    "worst_requested": item.worst_requested,
+                    "worst_available": item.worst_available,
+                    "record_days": record_days,
+                },
+                target_kind="REFUSAL_GROUP",
+                target_public_id=f"{item.kind}:{item.variant or '-'}",
+            )
+        )
+
+    return DetectorOutcome(
+        DetectorKey.REFUSED_RESOURCE,
+        DetectorStatus.FOUND,
+        f"{len(achados)} grupo(s) de recusa com {min_refusals}+ ocorrências.{aviso}",
         tuple(achados),
     )

@@ -189,26 +189,30 @@ class EquipmentOffer:
     requirement_blocked: str | None = None
 
 
-def _requirement_distance(progress: AchievementProgress | None) -> dict[str, float | str | None]:
-    """A distância até a conquista que libera a peça, como ela já é calculada.
+@dataclass(frozen=True, slots=True)
+class RequirementDistance:
+    """Onde o candidato está na conquista que libera uma peça.
 
-    ``ratio`` nulo não vira zero nem é omitido: a conquista tem uma guarda que
-    ainda não foi atendida, e nesse caso o progresso do contador sozinho faria
-    a pessoa achar que está perto sem estar. O motivo vai junto.
+    ``progress`` nulo não vira zero nem é omitido: a conquista tem uma guarda
+    que ainda não foi atendida, e nesse caso o progresso do contador sozinho
+    faria a pessoa achar que está perto sem estar. O motivo vai em ``blocked``.
     """
+
+    current: float | None = None
+    threshold: float | None = None
+    progress: float | None = None
+    blocked: str | None = None
+
+
+def _requirement_distance(progress: AchievementProgress | None) -> RequirementDistance:
     if progress is None:
-        return {
-            "requirement_current": None,
-            "requirement_threshold": None,
-            "requirement_progress": None,
-            "requirement_blocked": None,
-        }
-    return {
-        "requirement_current": progress.current,
-        "requirement_threshold": progress.spec.threshold,
-        "requirement_progress": progress.ratio,
-        "requirement_blocked": progress.blocked_reason,
-    }
+        return RequirementDistance()
+    return RequirementDistance(
+        current=progress.current,
+        threshold=progress.spec.threshold,
+        progress=progress.ratio,
+        blocked=progress.blocked_reason,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -722,6 +726,10 @@ class BattleService:
             item.spec.slug: item
             for item in evaluate_achievements(metrics, already_unlocked=unlocked).progress
         }
+        distancias = {
+            item.slug: _requirement_distance(progresso.get(item.requires_achievement or ""))
+            for item in EQUIPMENT_CATALOGUE
+        }
         return ArmoryView(
             loadout=current,
             classes=list(CLASSES),
@@ -735,7 +743,10 @@ class BattleService:
                         if item.requires_achievement in ACHIEVEMENTS_BY_SLUG
                         else None
                     ),
-                    **_requirement_distance(progresso.get(item.requires_achievement or "")),
+                    requirement_current=distancias[item.slug].current,
+                    requirement_threshold=distancias[item.slug].threshold,
+                    requirement_progress=distancias[item.slug].progress,
+                    requirement_blocked=distancias[item.slug].blocked,
                 )
                 for item in EQUIPMENT_CATALOGUE
             ],
