@@ -9,6 +9,7 @@ import type {
   Question,
   QuestionAdmin,
   QuestionDifficulty,
+  QuestionGeneration,
   QuestionStatus,
   Simulation,
   SimulationAttempt,
@@ -133,6 +134,17 @@ export const adminQuestionsApi = {
     subject_public_id?: string | null
     board_slug?: string | null
   }) => api.post<ImportSummary>('/admin/questions/import', input),
+
+  generate: (input: {
+    material: string
+    quantity: number
+    subject_public_id?: string | null
+    topic_public_id?: string | null
+    source_note?: string | null
+  }) => api.post<QuestionGeneration>('/admin/questions/generate', input),
+
+  markReviewed: (publicId: string) =>
+    api.post<QuestionAdmin>(`/admin/questions/${publicId}/reviewed`),
 
   suggestClassification: (publicId: string) =>
     api.post<ClassificationSuggestion>(`/admin/questions/${publicId}/suggest-classification`),

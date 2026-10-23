@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -184,21 +185,30 @@ async def test_a_single_agent_can_be_run_by_hand(
     assert _step(body, AgentKey.TUTOR)["status"] == "PENDING"
 
 
-async def test_an_unbuilt_agent_consumes_no_attempt(
-    client: AsyncClient, emails: CapturingDispatcher, db_session: AsyncSession
+async def test_an_agent_without_a_registered_runner_consumes_no_attempt(
+    client: AsyncClient,
+    emails: CapturingDispatcher,
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Duas coisas diferentes viram "pulado", e a contagem as separa:
-    o agente que rodou e não achou o que fazer gasta tentativa; o que nem
-    existe, não.
+    """Duas coisas diferentes viram "pulado", e a contagem as separa: o agente
+    que rodou e não achou o que fazer gasta tentativa; o que não tem
+    implementação registrada, não.
 
-    O exemplo de agente não construído é o mestre de batalhas, que depende do
-    Professor. A dependência é concluída à mão aqui justamente para que o pulo
-    seja por **não existir**, e não por dependência: são motivos diferentes, e
-    é a diferença que este teste cobra.
+    Os oito agentes do pedido já estão construídos, então o exemplo não vem mais
+    do catálogo: a implementação de um deles é **retirada do registro** aqui. É
+    o caso que o docstring de ``register_default_agents`` chama de contradição —
+    catálogo dizendo "construído" e registro sem nada — e ele precisa continuar
+    terminando em passo **pulado com motivo**, nunca em verde.
+
+    A dependência do Professor é concluída à mão para que o pulo seja por falta
+    de implementação, e não por dependência: são motivos diferentes, e é a
+    diferença que este teste cobra.
     """
     from sqlalchemy import select
 
     from app.models.agent_run import AgentRun, AgentStep
+    from app.services.orchestrator import registry
 
     admin = await create_admin(client, emails, email="agt12@exemplo.com.br")
     run = await _run(client, admin)
@@ -216,6 +226,10 @@ async def test_an_unbuilt_agent_consumes_no_attempt(
     passo.status = "DONE"
     await db_session.commit()
 
+    sem_runner = dict(registry._runners)
+    sem_runner.pop(AgentKey.BATTLE_MASTER)
+    monkeypatch.setattr(registry, "_runners", sem_runner)
+
     body = (
         await client.post(
             f"/api/v1/admin/agents/{run['public_id']}/run/{AgentKey.BATTLE_MASTER}",
@@ -226,8 +240,25 @@ async def test_an_unbuilt_agent_consumes_no_attempt(
     batalhas = _step(body, AgentKey.BATTLE_MASTER)
     assert batalhas["status"] == "SKIPPED"
     assert batalhas["attempts"] == 0
-    assert batalhas["is_implemented"] is False
-    assert "gabarito" in batalhas["detail"]
+    assert "ainda não foi implementado" in batalhas["detail"]
+
+
+async def test_the_eight_agents_of_the_request_all_have_a_runner(
+    client: AsyncClient, emails: CapturingDispatcher
+) -> None:
+    """Catálogo e registro precisam contar a mesma história.
+
+    Um agente declarado como construído sem implementação registrada seria
+    pulado dizendo "ainda não foi implementado" — contradizendo a própria ficha
+    dele na tela, que é justamente o que o teste acima exercita de propósito.
+    """
+    from app.domain.agents import AGENTS
+    from app.services.orchestrator import registry
+
+    declarados_construidos = {spec.key for spec in AGENTS if spec.is_implemented}
+
+    assert declarados_construidos == set(registry._runners)
+    assert len(declarados_construidos) == 8
 
 
 async def test_the_improvements_analyst_runs_and_declares_what_it_could_not_see(

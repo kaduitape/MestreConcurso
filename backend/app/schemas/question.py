@@ -74,7 +74,38 @@ class QuestionAdminRead(BaseModel):
     alternatives: list[AlternativeAdminRead] = Field(default_factory=list)
     ai_suggestion: dict[str, Any] = Field(default_factory=dict)
     stats: QuestionStatsRead | None = None
+    #: Quando uma pessoa conferiu a questão. É o que o portão da Fase 3 cobra
+    #: para publicar conteúdo de IA, e por isso a tela precisa saber.
+    reviewed_at: datetime | None = None
     created_at: datetime
+
+
+class QuestionGenerateInput(BaseModel):
+    material: str = Field(min_length=200, max_length=20000)
+    quantity: int = Field(default=5, ge=1, le=10)
+    subject_public_id: str | None = Field(default=None, max_length=26)
+    topic_public_id: str | None = Field(default=None, max_length=26)
+    source_note: str | None = Field(default=None, max_length=255)
+
+
+class DiscardedQuestionRead(BaseModel):
+    """Rascunho que não entrou, com o motivo em português."""
+
+    statement: str
+    reason: str
+
+
+class QuestionGenerationRead(BaseModel):
+    created: list[QuestionAdminRead] = Field(default_factory=list)
+    #: O que foi descartado na conferência de origem — dito, não escondido.
+    discarded: list[DiscardedQuestionRead] = Field(default_factory=list)
+    #: Quantos rascunhos cada motivo derrubou.
+    reasons: dict[str, int] = Field(default_factory=dict)
+    #: Enunciado igual a um que já existe no banco.
+    duplicated: int = 0
+    skipped_reason: str | None = None
+    model: str | None = None
+    prompt_version: str | None = None
 
 
 class QuestionCreate(BaseModel):
@@ -247,6 +278,11 @@ class SimulationRunRead(BaseModel):
     attempt: SimulationAttemptRead
     questions: list[SimulationQuestionRead] = Field(default_factory=list)
     remaining_seconds: int | None = None
+    #: Quantas questões de cada procedência compõem este simulado, derivado dos
+    #: itens. Treinar com questão gerada por IA é legítimo; não saber que se está
+    #: treinando com ela, não é — sobretudo num simulado, que o candidato lê como
+    #: imitação da prova.
+    composition: dict[str, int] = Field(default_factory=dict)
 
 
 class SaveAnswerInput(BaseModel):

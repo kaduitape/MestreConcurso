@@ -56,6 +56,7 @@ from app.models.generation import GenerationItem, GenerationPlan
 from app.models.mindmap import MindMap
 from app.models.notice import Notice
 from app.models.notice_analysis import NoticeSubject, NoticeTopic
+from app.models.question import Question, QuestionStatus
 from app.models.training import TrainingLesson, TrainingStatus
 from app.models.user import User
 from app.services.ai_budget import AIBudgetService, BudgetExceededError
@@ -68,6 +69,11 @@ logger = get_logger(__name__)
 #: Quantas execuções passadas entram na mediana. Mais que isso vira memória
 #: de preço antigo; menos, amostra frágil.
 SAMPLE_WINDOW = 50
+
+#: A partir de quantas questões um tópico é considerado coberto, quando quem
+#: monta o plano não diz outra coisa. É escolha editorial, e por isso o painel
+#: manda: ela vive nas ``options`` do plano.
+MIN_QUESTIONS_PER_TOPIC = 5
 
 #: Itens por passada. A geração roda fora do ciclo HTTP, mas em blocos: assim o
 #: acompanhamento ao vivo tem o que mostrar e o teto é consultado com frequência.
@@ -90,6 +96,16 @@ class ItemAlreadyCoveredError(RuntimeError):
         super().__init__(reason)
         self.target_public_id = target_public_id
         self.reason = reason
+
+
+def _as_int(value: object, default: int) -> int:
+    """Lê um número das ``options`` do plano, que são JSON e chegam como ``object``."""
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,7 +163,12 @@ class GenerationService:
         return topicos
 
     async def _existing(
-        self, topic_ids: list[int], *, competition_id: int, kinds: list[str]
+        self,
+        topic_ids: list[int],
+        *,
+        competition_id: int,
+        kinds: list[str],
+        min_questions: int = MIN_QUESTIONS_PER_TOPIC,
     ) -> list[ExistingContent]:
         """Conteúdo que já cobre os tópicos — em qualquer estado menos arquivado.
 
@@ -232,6 +253,58 @@ class GenerationService:
                 for baralho in baralhos
             )
 
+        if GenerationKind.QUESTION_SET in kinds:
+            # Para questão, "já existe conteúdo" não é sim ou não: é quantas.
+            # Um tópico com dez questões no banco não precisa de questão gerada;
+            # um com duas, precisa. O corte é escolha de quem monta o plano.
+            contagens = (
+                await self.session.execute(
+                    select(Question.topic_id, func.count())
+                    .where(
+                        Question.topic_id.in_(topic_ids),
+                        Question.status != QuestionStatus.ARCHIVED,
+                    )
+                    .group_by(Question.topic_id)
+                )
+            ).all()
+            cobertos = {
+                int(topic_id): int(total)
+                for topic_id, total in contagens
+                if topic_id is not None and int(total) >= min_questions
+            }
+            if cobertos:
+                amostras = (
+                    await self.session.execute(
+                        select(Question.topic_id, func.max(Question.id))
+                        .where(Question.topic_id.in_(list(cobertos)))
+                        .group_by(Question.topic_id)
+                    )
+                ).all()
+                por_topico = {
+                    int(topic_id): int(qid)
+                    for topic_id, qid in amostras
+                    if topic_id is not None and qid is not None
+                }
+                publicos = dict(
+                    (
+                        await self.session.execute(
+                            select(Question.id, Question.public_id).where(
+                                Question.id.in_(list(por_topico.values()))
+                            )
+                        )
+                    ).all()
+                )
+                achados.extend(
+                    ExistingContent(
+                        topic_id=topic_id,
+                        kind=GenerationKind.QUESTION_SET,
+                        public_id=str(publicos[por_topico[topic_id]]),
+                        from_other_competition=None,
+                        detail=f"{total} questão(ões) no banco",
+                    )
+                    for topic_id, total in cobertos.items()
+                )
+
         return achados
 
     async def _samples(self, features: list[str]) -> dict[str, CostSample]:
@@ -303,7 +376,10 @@ class GenerationService:
             )
 
         existentes = await self._existing(
-            [topic.topic_id for topic in topicos], competition_id=competition.id, kinds=tipos
+            [topic.topic_id for topic in topicos],
+            competition_id=competition.id,
+            kinds=tipos,
+            min_questions=_as_int(options.get("min_questions_per_topic"), MIN_QUESTIONS_PER_TOPIC),
         )
         planejados = plan_items(topicos, tipos, existentes, max_items=max_items)
         estimativa = estimate_plan(
@@ -477,26 +553,7 @@ class GenerationService:
         """
         from app.services.decks import OfficialDeckService, deck_for_topic
 
-        if item.topic_id is None:
-            raise NoSourceError("O item não está ligado a um tópico do catálogo.")
-
-        aula = (
-            await self.session.execute(
-                select(TrainingLesson)
-                .where(
-                    TrainingLesson.topic_id == item.topic_id,
-                    TrainingLesson.status == TrainingStatus.PUBLISHED,
-                )
-                .order_by(TrainingLesson.published_at.desc())
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-        if aula is None:
-            raise NoSourceError(
-                "Nenhuma aula publicada para este tópico. O cartão oficial não "
-                "nasce de rascunho: publique a aula e rode o plano de novo."
-            )
-
+        aula = await self._published_lesson(item)
         material = self._lesson_material(aula)
         if len(material) < MIN_MATERIAL_CHARS:
             raise NoSourceError(
@@ -504,6 +561,9 @@ class GenerationService:
             )
 
         service = OfficialDeckService(self.session)
+        # ``_published_lesson`` já recusou item sem tópico; o assert é para o
+        # verificador de tipos, não para o fluxo.
+        assert item.topic_id is not None
         deck = await deck_for_topic(self.session, item.topic_id)
         if deck is not None and deck.status != DeckStatus.DRAFT:
             raise ItemAlreadyCoveredError(
@@ -530,7 +590,7 @@ class GenerationService:
             context,
             deck,
             material=material,
-            quantity=int(opcoes.get("cards_per_topic") or 8),
+            quantity=_as_int(opcoes.get("cards_per_topic"), 8),
             source_document=f"Aula publicada: {aula.title}",
         )
         if not resultado.created and not resultado.duplicated:
@@ -541,6 +601,82 @@ class GenerationService:
                 f"publicada ({len(resultado.discarded)} descartado(s))."
             )
         return deck.public_id
+
+    async def _published_lesson(self, item: GenerationItem) -> TrainingLesson:
+        """A aula publicada do tópico, ou ``NoSourceError`` com o motivo escrito.
+
+        Vale para baralho e para questão: os dois nascem de material que uma
+        pessoa já conferiu, e uma aula em rascunho é exatamente o que ainda não
+        passou por essa conferência.
+        """
+        if item.topic_id is None:
+            raise NoSourceError("O item não está ligado a um tópico do catálogo.")
+        aula = (
+            await self.session.execute(
+                select(TrainingLesson)
+                .where(
+                    TrainingLesson.topic_id == item.topic_id,
+                    TrainingLesson.status == TrainingStatus.PUBLISHED,
+                )
+                .order_by(TrainingLesson.published_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if aula is None:
+            raise NoSourceError(
+                "Nenhuma aula publicada para este tópico. O conteúdo gerado não "
+                "nasce de rascunho: publique a aula e rode o plano de novo."
+            )
+        return aula
+
+    async def _generate_question_set(
+        self, plan: GenerationPlan, item: GenerationItem, actor: User, context: RequestContext
+    ) -> str:
+        """Gera questões rascunho do tópico a partir de aula publicada.
+
+        O item guarda o ``public_id`` da primeira questão criada só para a tela
+        ter onde clicar. O que importa é o conjunto: todas nascem ``DRAFT``,
+        marcadas como geradas por IA, sem banca e sem ano.
+        """
+        from app.services.question_generation import (
+            MIN_MATERIAL_CHARS as QUESTION_MIN_MATERIAL,
+        )
+        from app.services.question_generation import QuestionGenerationService
+
+        aula = await self._published_lesson(item)
+        material = self._lesson_material(aula)
+        if len(material) < QUESTION_MIN_MATERIAL:
+            raise NoSourceError(
+                "A aula publicada tem texto curto demais para sustentar questão "
+                f"({len(material)} caracteres, mínimo de {QUESTION_MIN_MATERIAL})."
+            )
+
+        topic_public_id = (
+            await self.session.execute(select(Topic.public_id).where(Topic.id == item.topic_id))
+        ).scalar_one()
+        opcoes = plan.options or {}
+        resultado = await QuestionGenerationService(self.session).generate(
+            actor,
+            context,
+            material=material,
+            quantity=_as_int(opcoes.get("questions_per_topic"), 5),
+            topic_public_id=str(topic_public_id),
+            source_note=f"Gerada a partir da aula publicada: {aula.title}",
+        )
+        if not resultado.created:
+            motivos = "; ".join(
+                f"{motivo} ({quantas})" for motivo, quantas in sorted(resultado.reasons.items())
+            )
+            raise NoSourceError(
+                "Nenhuma questão gerada passou pela conferência na origem"
+                + (f": {motivos}." if motivos else ".")
+                + (
+                    f" {resultado.duplicated} já existia(m) no banco."
+                    if resultado.duplicated
+                    else ""
+                )
+            )
+        return resultado.created[0].public_id
 
     async def _dispatch(
         self, plan: GenerationPlan, item: GenerationItem, actor: User, context: RequestContext
@@ -557,6 +693,8 @@ class GenerationService:
             return await self._generate_mind_map(plan, item, actor, context)
         if item.kind == GenerationKind.FLASHCARD_DECK:
             return await self._generate_flashcard_deck(plan, item, actor, context)
+        if item.kind == GenerationKind.QUESTION_SET:
+            return await self._generate_question_set(plan, item, actor, context)
         raise ValidationError(
             f"Tipo de conteúdo sem gerador: {item.kind}.", code="generation_unknown_kind"
         )

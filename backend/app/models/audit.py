@@ -58,6 +58,8 @@ class AuditAction(StrEnum):
     QUESTION_DELETED = "question.deleted"
     QUESTION_IMPORTED = "question.imported"
     QUESTION_CLASSIFIED = "question.classified"
+    QUESTION_GENERATED = "question.generated"
+    QUESTION_REVIEWED = "question.reviewed"
     SIMULATION_CREATED = "simulation.created"
     SIMULATION_FINISHED = "simulation.finished"
     INTELLIGENCE_RECOMPUTED = "intelligence.recomputed"

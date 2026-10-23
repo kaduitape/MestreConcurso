@@ -1,18 +1,19 @@
 """Catálogo de agentes e o grafo que decide a ordem de execução.
 
-O pedido descreve oito agentes. Sete deles **já rodam** na plataforma, a maioria
+O pedido descreve oito agentes, e os oito **já rodam** na plataforma, a maioria
 com outro nome — análise de edital, inteligência estatística, estúdio de aulas,
-baralho oficial de flashcards, tutor, auditoria de conteúdo e o analista de
-melhorias. O orquestrador não os reimplementa: ele os nomeia, declara o que cada
+baralho oficial de flashcards, geração de questões, tutor, auditoria de conteúdo
+e o analista de melhorias. O orquestrador não os reimplementa: ele os nomeia, declara o que cada
 um depende e os executa na ordem certa.
 
 Três regras governam o que está aqui:
 
-*Agente que não existe não finge que rodou.* Um dos oito (mestre de batalhas)
-ainda depende de uma funcionalidade que a plataforma não tem: gerar questão com
-gabarito validado na origem. Ele está declarado, com ``is_implemented=False``, e
-o orquestrador o marca como **pulado com motivo escrito** — nunca como
-concluído. Um passo verde que não fez nada é pior que um passo vermelho.
+*Agente que não existe não finge que rodou.* Hoje os oito têm implementação, mas
+a regra continua escrita aqui porque ela é a que sustenta o orquestrador: um
+agente sem implementação registrada é marcado como **pulado com motivo escrito**
+— nunca como concluído. Um passo verde que não fez nada é pior que um passo
+vermelho. A mesma regra vale para o agente que roda e não encontra o que fazer:
+ele diz o que faltava, em português.
 
 *Dependência é do grafo, não da ordem do arquivo.* Quem depende de quem está
 declarado; a ordem de execução é derivada disso. Assim dá para rodar um agente
@@ -127,13 +128,14 @@ AGENTS: tuple[AgentSpec, ...] = (
     AgentSpec(
         key=AgentKey.BATTLE_MASTER,
         label="Mestre de batalhas",
-        description="Gera questões e desafios por tópico.",
-        depends_on=(AgentKey.TEACHER,),
-        is_implemented=False,
-        pending_reason=(
-            "A plataforma classifica questão por IA, mas não gera: falta a "
-            "funcionalidade, com validação de gabarito, antes de produzir em massa."
+        description=(
+            "Escreve questões inéditas por tópico do edital, em rascunho, com o "
+            "gabarito conferido na origem e sem procedência de banca."
         ),
+        # Depende do Professor pelo mesmo motivo da memorização: o insumo é a
+        # aula publicada, não qualquer texto.
+        depends_on=(AgentKey.TEACHER,),
+        max_attempts=2,
     ),
     AgentSpec(
         key=AgentKey.TUTOR,

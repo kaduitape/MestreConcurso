@@ -50,3 +50,11 @@ class GenerationPlanCreate(BaseModel):
     style: str = Field(default="AULA", max_length=40)
     target_duration_minutes: int = Field(default=10, ge=3, le=60)
     max_panels: int = Field(default=6, ge=3, le=12)
+    #: Quantos cartões por tópico o baralho oficial recebe por passada.
+    cards_per_topic: int = Field(default=8, ge=1, le=10)
+    #: Quantas questões por tópico são escritas por passada.
+    questions_per_topic: int = Field(default=5, ge=1, le=10)
+    #: A partir de quantas questões no banco o tópico conta como coberto — e o
+    #: item vira reaproveitamento em vez de geração. É escolha editorial, por
+    #: isso o painel manda.
+    min_questions_per_topic: int = Field(default=5, ge=1, le=100)

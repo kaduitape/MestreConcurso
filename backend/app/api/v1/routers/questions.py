@@ -23,11 +23,14 @@ from app.schemas.question import (
     ApplyClassificationInput,
     AttemptHistoryRead,
     ClassificationSuggestionRead,
+    DiscardedQuestionRead,
     ExamCreate,
     ExamRead,
     ImportSummaryRead,
     QuestionAdminRead,
     QuestionCreate,
+    QuestionGenerateInput,
+    QuestionGenerationRead,
     QuestionImportInput,
     QuestionRead,
     QuestionStatsRead,
@@ -42,6 +45,7 @@ from app.schemas.question import (
 from app.services.entitlements import EntitlementService
 from app.services.practice import PracticeService
 from app.services.question_bank import QuestionBankService
+from app.services.question_generation import QuestionGenerationService
 from app.services.simulation import SimulationService
 
 router = APIRouter(tags=["questões"])
@@ -106,6 +110,7 @@ def _question_admin_read(question: Question) -> QuestionAdminRead:
         ],
         ai_suggestion=question.ai_suggestion or {},
         stats=_stats_read(question),
+        reviewed_at=question.reviewed_at,
         created_at=question.created_at,
     )
 
@@ -261,6 +266,56 @@ async def apply_classification(
 
 
 @admin_router.post(
+    "/generate",
+    response_model=QuestionGenerationRead,
+    summary="Gerar questões inéditas a partir de um material",
+    dependencies=[Depends(rate_limit("20/hour", scope="questions:generate"))],
+)
+async def generate_questions(
+    payload: QuestionGenerateInput, actor: QuestionWriter, db: DbSession, ctx: RequestCtx
+) -> QuestionGenerationRead:
+    """Toda questão nasce rascunho, marcada como gerada por IA e sem banca.
+
+    O gabarito precisa vir com citação literal do material; o rascunho que não
+    passa nas conferências de origem é **descartado**, com o motivo na resposta.
+    """
+    resultado = await QuestionGenerationService(db).generate(
+        actor,
+        ctx,
+        material=payload.material,
+        quantity=payload.quantity,
+        subject_public_id=payload.subject_public_id,
+        topic_public_id=payload.topic_public_id,
+        source_note=payload.source_note,
+    )
+    return QuestionGenerationRead(
+        created=[_question_admin_read(item) for item in resultado.created],
+        discarded=[
+            DiscardedQuestionRead(statement=item.statement, reason=item.reason)
+            for item in resultado.discarded
+        ],
+        reasons=dict(resultado.reasons),
+        duplicated=resultado.duplicated,
+        skipped_reason=resultado.skipped_reason,
+        model=resultado.model,
+        prompt_version=resultado.prompt_version,
+    )
+
+
+@admin_router.post(
+    "/{public_id}/reviewed",
+    response_model=QuestionAdminRead,
+    summary="Registrar que uma pessoa conferiu a questão gerada",
+)
+async def mark_reviewed(
+    public_id: str, actor: QuestionWriter, db: DbSession, ctx: RequestCtx
+) -> QuestionAdminRead:
+    """É esta marca que o portão da Fase 3 cobra para publicar conteúdo de IA."""
+    question = await QuestionGenerationService(db).mark_reviewed(actor, ctx, public_id)
+    return _question_admin_read(question)
+
+
+@admin_router.post(
     "/exams",
     status_code=status.HTTP_201_CREATED,
     response_model=ExamRead,
@@ -382,6 +437,11 @@ def _run_read(attempt: SimulationAttempt, answers: dict[str, str | None]) -> Sim
     if duration is not None and attempt.status != "FINISHED":
         remaining = max(0, duration * 60 - attempt.elapsed_seconds)
 
+    composicao: dict[str, int] = {}
+    for item in attempt.simulation.questions:
+        origem = str(item.question.origin)
+        composicao[origem] = composicao.get(origem, 0) + 1
+
     return SimulationRunRead(
         attempt=SimulationAttemptRead.model_validate(attempt),
         questions=[
@@ -393,6 +453,7 @@ def _run_read(attempt: SimulationAttempt, answers: dict[str, str | None]) -> Sim
             for item in attempt.simulation.questions
         ],
         remaining_seconds=remaining,
+        composition=composicao,
     )
 
 

@@ -59,6 +59,7 @@ const KIND_LABEL: Record<string, string> = {
   TRAINING_LESSON: 'Aula',
   MIND_MAP: 'Mapa mental',
   FLASHCARD_DECK: 'Baralho de flashcards',
+  QUESTION_SET: 'Questões',
 }
 
 function reais(cents: string): string {

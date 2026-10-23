@@ -102,6 +102,8 @@ export function SimulationRunPage() {
   })
 
   const questions = useMemo(() => run.data?.questions ?? [], [run.data])
+  // Derivado da composição que a API declara, nunca contado na tela.
+  const geradas = run.data?.composition?.AI_GENERATED ?? 0
   const currentItem = questions[index]
   const answeredCount = Object.values(answers).filter((letter) => letter !== null).length
 
@@ -193,7 +195,23 @@ export function SimulationRunPage() {
               <Badge variant="primary">{currentItem.question.subject_name}</Badge>
             )}
             <Badge variant="neutral">{DIFFICULTY_LABEL[currentItem.question.difficulty]}</Badge>
+            {/* Procedência à vista: simulado é lido como imitação da prova, e
+                treinar com questão gerada por IA sem saber é outra coisa. */}
+            {currentItem.question.origin === 'AI_GENERATED' ? (
+              <Badge variant="info">gerada por IA</Badge>
+            ) : (
+              currentItem.question.origin === 'OFFICIAL' && (
+                <Badge variant="success">questão de prova</Badge>
+              )
+            )}
           </div>
+
+          {geradas > 0 && (
+            <p className="text-xs text-subtle">
+              Este simulado tem {geradas} questão(ões) gerada(s) por IA entre as{' '}
+              {questions.length} — cada uma aparece marcada no alto.
+            </p>
+          )}
 
           <p className="text-sm leading-relaxed whitespace-pre-line">
             {currentItem.question.statement}

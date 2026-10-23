@@ -5,7 +5,7 @@ que têm implementação de verdade — e isso é deliberado: registrar um agent
 não faz nada o deixaria **verde** na tela de acompanhamento, que é pior do que
 deixá-lo pulado. Pulado traz o motivo escrito; verde mente.
 
-Os sete registrados reutilizam serviços que já estavam em produção:
+Os oito registrados reutilizam serviços que já estavam em produção:
 
 * **Analista de editais** → o pipeline de análise, com suas sete etapas e a
   conferência de cada citação no PDF.
@@ -21,6 +21,8 @@ Os sete registrados reutilizam serviços que já estavam em produção:
 * **Memorização** → os mesmos planos, no tipo baralho de flashcards, montando
   rascunho a partir de aula **publicada**. Sem material conferido ele não gera,
   e diz isso no lugar de gerar do rascunho.
+* **Mestre de batalhas** → os mesmos planos, no tipo questão: escreve questões
+  inéditas em rascunho, com o gabarito conferido na origem, sem banca e sem ano.
 
 O orquestrador não refaz o trabalho deles. Ele os chama na ordem certa e
 registra o que aconteceu.
@@ -411,6 +413,71 @@ async def run_memory(session: AsyncSession, run: AgentRun) -> AgentOutcome:
     )
 
 
+async def run_battle_master(session: AsyncSession, run: AgentRun) -> AgentOutcome:
+    """Escreve questões inéditas dos tópicos, em rascunho, a partir de aula publicada.
+
+    Três coisas aparecem no resultado deste agente, e nenhuma é rodapé:
+
+    *Questão não nasce de rascunho.* A fonte é aula **publicada** — material que
+    uma pessoa já conferiu. Tópico sem aula publicada fica sem questão, com o
+    motivo escrito, e isso não é falha.
+
+    *O que não passou na conferência é dito.* Rascunho sem gabarito único, com
+    citação que não existe no material ou que se apresenta como questão de banca
+    é descartado na origem, com o motivo contado por tipo.
+
+    *Nenhuma questão é publicada aqui.* Ela nasce ``DRAFT``, marcada como gerada
+    por IA, sem banca e sem ano. Publicar é ação de pessoa, e passa pelo portão
+    da Fase 3, que cobra a conferência humana.
+    """
+    from app.domain.generation import GenerationKind
+
+    if run.competition_id is None:
+        return AgentOutcome(detail="A execução não está ligada a um concurso.", skipped=True)
+
+    passada = await _run_confirmed_plans(session, run, kinds=(GenerationKind.QUESTION_SET,))
+    if passada.plans == 0:
+        return AgentOutcome(
+            detail=(
+                "Não há plano de geração confirmado com questões para este concurso. "
+                "Inclua o tipo no plano, confira a estimativa e confirme — o agente "
+                "executa, mas não autoriza o gasto."
+            ),
+            skipped=True,
+        )
+
+    detalhe = (
+        f"{passada.generated} tópico(s) com questões geradas em rascunho, "
+        f"{passada.reused} tópico(s) que já tinham questão suficiente no banco e "
+        f"{passada.failed} falha(s)."
+    )
+    if passada.no_source:
+        detalhe += (
+            f" {passada.no_source} tópico(s) sem material conferido ou sem questão "
+            "aprovada na conferência de origem."
+        )
+    if passada.blocked:
+        detalhe += f" {passada.blocked} itens barrados pelo teto de gasto."
+    if passada.remaining:
+        detalhe += f" {passada.remaining} itens continuam na fila para a próxima passada."
+    detalhe += (
+        " Nada foi publicado: questão gerada espera conferência humana, e nenhuma "
+        "delas se apresenta como questão de banca."
+    )
+
+    return AgentOutcome(
+        detail=detalhe,
+        result={
+            "generated": passada.generated,
+            "reused": passada.reused,
+            "failed": passada.failed,
+            "blocked": passada.blocked,
+            "remaining": passada.remaining,
+            "no_source": passada.no_source,
+        },
+    )
+
+
 async def run_improvements(session: AsyncSession, run: AgentRun) -> AgentOutcome:
     """Varre os registros da própria plataforma e grava achados para revisão.
 
@@ -468,10 +535,10 @@ async def run_improvements(session: AsyncSession, run: AgentRun) -> AgentOutcome
 def register_default_agents() -> None:
     """Liga as chaves do catálogo às implementações reais.
 
-    Só estes sete — e são exatamente os sete que o catálogo declara como
-    construídos. O oitavo continua declarado e pulado com o motivo que o
-    catálogo traz: mestre de batalhas depende de uma geração de questões, com
-    validação de gabarito, que a plataforma ainda não tem.
+    Os oito do pedido, agora todos com implementação de verdade. O catálogo e o
+    registro precisam continuar contando a mesma história: um agente declarado
+    como construído sem implementação registrada seria pulado dizendo "ainda não
+    foi implementado", contradizendo a própria ficha dele na tela.
 
     Catálogo e registro precisam contar a mesma história. Um agente declarado
     como construído sem implementação registrada seria pulado dizendo "ainda
@@ -483,6 +550,7 @@ def register_default_agents() -> None:
     registry.register(AgentKey.AUDITOR, run_auditor)
     registry.register(AgentKey.TEACHER, run_teacher)
     registry.register(AgentKey.MEMORY, run_memory)
+    registry.register(AgentKey.BATTLE_MASTER, run_battle_master)
     registry.register(AgentKey.IMPROVEMENTS, run_improvements)
 
 

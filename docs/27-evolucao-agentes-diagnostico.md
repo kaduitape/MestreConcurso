@@ -364,9 +364,11 @@ em massa antes do portão existir.**
 
 > Entregue em partes: aula e mapa mental na
 > [parte 1](32-fase4-geracao-em-massa.md); o baralho oficial de flashcards e o
-> agente de memorização na [parte 2a](39-fase4-parte2a-baralho-oficial.md). A
-> geração de questões (agente *mestre de batalhas*) é a parte 2b e segue
-> pendente: falta gerar questão com gabarito validado na origem.
+> agente de memorização na [parte 2a](39-fase4-parte2a-baralho-oficial.md); as
+> questões inéditas e o agente *mestre de batalhas* na
+> [parte 2b](40-fase4-parte2b-geracao-de-questoes.md), que também escreve o que
+> a conferência de gabarito na origem **não** garante. Com ela, os oito agentes
+> do pedido passam a ter implementação de verdade.
 
 ### Fase 5 — Retificação e reprocessamento
 

@@ -779,7 +779,28 @@ export interface QuestionAdmin extends Omit<Question, 'alternatives'> {
   source_note: string | null
   alternatives: AlternativeAdmin[]
   ai_suggestion: Record<string, unknown>
+  /** Quando uma pessoa conferiu a questão gerada. Nulo = publicação barrada. */
+  reviewed_at: string | null
   created_at: string
+}
+
+export interface DiscardedQuestion {
+  statement: string
+  /** Por que o rascunho não entrou, em português. */
+  reason: string
+}
+
+export interface QuestionGeneration {
+  created: QuestionAdmin[]
+  /** O que a conferência de origem descartou — dito, não escondido. */
+  discarded: DiscardedQuestion[]
+  /** Quantos rascunhos cada motivo derrubou. */
+  reasons: Record<string, number>
+  /** Enunciado igual a um que já existe no banco. */
+  duplicated: number
+  skipped_reason: string | null
+  model: string | null
+  prompt_version: string | null
 }
 
 export interface AnswerFeedback {
@@ -893,6 +914,12 @@ export interface SimulationRun {
   questions: SimulationRunQuestion[]
   /** Nulo quando o simulado não tem tempo definido. */
   remaining_seconds: number | null
+  /**
+   * Quantas questões de cada procedência compõem o simulado. Treinar com
+   * questão gerada por IA é legítimo; não saber que se está treinando com ela,
+   * não é — e simulado é lido como imitação da prova.
+   */
+  composition: Record<string, number>
 }
 
 // --------------------------------------------------------------------------- //

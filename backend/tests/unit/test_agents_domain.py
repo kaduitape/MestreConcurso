@@ -111,15 +111,39 @@ def test_a_new_run_starts_with_everything_pending() -> None:
 def test_an_unimplemented_agent_already_carries_its_reason() -> None:
     """E o motivo diz o que falta, não só que falta.
 
-    O exemplo mudou duas vezes conforme os agentes foram sendo construídos — e
-    é isso que este teste protege: quem sobra declarado precisa continuar
-    trazendo o motivo escrito, e não um rótulo genérico de "não implementado".
+    O exemplo deste teste mudou três vezes conforme os agentes foram sendo
+    construídos — e hoje os oito do pedido têm implementação, então não há
+    agente real para usar de exemplo. A regra continua valendo para o próximo
+    agente que for declarado antes de existir, e é ela que está sob teste: o
+    passo nasce com ``is_implemented`` falso e **com o motivo escrito**, nunca
+    com um rótulo genérico de "não implementado".
     """
-    passos = {step.key: step for step in initial_steps()}
-    batalhas = passos[AgentKey.BATTLE_MASTER]
+    futuro = AgentSpec(
+        key="agente_futuro",
+        label="Agente futuro",
+        description="Declarado antes de existir.",
+        is_implemented=False,
+        pending_reason="Falta a funcionalidade X, e é ela que precisa vir antes.",
+    )
 
-    assert batalhas.is_implemented is False
-    assert batalhas.detail and "gabarito" in batalhas.detail
+    passos = {step.key: step for step in initial_steps((futuro,))}
+
+    assert passos["agente_futuro"].is_implemented is False
+    assert passos["agente_futuro"].detail == futuro.pending_reason
+
+
+def test_every_declared_agent_either_is_built_or_says_what_is_missing() -> None:
+    """Nenhum agente pode ficar declarado sem motivo escrito.
+
+    Hoje os oito estão construídos; este teste é o que impede que amanhã alguém
+    acrescente um nono com ``is_implemented=False`` e sem explicação, deixando a
+    tela dizer apenas "ainda não foi implementado".
+    """
+    sem_motivo = [
+        spec.key for spec in AGENTS if not spec.is_implemented and not spec.pending_reason
+    ]
+
+    assert sem_motivo == []
 
 
 def test_the_auditor_does_not_wait_for_agents_that_do_not_exist() -> None:

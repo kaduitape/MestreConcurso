@@ -18,6 +18,7 @@ import { queryKeys } from '@/lib/query-client'
 import type { QuestionAdmin, QuestionDifficulty, QuestionStatus } from '@/lib/api/types'
 import { DIFFICULTY_LABEL, STATUS_LABEL } from '@/features/questions/helpers'
 import { QuestionEditor } from './question-editor'
+import { QuestionGenerateDialog } from './question-generate-dialog'
 import { QuestionImportDialog } from './question-import-dialog'
 
 const STATUS_TONE: Record<QuestionStatus, 'success' | 'neutral' | 'warning' | 'outline'> = {
@@ -34,6 +35,8 @@ export function QuestionsSection() {
   const [status, setStatus] = useState<QuestionStatus | ''>('')
   const [editorOpen, setEditorOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [generateOpen, setGenerateOpen] = useState(false)
+  const [generateSubject, setGenerateSubject] = useState('')
   const [selected, setSelected] = useState<QuestionAdmin | null>(null)
   const debouncedSearch = useDebouncedValue(search, 400)
 
@@ -53,6 +56,12 @@ export function QuestionsSection() {
   const subjects = useQuery({
     queryKey: queryKeys.adminSubjects({ page: 1, page_size: 100 }),
     queryFn: () => adminCatalogApi.subjects({ page: 1, page_size: 100 }),
+  })
+
+  const generateTopics = useQuery({
+    queryKey: queryKeys.adminTopics(generateSubject),
+    queryFn: () => adminCatalogApi.topics(generateSubject),
+    enabled: Boolean(generateSubject),
   })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'questions'] })
@@ -97,6 +106,19 @@ export function QuestionsSection() {
       ),
   })
 
+  const markReviewed = useMutation({
+    mutationFn: (publicId: string) => adminQuestionsApi.markReviewed(publicId),
+    onSuccess: (question) => {
+      toast.success('Conferência registrada.', {
+        description: 'Agora a questão pode ser publicada — com o selo de gerada por IA.',
+      })
+      setSelected(question)
+      invalidate()
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof ApiError ? error.message : 'Não foi possível registrar.'),
+  })
+
   const applySuggestion = useMutation({
     mutationFn: (input: {
       publicId: string
@@ -127,6 +149,7 @@ export function QuestionsSection() {
     applied?: boolean
   }
   const hasSuggestion = Boolean(suggestion.subject || suggestion.difficulty)
+  const reviewedAt = selected?.reviewed_at
   const suggestedSubject = subjects.data?.items.find((item) => item.name === suggestion.subject)
 
   return (
@@ -167,6 +190,9 @@ export function QuestionsSection() {
           </Select>
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <Upload /> Importar
+          </Button>
+          <Button variant="outline" onClick={() => setGenerateOpen(true)}>
+            <Sparkles /> Gerar por IA
           </Button>
           <Button
             onClick={() => {
@@ -295,6 +321,39 @@ export function QuestionsSection() {
                 </p>
               )}
 
+              {selected.origin === 'AI_GENERATED' && (
+                <div className="rounded-md border border-border p-3">
+                  <p className="flex items-center gap-2 text-sm font-medium">
+                    <Sparkles className="size-4 text-secondary" aria-hidden /> Questão gerada por
+                    IA
+                  </p>
+                  {typeof selected.ai_suggestion.quote === 'string' && (
+                    <p className="mt-2 text-xs text-muted italic">
+                      Citação conferida no material: “{selected.ai_suggestion.quote}”
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-muted">
+                    A citação prova que o gabarito tem respaldo no material — não que a leitura
+                    dele está correta. Enquanto ninguém confere, a publicação fica barrada.
+                  </p>
+                  {reviewedAt ? (
+                    <p className="mt-2 text-xs text-success">
+                      Conferida por uma pessoa. A publicação está liberada.
+                    </p>
+                  ) : (
+                    <Button
+                      className="mt-2"
+                      size="sm"
+                      variant="outline"
+                      loading={markReviewed.isPending}
+                      onClick={() => markReviewed.mutate(selected.public_id)}
+                    >
+                      <ListChecks /> Conferi esta questão
+                    </Button>
+                  )}
+                </div>
+              )}
+
               <div className="rounded-md border border-border p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="flex items-center gap-2 text-sm font-medium">
@@ -393,6 +452,14 @@ export function QuestionsSection() {
         onOpenChange={setEditorOpen}
         subjects={subjects.data?.items ?? []}
         onSaved={invalidate}
+      />
+      <QuestionGenerateDialog
+        open={generateOpen}
+        onOpenChange={setGenerateOpen}
+        subjects={subjects.data?.items ?? []}
+        topics={generateTopics.data ?? []}
+        onSubjectChange={setGenerateSubject}
+        onGenerated={invalidate}
       />
       <QuestionImportDialog
         open={importOpen}

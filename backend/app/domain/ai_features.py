@@ -56,6 +56,15 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         "Fase 8",
     ),
     FeatureSpec(
+        AIFeature.QUESTION_GENERATION,
+        "Geração de questões",
+        "Escreve questões inéditas a partir de material já conferido, com a "
+        "citação do trecho que sustenta o gabarito. Nasce rascunho: nenhuma "
+        "questão gerada chega a candidato sem conferência humana, e nenhuma é "
+        "apresentada como questão de banca.",
+        "Fase 4 (parte 2b)",
+    ),
+    FeatureSpec(
         AIFeature.TRAINING_SCRIPT,
         "Roteiro do Estúdio de Treinamento",
         "Produz o roteiro estruturado em cenas, diálogos, destaques e perguntas "

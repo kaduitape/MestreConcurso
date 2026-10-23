@@ -30,6 +30,9 @@ class GenerationKind(StrEnum):
     #: Baralho oficial do tópico. Depende de material já conferido por uma
     #: pessoa: cartão não nasce de rascunho de IA.
     FLASHCARD_DECK = "FLASHCARD_DECK"
+    #: Questões inéditas do tópico, em rascunho, com o gabarito conferido na
+    #: origem. Mesma dependência de material conferido.
+    QUESTION_SET = "QUESTION_SET"
 
 
 #: Qual funcionalidade de IA cada tipo consome. É por ela que o custo medido é
@@ -38,6 +41,7 @@ FEATURE_OF: Mapping[str, str] = {
     GenerationKind.TRAINING_LESSON: "training.script",
     GenerationKind.MIND_MAP: "mindmap.generation",
     GenerationKind.FLASHCARD_DECK: "flashcard.generation",
+    GenerationKind.QUESTION_SET: "question.generation",
 }
 
 
@@ -55,9 +59,12 @@ class ItemStatus(StrEnum):
     FAILED = "FAILED"
     BUDGET_BLOCKED = "BUDGET_BLOCKED"
     CANCELED = "CANCELED"
-    #: Não rodou porque **falta material conferível** para o tópico — e isso não
-    #: é falha do item. Chamar de ``FAILED`` mandaria alguém procurar um defeito
-    #: onde o que houve foi ausência de insumo.
+    #: Não rodou, ou rodou e não sobrou nada, por **falta de material
+    #: conferível** — e isso não é falha do item. Cobre os dois casos de
+    #: ausência de insumo: não havia aula publicada para o tópico, ou havia e
+    #: nada que a IA escreveu a partir dela passou pela conferência. Chamar
+    #: qualquer um dos dois de ``FAILED`` mandaria alguém procurar um defeito
+    #: onde não há.
     NO_SOURCE = "NO_SOURCE"
 
 
@@ -94,6 +101,9 @@ class ExistingContent:
     topic_id: int
     kind: str
     public_id: str
+    #: Complemento do motivo, quando "já existe conteúdo" conta pouco. Para
+    #: questão, por exemplo, o que importa é **quantas** já existem.
+    detail: str | None = None
     #: Verdadeiro quando veio de outro concurso — o reaproveitamento de fato.
     #: ``None`` quer dizer que não dá para saber: o mapa mental, por exemplo,
     #: se liga ao tópico e não ao concurso. Inventar a origem no texto do
@@ -159,6 +169,8 @@ def plan_items(
                 motivo = "Já existe conteúdo de outro concurso para este tópico."
             else:
                 motivo = "Já existe conteúdo deste concurso para o tópico."
+            if achado.detail:
+                motivo = f"{motivo.rstrip('.')}: {achado.detail}."
             planejados.append(
                 PlannedItem(
                     topic_id=topic.topic_id,

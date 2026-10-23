@@ -95,9 +95,10 @@
 
 ## O que esta parte não entrega, e por quê
 
-> **Atualização:** o primeiro item abaixo foi entregue na
-> [parte 2a](39-fase4-parte2a-baralho-oficial.md), com o desenho do baralho
-> oficial discutido antes de ser construído. O segundo continua de fora.
+> **Atualização:** os dois itens abaixo foram entregues depois, cada um com o
+> desenho discutido antes de ser construído: flashcards na
+> [parte 2a](39-fase4-parte2a-baralho-oficial.md) e questões na
+> [parte 2b](40-fase4-parte2b-geracao-de-questoes.md).
 
 - **Flashcards (agente Memorização)**: o flashcard aqui é *pessoal de cada
   candidato*. Não existe baralho oficial por tópico — gerar em massa exigiria
@@ -106,5 +107,6 @@
 - **Questões (agente Mestre de batalhas)**: a plataforma **classifica** questão
   por IA, mas não **gera**. Falta a funcionalidade, com validação de gabarito e
   as regras do auditor aplicadas na origem.
-- Os dois agentes continuam declarados e pulados, agora com o motivo real
-  escrito na ficha deles — em vez do antigo "depende da Fase 4".
+- Os dois agentes continuaram declarados e pulados, com o motivo real escrito na
+  ficha deles — em vez do antigo "depende da Fase 4" — até as partes 2a e 2b os
+  construírem.

@@ -48,6 +48,7 @@ class AIFeature(StrEnum):
     BOARD_PROFILE = "board.profile"
     CHAT_TUTOR = "chat.tutor"
     FLASHCARD_GENERATION = "flashcard.generation"
+    QUESTION_GENERATION = "question.generation"
     EMBEDDINGS = "embeddings.default"
     RERANK = "rerank.default"
     TRAINING_SCRIPT = "training.script"
