@@ -16,9 +16,15 @@ from app.ai.base import (
     ProviderError,
     ProviderNotConfiguredError,
 )
+from app.ai.decisions import DecisionProvider
 from app.ai.fallback import FallbackProvider
-from app.ai.metered import MeteredProvider
-from app.ai.registry import available_provider_slugs, build_provider
+from app.ai.metered import MeteredDecisionProvider, MeteredProvider
+from app.ai.registry import (
+    available_provider_slugs,
+    build_decision_provider,
+    build_provider,
+    provider_kind,
+)
 from app.core.crypto import decrypt_secret, encrypt_secret, secret_hint
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
@@ -66,6 +72,17 @@ class ResolvedModel:
     model: AIModel
     decision: RoutingDecision | None = None
     decision_id: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedJudgment:
+    """O provedor de julgamento pronto, com o que a chamada precisa saber."""
+
+    provider: DecisionProvider
+    model_slug: str
+    provider_slug: str
+    #: Parâmetros que só esta funcionalidade tem — o piso de recusa, por exemplo.
+    options: dict[str, Any]
 
 
 class AISettingsService:
@@ -213,22 +230,38 @@ class AISettingsService:
         await self.session.commit()
         return await self.get_provider(slug)
 
-    def build_client(self, provider: AIProviderConfig) -> AIProvider:
+    def _credentials(self, provider: AIProviderConfig) -> ProviderCredentials:
         if not provider.api_key_encrypted:
             raise ProviderNotConfiguredError("Cadastre a chave de API deste provedor.")
-        credentials = ProviderCredentials(
+        return ProviderCredentials(
             api_key=decrypt_secret(provider.api_key_encrypted),
             base_url=provider.base_url,
             organization=provider.organization,
         )
-        return build_provider(provider.slug, credentials)
+
+    def build_client(self, provider: AIProviderConfig) -> AIProvider:
+        return build_provider(provider.slug, self._credentials(provider))
+
+    def build_decision_client(self, provider: AIProviderConfig) -> DecisionProvider:
+        return build_decision_provider(provider.slug, self._credentials(provider))
+
+    def build_any_client(self, provider: AIProviderConfig) -> AIProvider | DecisionProvider:
+        """O cliente certo para o tipo de porta deste fornecedor.
+
+        Testar conexão e importar modelos são a mesma tarefa de administração nos
+        dois casos; é só o adaptador que muda. Despachar aqui evita que as rotas
+        do painel precisem saber de qual porta cada slug é.
+        """
+        if provider_kind(provider.slug) == "decision":
+            return self.build_decision_client(provider)
+        return self.build_client(provider)
 
     async def test_provider(
         self, slug: str, *, actor: User, context: RequestContext
     ) -> ConnectionCheck:
         """Chamada real ao fornecedor — o resultado exibido não é simulado."""
         provider = await self.get_provider(slug)
-        client = self.build_client(provider)
+        client = self.build_any_client(provider)
         try:
             check = await client.test_connection()
         except ProviderError as exc:
@@ -271,7 +304,7 @@ class AISettingsService:
     ) -> list[AIModel]:
         """Importa a lista de modelos que a chave realmente pode usar."""
         provider = await self.get_provider(slug)
-        client = self.build_client(provider)
+        client = self.build_any_client(provider)
         discovered = await client.list_models()
         now = datetime.now(UTC)
 
@@ -357,6 +390,7 @@ class AISettingsService:
         fallback_model_slug: str | None = None,
         max_output_tokens: int | None,
         cache_ttl_hours: int | None,
+        min_support: float | None = None,
         actor: User,
         context: RequestContext,
     ) -> AIFeatureBinding:
@@ -413,6 +447,11 @@ class AISettingsService:
             binding.temperature = temperature
         binding.max_output_tokens = max_output_tokens
         binding.cache_ttl_hours = cache_ttl_hours
+        # Parâmetro de funcionalidade de julgamento. Guardado no JSON de opções
+        # por ser de uma funcionalidade só — uma coluna para cada capricho de
+        # feature encheria a tabela de nulos.
+        if min_support is not None:
+            binding.options = {**dict(binding.options or {}), "min_support": min_support}
 
         await self.audit.record(
             AuditAction.AI_BINDING_UPDATED,
@@ -450,6 +489,46 @@ class AISettingsService:
                 Decimal(model.output_cost_per_1k) if model.output_cost_per_1k is not None else None
             ),
             routing_decision_id=decision_id,
+        )
+
+    async def resolve_judgment_feature(self, feature: str) -> ResolvedJudgment:
+        """Provedor de julgamento ativo para a funcionalidade, já medido.
+
+        Sem vínculo configurado, levanta ``ProviderNotConfiguredError`` como a
+        porta de texto faz: a plataforma prefere avisar a fingir que respondeu.
+        Quem chama decide se a ausência é motivo de parar ou de seguir dizendo
+        "não conferido" — para o julgamento, quase sempre é a segunda.
+        """
+        binding = await self.bindings.get_by_feature(feature)
+        if binding is None or not binding.is_enabled or binding.model is None:
+            raise ProviderNotConfiguredError(
+                f"A funcionalidade '{feature}' ainda não tem modelo de julgamento configurado."
+            )
+        model = binding.model
+        provider_config = model.provider
+        if provider_config is None or not provider_config.is_active:
+            raise ProviderNotConfiguredError("O provedor desta funcionalidade está inativo.")
+        if provider_kind(provider_config.slug) != "decision":
+            raise ProviderNotConfiguredError(
+                f"O provedor '{provider_config.slug}' não responde julgamento tipado."
+            )
+
+        medido = MeteredDecisionProvider(
+            self.build_decision_client(provider_config),
+            feature=feature,
+            model_slug=model.slug,
+            input_cost_per_1k=(
+                Decimal(model.input_cost_per_1k) if model.input_cost_per_1k is not None else None
+            ),
+            output_cost_per_1k=(
+                Decimal(model.output_cost_per_1k) if model.output_cost_per_1k is not None else None
+            ),
+        )
+        return ResolvedJudgment(
+            provider=medido,
+            model_slug=model.slug,
+            provider_slug=provider_config.slug,
+            options=dict(binding.options or {}),
         )
 
     async def resolve_feature(

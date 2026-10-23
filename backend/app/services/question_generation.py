@@ -34,22 +34,27 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.base import ChatMessage, CompletionRequest, ProviderError
+from app.ai.decisions import DecisionRequest, NoulQuestion
 from app.ai.prompts import get_prompt, latest_version
-from app.core.errors import ConflictError, NotFoundError, ValidationError
+from app.core.errors import AppError, ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.domain.content_audit import RuleKey, Severity
 from app.domain.model_routing import Signals as RoutingSignals
 from app.domain.question_generation import (
+    DEFAULT_SUPPORT_FLOOR,
     DraftAlternative,
     DraftQuestion,
+    SupportVerdict,
     Verdict,
     summarize,
+    support_verdict,
     validate,
 )
 from app.models.ai import AIFeature
@@ -66,7 +71,7 @@ from app.models.question import (
 from app.models.user import User
 from app.repositories.question import QuestionRepository
 from app.services.ai_cache import AICacheService, fingerprint
-from app.services.ai_settings import AISettingsService
+from app.services.ai_settings import AISettingsService, ResolvedJudgment
 from app.services.audit import AuditService
 from app.services.auth import RequestContext
 from app.services.content_audit import ContentAuditService
@@ -99,6 +104,25 @@ class Discarded:
 
 
 @dataclass(frozen=True, slots=True)
+class SupportCheck:
+    """O que o julgamento tipado disse sobre o respaldo dos gabaritos.
+
+    ``ran`` falso com ``reason`` preenchido é o caso honesto do "não conferido":
+    a funcionalidade está desligada, o provedor recusou, ou a chamada falhou. A
+    tela precisa poder dizer isso em vez de mostrar silêncio, que lê como "está
+    tudo certo".
+    """
+
+    ran: bool = False
+    reason: str | None = None
+    model: str | None = None
+    #: Piso em vigor. Zero quer dizer que nada foi descartado por ele.
+    floor: float = 0.0
+    judged: int = 0
+    below_floor: int = 0
+
+
+@dataclass(frozen=True, slots=True)
 class QuestionGenerationResult:
     created: list[Question] = field(default_factory=list)
     discarded: list[Discarded] = field(default_factory=list)
@@ -109,6 +133,8 @@ class QuestionGenerationResult:
     skipped_reason: str | None = None
     model: str | None = None
     prompt_version: str | None = None
+    #: O julgamento do gabarito desta passada — inclusive quando não rodou.
+    support: SupportCheck = field(default_factory=SupportCheck)
 
     @property
     def asked_review(self) -> int:
@@ -317,6 +343,150 @@ class QuestionGenerationService:
             if item.severity == Severity.BLOCKER and item.rule not in _PUBLICATION_ONLY_RULES
         ]
 
+    # ------------------------------------------------------------------ #
+    # O julgamento tipado do gabarito
+    # ------------------------------------------------------------------ #
+    async def _judge_support(
+        self, question: Question, *, quote: str, material: str, resolved: ResolvedJudgment
+    ) -> float:
+        """Pergunta se a citação **sustenta** a alternativa marcada como correta.
+
+        É um ``Noul``: a resposta é a probabilidade de "sim", e é a única coisa
+        que a plataforma tem para cobrir o buraco declarado na parte 2b — a
+        conferência determinística prova que a citação **existe** no material,
+        não que ela sustenta o gabarito.
+
+        O estado enviado é só o necessário para a pergunta: enunciado, a
+        alternativa correta, as erradas e o trecho citado. O material inteiro
+        não vai, porque a pergunta não é "o material fala disso?", e porque
+        estado maior é token pago sem resposta melhor.
+        """
+        correta = question.correct_alternative
+        if correta is None:  # pragma: no cover - a validação de forma já barrou
+            raise ValidationError("Questão sem gabarito.", code="invalid_correct_alternative")
+
+        pedido = DecisionRequest(
+            state={
+                "enunciado": question.statement,
+                "alternativa_marcada_como_correta": correta.content,
+                "alternativas_erradas": [
+                    item.content for item in question.alternatives if not item.is_correct
+                ],
+                "citacao_do_material": quote,
+                "trecho_do_material": material[:2000],
+            },
+            questions={
+                "sustenta": NoulQuestion(
+                    instructions=(
+                        "A citação do material sustenta que a alternativa marcada como "
+                        "correta é a correta desta questão?"
+                    ),
+                    when_true=(
+                        "a citação afirma, de forma direta, o que a alternativa marcada diz, "
+                        "e torna as demais incompatíveis com o material"
+                    ),
+                    when_false=(
+                        "a citação trata de outro ponto, não decide entre as alternativas, "
+                        "ou sustenta uma das alternativas marcadas como erradas"
+                    ),
+                )
+            },
+        )
+        resultado = await resolved.provider.judge(pedido)
+        return float(resultado.noul("sustenta").probability)
+
+    async def _support_context(self) -> tuple[ResolvedJudgment | None, str | None]:
+        """O provedor de julgamento, ou o motivo de não haver um.
+
+        A ausência não interrompe a geração: questão sem julgamento entra como
+        **não conferida**, o que é verdade, e a fila de revisão diz isso.
+        """
+        try:
+            return await self.ai_settings.resolve_judgment_feature(
+                AIFeature.ANSWER_KEY_SUPPORT
+            ), None
+        except AppError as exc:
+            return None, exc.message
+
+    async def _judge_accepted(
+        self,
+        aceitos: list[tuple[Question, Verdict]],
+        *,
+        material: str,
+        discarded: list[Discarded],
+    ) -> SupportCheck:
+        """Julga o gabarito das questões que passaram, uma a uma, fora de transação.
+
+        Cada desfecho é gravado na hora: se a passada for interrompida no meio,
+        o que já foi julgado fica julgado, e o resto fica **não conferido** — que
+        é verdade, e é o que a fila de revisão vai mostrar.
+
+        A questão abaixo do piso é **apagada**, não guardada com aviso: é a mesma
+        regra do descarte na origem, e guardar rascunho reprovado só encheria a
+        fila de quem revisa.
+        """
+        julgador, indisponivel = await self._support_context()
+        piso = (
+            float(julgador.options.get("min_support") or DEFAULT_SUPPORT_FLOOR)
+            if julgador is not None
+            else DEFAULT_SUPPORT_FLOOR
+        )
+        if julgador is None:
+            return SupportCheck(ran=False, reason=indisponivel, floor=piso)
+
+        julgadas = abaixo = 0
+        falha: str | None = None
+        for question, verdict in list(aceitos):
+            try:
+                probabilidade = await self._judge_support(
+                    question,
+                    quote=verdict.draft.quote,
+                    material=material,
+                    resolved=julgador,
+                )
+            except AppError as exc:
+                # Interrompe o julgamento desta passada: insistir a cada questão
+                # multiplicaria a espera e o erro é o mesmo. As que faltaram
+                # ficam não conferidas, e o motivo é dito uma vez.
+                falha = exc.message
+                logger.warning("questions.support_unavailable", error=exc.code)
+                break
+
+            situacao = support_verdict(probabilidade, floor=piso)
+            if situacao == SupportVerdict.BELOW_FLOOR:
+                aceitos.remove((question, verdict))
+                discarded.append(
+                    Discarded(
+                        statement=verdict.draft.statement[:160],
+                        reason=(
+                            f"o julgamento do gabarito ficou em {probabilidade:.0%}, "
+                            f"abaixo do piso de {piso:.0%}"
+                        ),
+                    )
+                )
+                await self.session.delete(question)
+                await self.session.commit()
+                abaixo += 1
+                continue
+
+            question.answer_key_support = Decimal(str(round(probabilidade, 3)))
+            question.ai_suggestion = {
+                **dict(question.ai_suggestion or {}),
+                "support_probability": round(probabilidade, 3),
+                "support_model": julgador.model_slug,
+            }
+            await self.session.commit()
+            julgadas += 1
+
+        return SupportCheck(
+            ran=julgadas > 0 or abaixo > 0,
+            reason=falha,
+            model=julgador.model_slug,
+            floor=piso,
+            judged=julgadas,
+            below_floor=abaixo,
+        )
+
     async def generate(
         self,
         actor: User,
@@ -356,6 +526,11 @@ class QuestionGenerationService:
         ]
         repetidas = 0
 
+        # Fase 1: gravar e auditar. Nenhuma chamada de rede acontece aqui, com a
+        # transação aberta — e isso não é detalhe de SQLite: segurar uma linha
+        # travada durante uma chamada externa de dez segundos é ruim em qualquer
+        # banco.
+        aceitos: list[tuple[Question, Verdict]] = []
         for verdict in (item for item in vereditos if item.accepted):
             question = await self._persist(
                 verdict,
@@ -380,7 +555,9 @@ class QuestionGenerationService:
                     )
                 )
                 continue
-            criadas.append(question)
+            aceitos.append((question, verdict))
+
+        criadas = [question for question, _ in aceitos]
 
         await self.audit.record(
             AuditAction.QUESTION_GENERATED,
@@ -397,6 +574,12 @@ class QuestionGenerationService:
             },
         )
         await self.session.commit()
+
+        # Fase 2: julgar o gabarito, já com a transação fechada. A questão que
+        # chegou até aqui **existe** como rascunho não conferido; se o
+        # julgamento não rodar, é esse o estado honesto em que ela fica.
+        apoio = await self._judge_accepted(aceitos, material=texto, discarded=descartadas)
+        criadas = [question for question, _ in aceitos]
 
         logger.info(
             "questions.generated",
@@ -419,6 +602,7 @@ class QuestionGenerationService:
             skipped_reason=skipped_reason,
             model=resolved.model_slug,
             prompt_version=version,
+            support=apoio,
         )
 
     # ------------------------------------------------------------------ #

@@ -82,8 +82,23 @@ class QuestionRepository(BaseRepository[Question]):
         difficulty: str | None = None,
         origin: str | None = None,
         status: str | None = QuestionStatus.PUBLISHED,
+        order: str = "recent",
     ) -> Select[tuple[Question]]:
-        stmt = self._base().order_by(Question.id.desc())
+        stmt = self._base()
+        if order == "support":
+            # A fila de revisão da questão gerada: o respaldo mais fraco
+            # primeiro, porque é onde a leitura humana rende mais.
+            #
+            # A não conferida vem **depois** da julgada, e não antes: ela não
+            # tem número, e colocá-la no topo faria "sem informação" parecer
+            # "informação ruim". A tela diz que ela está ali por isso.
+            stmt = stmt.order_by(
+                Question.answer_key_support.is_(None),
+                Question.answer_key_support.asc(),
+                Question.id.desc(),
+            )
+        else:
+            stmt = stmt.order_by(Question.id.desc())
         if search:
             stmt = stmt.where(Question.statement.like(f"%{search.strip()}%"))
         if subject_id:

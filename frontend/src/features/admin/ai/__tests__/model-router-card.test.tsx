@@ -43,6 +43,7 @@ function feature(overrides: Partial<AIFeatureBinding> = {}): AIFeatureBinding {
     temperature: '0.20',
     max_output_tokens: null,
     cache_ttl_hours: null,
+    min_support: null,
     ...overrides,
   }
 }

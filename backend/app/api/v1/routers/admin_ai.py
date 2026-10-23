@@ -65,6 +65,11 @@ def _binding_read(feature: str, binding: AIFeatureBinding | None) -> AIFeatureBi
         temperature=binding.temperature if binding else None,
         max_output_tokens=binding.max_output_tokens if binding else None,
         cache_ttl_hours=binding.cache_ttl_hours if binding else None,
+        min_support=(
+            float((binding.options or {}).get("min_support", 0) or 0)
+            if binding is not None
+            else None
+        ),
     )
 
 
@@ -224,6 +229,7 @@ async def set_feature(
         temperature=payload.temperature,
         max_output_tokens=payload.max_output_tokens,
         cache_ttl_hours=payload.cache_ttl_hours,
+        min_support=payload.min_support,
         actor=actor,
         context=ctx,
     )

@@ -49,6 +49,8 @@ class AIFeature(StrEnum):
     CHAT_TUTOR = "chat.tutor"
     FLASHCARD_GENERATION = "flashcard.generation"
     QUESTION_GENERATION = "question.generation"
+    #: Julgamento tipado (não texto): a citação sustenta o gabarito?
+    ANSWER_KEY_SUPPORT = "question.answer_key_support"
     EMBEDDINGS = "embeddings.default"
     RERANK = "rerank.default"
     TRAINING_SCRIPT = "training.script"

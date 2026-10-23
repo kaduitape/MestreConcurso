@@ -98,6 +98,8 @@ class Question(IdMixin, PublicIdMixin, TimestampMixin, Base):
         Index("ix_questions_subject_topic", "subject_id", "topic_id"),
         Index("ix_questions_board_year", "exam_board_id", "year"),
         Index("ix_questions_status_origin", "status", "origin"),
+        # A fila de revisão da questão gerada ordena pelo respaldo do gabarito.
+        Index("ix_questions_origin_support", "origin", "answer_key_support"),
     )
 
     exam_id: Mapped[int | None] = mapped_column(
@@ -127,6 +129,14 @@ class Question(IdMixin, PublicIdMixin, TimestampMixin, Base):
 
     # Classificação sugerida por IA aguardando revisão humana.
     ai_suggestion: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
+    # Probabilidade, dada por um modelo de julgamento tipado, de a citação do
+    # material **sustentar** a alternativa marcada como correta.
+    #
+    # ``None`` significa **não conferido** — e isso não é o mesmo que zero nem
+    # que "está bom". É nulo quando a funcionalidade está desligada, quando a
+    # questão não foi gerada por IA, ou quando a chamada falhou. A coluna existe
+    # separada do JSON porque a fila de revisão precisa **ordenar** por ela.
+    answer_key_support: Mapped[Decimal | None] = mapped_column(Numeric(4, 3))
     reviewed_by_user_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="SET NULL")
     )

@@ -176,6 +176,11 @@ export interface AIFeatureBinding {
   temperature: string | null
   max_output_tokens: number | null
   cache_ttl_hours: number | null
+  /**
+   * Só para funcionalidade de julgamento: piso de respaldo abaixo do qual o
+   * rascunho é descartado na origem. Zero = nada é descartado.
+   */
+  min_support: number | null
 }
 
 /** Regra do roteador: qual modelo atende quando as condições valem. */
@@ -781,6 +786,12 @@ export interface QuestionAdmin extends Omit<Question, 'alternatives'> {
   ai_suggestion: Record<string, unknown>
   /** Quando uma pessoa conferiu a questão gerada. Nulo = publicação barrada. */
   reviewed_at: string | null
+  /**
+   * Probabilidade, dada por um modelo de julgamento tipado, de a citação
+   * sustentar o gabarito. `null` é **não conferido** — não é zero nem
+   * aprovação.
+   */
+  answer_key_support: number | null
   created_at: string
 }
 
@@ -788,6 +799,17 @@ export interface DiscardedQuestion {
   statement: string
   /** Por que o rascunho não entrou, em português. */
   reason: string
+}
+
+export interface SupportCheck {
+  ran: boolean
+  /** Por que não rodou. Silêncio aqui leria como "está tudo certo". */
+  reason: string | null
+  model: string | null
+  /** Piso em vigor. Zero significa que nada foi descartado por ele. */
+  floor: number
+  judged: number
+  below_floor: number
 }
 
 export interface QuestionGeneration {
@@ -801,6 +823,8 @@ export interface QuestionGeneration {
   skipped_reason: string | null
   model: string | null
   prompt_version: string | null
+  /** O julgamento do gabarito nesta passada — inclusive quando não rodou. */
+  support: SupportCheck
 }
 
 export interface AnswerFeedback {

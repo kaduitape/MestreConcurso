@@ -197,11 +197,35 @@ export function QuestionGenerateDialog({
               {result.skipped_reason && (
                 <Alert tone="info">{result.skipped_reason}</Alert>
               )}
+              {/* O julgamento do gabarito: rodou, não rodou, ou descartou. */}
+              {result.support.ran ? (
+                <p className="text-subtle">
+                  Conferência do gabarito por julgamento tipado ({result.support.model}):{' '}
+                  {result.support.judged} questão(ões) com probabilidade registrada
+                  {result.support.below_floor > 0 &&
+                    `, ${result.support.below_floor} descartada(s) abaixo do piso de ${(result.support.floor * 100).toFixed(0)}%`}
+                  . A probabilidade diz se a citação <strong>sustenta</strong> o gabarito — não
+                  que ele esteja certo.
+                </p>
+              ) : (
+                <Alert tone="warning">
+                  Gabarito <strong>não conferido</strong> por julgamento tipado:{' '}
+                  {result.support.reason ?? 'funcionalidade indisponível'}. As questões ficam na
+                  fila sem essa informação — o que não é o mesmo que estarem boas.
+                </Alert>
+              )}
               {result.created.map((question) => (
                 <div key={question.public_id} className="rounded-md border border-border/70 p-2">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <p className="min-w-0 flex-1 text-white">{question.statement}</p>
                     <span className="flex shrink-0 gap-1">
+                      {question.answer_key_support !== null && (
+                        <Badge
+                          variant={question.answer_key_support >= 0.7 ? 'success' : 'warning'}
+                        >
+                          respaldo {(question.answer_key_support * 100).toFixed(0)}%
+                        </Badge>
+                      )}
                       <Badge variant="info">gerada por IA</Badge>
                       <Badge variant="neutral">rascunho</Badge>
                     </span>

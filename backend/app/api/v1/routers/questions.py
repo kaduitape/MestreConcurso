@@ -41,6 +41,7 @@ from app.schemas.question import (
     SimulationQuestionRead,
     SimulationRead,
     SimulationRunRead,
+    SupportCheckRead,
 )
 from app.services.entitlements import EntitlementService
 from app.services.practice import PracticeService
@@ -111,6 +112,9 @@ def _question_admin_read(question: Question) -> QuestionAdminRead:
         ai_suggestion=question.ai_suggestion or {},
         stats=_stats_read(question),
         reviewed_at=question.reviewed_at,
+        answer_key_support=(
+            float(question.answer_key_support) if question.answer_key_support is not None else None
+        ),
         created_at=question.created_at,
     )
 
@@ -132,7 +136,10 @@ async def list_questions(
     status_filter: Annotated[
         str | None, Query(alias="status", pattern="^(DRAFT|PUBLISHED|ARCHIVED|NEEDS_REVIEW)$")
     ] = None,
+    origin: Annotated[str | None, Query(pattern="^(OFFICIAL|AI_GENERATED|EDITORIAL)$")] = None,
+    order: Annotated[str, Query(pattern="^(recent|support)$")] = "recent",
 ) -> Page[QuestionAdminRead]:
+    """``order=support`` monta a fila de revisão: respaldo mais fraco primeiro."""
     subject_id = None
     if subject:
         from sqlalchemy import select
@@ -151,6 +158,8 @@ async def list_questions(
         subject_id=subject_id,
         difficulty=difficulty,
         status=status_filter,
+        origin=origin,
+        order=order,
     )
     return Page.create([_question_admin_read(item) for item in questions], total, params)
 
@@ -299,6 +308,14 @@ async def generate_questions(
         skipped_reason=resultado.skipped_reason,
         model=resultado.model,
         prompt_version=resultado.prompt_version,
+        support=SupportCheckRead(
+            ran=resultado.support.ran,
+            reason=resultado.support.reason,
+            model=resultado.support.model,
+            floor=resultado.support.floor,
+            judged=resultado.support.judged,
+            below_floor=resultado.support.below_floor,
+        ),
     )
 
 

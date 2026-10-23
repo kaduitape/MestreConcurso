@@ -93,13 +93,32 @@ class AIBudgetService:
             await self.session.flush()
         return found
 
-    async def limits(self) -> BudgetLimits:
-        row = await self._row()
+    async def limits_readonly(self) -> BudgetLimits:
+        """Os limites em vigor **sem criar a linha de configuração**.
+
+        Mesma razão de ``month_spend_and_limit``: quem só consulta o teto não
+        pode escrever. A linha de configuração é criada por ``set_limits``, que
+        é quem de fato grava — e só por ele. ``guard()`` é chamado no caminho de toda chamada de IA,
+        inclusive com a transação de quem pediu a chamada ainda aberta — e, no
+        SQLite dos testes, inserir ali tranca o banco. Linha ausente significa
+        **sem teto configurado**, que é exatamente o que o padrão da tabela diz.
+        """
+        row = (
+            await self.session.execute(select(AIBudget).where(AIBudget.scope == GLOBAL_SCOPE))
+        ).scalar_one_or_none()
+        if row is None:
+            return BudgetLimits(
+                monthly_cents=Decimal("0"), per_run_cents=Decimal("0"), is_enabled=False
+            )
         return BudgetLimits(
             monthly_cents=Decimal(row.monthly_limit_cents or 0),
             per_run_cents=Decimal(row.per_run_limit_cents or 0),
             is_enabled=bool(row.is_enabled),
         )
+
+    async def limits(self) -> BudgetLimits:
+        """Os limites em vigor. Alias de leitura, mantido pelo nome usado nas telas."""
+        return await self.limits_readonly()
 
     async def set_limits(
         self,
@@ -158,7 +177,11 @@ class AIBudgetService:
         )
 
         return BudgetOverview(
-            limits=await self.limits(),
+            # Leitura: usa o caminho que **não cria** a linha de configuração.
+            # Era aqui que a inserção escondida abria uma transação de escrita
+            # no meio de um passo do orquestrador e trancava o banco para quem
+            # grava em sessão própria — o analista de melhorias, por exemplo.
+            limits=await self.limits_readonly(),
             spent_month_cents=Decimal(total or 0),
             is_complete=not sem_preco,
             calls_month=int(chamadas or 0),
@@ -201,7 +224,7 @@ class AIBudgetService:
 
     async def guard(self, *, feature: str, spent_run_cents: Decimal = Decimal("0")) -> None:
         """Barra a próxima chamada quando o teto já foi estourado."""
-        limites = await self.limits()
+        limites = await self.limits_readonly()
         if not limites.is_enabled:
             return
         decisao = check(limites, await self.state(spent_run_cents=spent_run_cents), CostEstimate())

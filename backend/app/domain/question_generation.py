@@ -308,3 +308,42 @@ def summarize(verdicts: Sequence[Verdict]) -> dict[str, int]:
         for motivo in verdict.rejections:
             contagem[motivo] = contagem.get(motivo, 0) + 1
     return contagem
+
+
+# --------------------------------------------------------------------------- #
+# O julgamento tipado do gabarito
+# --------------------------------------------------------------------------- #
+#: Piso de recusa padrão: **nenhum**. Deliberado.
+#:
+#: Qualquer número aqui seria uma régua inventada por mim decidindo o que vai
+#: para o lixo, e a probabilidade de um modelo só ganha significado depois de
+#: alguém comparar as decisões dele com as de uma pessoa nos dados reais desta
+#: plataforma. Enquanto isso não acontecer, o julgamento **ordena** a fila de
+#: revisão e não descarta nada. Quem quiser barrar na origem sobe o piso no
+#: painel, sabendo o que está escolhendo.
+DEFAULT_SUPPORT_FLOOR = 0.0
+
+
+class SupportVerdict(StrEnum):
+    """O que se sabe sobre o respaldo do gabarito desta questão."""
+
+    #: Um modelo de julgamento deu a probabilidade, e ela está acima do piso.
+    JUDGED = "JUDGED"
+    #: Abaixo do piso configurado: o rascunho é descartado na origem.
+    BELOW_FLOOR = "BELOW_FLOOR"
+    #: Ninguém julgou — funcionalidade desligada, erro na chamada, ou questão
+    #: que não veio de geração. **Não** é aprovação.
+    NOT_CHECKED = "NOT_CHECKED"
+
+
+def support_verdict(probability: float | None, *, floor: float = DEFAULT_SUPPORT_FLOOR) -> str:
+    """Três desfechos, e "não conferido" é um deles.
+
+    Tratar ausência de julgamento como aprovação seria o mesmo erro que tratar
+    amostra ausente como zero: a tela precisa poder dizer "ninguém olhou isto".
+    """
+    if probability is None:
+        return SupportVerdict.NOT_CHECKED
+    if floor > 0 and probability < floor:
+        return SupportVerdict.BELOW_FLOOR
+    return SupportVerdict.JUDGED

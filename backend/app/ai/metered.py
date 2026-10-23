@@ -31,6 +31,7 @@ from app.ai.base import (
     SpeechRequest,
     SpeechResult,
 )
+from app.ai.decisions import DecisionProvider, DecisionRequest, DecisionResult
 
 
 class MeteredProvider(AIProvider):
@@ -163,3 +164,79 @@ class MeteredProvider(AIProvider):
     def __getattr__(self, name: str) -> Any:
         # Qualquer coisa que um provedor específico exponha além do contrato.
         return getattr(self.inner, name)
+
+
+class MeteredDecisionProvider(DecisionProvider):
+    """O mesmo medidor, para a porta de julgamento.
+
+    Vive neste arquivo de propósito: medir em dois lugares daria duas chances de
+    esquecer, e o esquecido não aparece na conta — o defeito que a Fase 2 veio
+    consertar. O teto de gasto também vale aqui: julgamento tipado é mais barato
+    que texto, mas "mais barato" não é "de graça".
+    """
+
+    def __init__(
+        self,
+        inner: DecisionProvider,
+        *,
+        feature: str,
+        model_slug: str,
+        input_cost_per_1k: Decimal | None,
+        output_cost_per_1k: Decimal | None,
+        user_id: int | None = None,
+    ) -> None:
+        super().__init__(inner.credentials)
+        self.inner = inner
+        self.slug = inner.slug
+        self.default_base_url = inner.default_base_url
+        self.default_model = inner.default_model
+        self.feature = feature
+        self.model_slug = model_slug
+        self.input_cost_per_1k = input_cost_per_1k
+        self.output_cost_per_1k = output_cost_per_1k
+        self.user_id = user_id
+
+    async def test_connection(self) -> ConnectionCheck:
+        return await self.inner.test_connection()
+
+    async def list_models(self) -> list[ModelInfo]:
+        return await self.inner.list_models()
+
+    async def judge(self, request: DecisionRequest, *, model: str | None = None) -> DecisionResult:
+        from app.db.session import get_session_factory
+        from app.services.ai_budget import AIBudgetService, record_usage
+
+        factory = get_session_factory()
+        async with factory() as session:
+            await AIBudgetService(session).guard(feature=self.feature)
+
+        try:
+            result = await self.inner.judge(request, model=model or self.model_slug)
+        except Exception as exc:
+            await record_usage(
+                feature=self.feature,
+                provider_slug=self.slug,
+                model_slug=self.model_slug,
+                input_tokens=0,
+                output_tokens=0,
+                input_cost_per_1k=self.input_cost_per_1k,
+                output_cost_per_1k=self.output_cost_per_1k,
+                latency_ms=None,
+                user_id=self.user_id,
+                status="ERROR",
+                error_code=type(exc).__name__[:60],
+            )
+            raise
+
+        await record_usage(
+            feature=self.feature,
+            provider_slug=self.slug,
+            model_slug=self.model_slug,
+            input_tokens=result.usage.input_tokens,
+            output_tokens=result.usage.output_tokens,
+            input_cost_per_1k=self.input_cost_per_1k,
+            output_cost_per_1k=self.output_cost_per_1k,
+            latency_ms=result.latency_ms,
+            user_id=self.user_id,
+        )
+        return result

@@ -77,6 +77,10 @@ class QuestionAdminRead(BaseModel):
     #: Quando uma pessoa conferiu a questão. É o que o portão da Fase 3 cobra
     #: para publicar conteúdo de IA, e por isso a tela precisa saber.
     reviewed_at: datetime | None = None
+    #: Probabilidade, dada por um modelo de julgamento tipado, de a citação
+    #: sustentar o gabarito. ``None`` é **não conferido** — não é zero e não é
+    #: aprovação.
+    answer_key_support: float | None = None
     created_at: datetime
 
 
@@ -95,6 +99,19 @@ class DiscardedQuestionRead(BaseModel):
     reason: str
 
 
+class SupportCheckRead(BaseModel):
+    """O julgamento do gabarito nesta passada — inclusive quando não rodou."""
+
+    ran: bool = False
+    #: Por que não rodou, quando não rodou. Silêncio aqui leria como "tudo bem".
+    reason: str | None = None
+    model: str | None = None
+    #: Piso em vigor. Zero significa que nada foi descartado por ele.
+    floor: float = 0.0
+    judged: int = 0
+    below_floor: int = 0
+
+
 class QuestionGenerationRead(BaseModel):
     created: list[QuestionAdminRead] = Field(default_factory=list)
     #: O que foi descartado na conferência de origem — dito, não escondido.
@@ -106,6 +123,7 @@ class QuestionGenerationRead(BaseModel):
     skipped_reason: str | None = None
     model: str | None = None
     prompt_version: str | None = None
+    support: SupportCheckRead = Field(default_factory=SupportCheckRead)
 
 
 class QuestionCreate(BaseModel):

@@ -379,6 +379,15 @@ em massa antes do portão existir.**
 14. Roteador configurável e auditável.
 15. Adaptador `DecisionProvider` para o JEV, **com a documentação em mãos**.
 
+> O item 14 saiu na [Fase 6](34-fase6-roteador.md). O item 15 ficou bloqueado até
+> a documentação aparecer — por uma skill de agente, não pelo site — e saiu na
+> [parte 2c](41-fase4-parte2c-jev-julgamento-tipado.md). Com ela veio a
+> confirmação do que este diagnóstico advertia: o JEV **não** orquestra, não
+> escolhe modelo e não pesquisa. Ele devolve julgamento tipado com
+> probabilidade, e o código continua dono do fluxo. Falta liberar
+> `api.typesafe.ai` na rede e cadastrar a chave para a funcionalidade sair do
+> estado desligado.
+
 ### Fase 7 — Árvore de conhecimento e inventário
 
 16. Os dois itens de gamificação que faltam.

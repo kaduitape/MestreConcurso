@@ -36,6 +36,11 @@ dependencies = [
     # OCR opcional: só é usado quando o PDF não tem camada de texto.
     "pytesseract>=0.3.13",
     "pillow>=11.0",
+    # SDK do TypeSafe (modelo Jev). Entra como dependência normal porque o
+    # julgamento tipado é opcional **por configuração**, não por instalação: a
+    # funcionalidade fica desligada até alguém cadastrar a chave no painel, e um
+    # import condicional só esconderia o erro de quem a ligasse sem a biblioteca.
+    "typesafe-sdk>=0.7.5",
 ]
 
 [project.optional-dependencies]

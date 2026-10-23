@@ -89,6 +89,17 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         "Mapas mentais",
     ),
     FeatureSpec(
+        AIFeature.ANSWER_KEY_SUPPORT,
+        "Conferência do gabarito (julgamento tipado)",
+        "Pergunta ao modelo de julgamento se a citação do material **sustenta** a "
+        "alternativa marcada como correta, e recebe uma probabilidade calibrada. "
+        "Não publica nada e não garante que o gabarito esteja certo: serve para "
+        "ordenar a fila de revisão humana e, se o administrador quiser, barrar o "
+        "pior na origem. Desligada, a questão gerada fica como não conferida.",
+        "Fase 4 (parte 2c)",
+        kind="judgment",
+    ),
+    FeatureSpec(
         AIFeature.EMBEDDINGS,
         "Embeddings",
         "Vetoriza editais e materiais para a busca semântica.",
@@ -108,7 +119,9 @@ FEATURE_BY_SLUG: dict[str, FeatureSpec] = {spec.feature: spec for spec in FEATUR
 
 #: Tipos que aceitam regra de roteamento. Embedding fica fora porque vetor de
 #: outro modelo vive em outro espaço; voz fica fora porque a aula é narrada cena
-#: por cena e trocar de modelo trocaria o narrador no meio. Ver
+#: por cena e trocar de modelo trocaria o narrador no meio; julgamento fica fora
+#: porque não é modelo de texto — não há reserva equivalente para desviar, e as
+#: probabilidades de dois modelos diferentes não são comparáveis entre si. Ver
 #: ``app/services/model_router.py``.
 ROUTABLE_KINDS = frozenset({"chat", "rerank"})
 

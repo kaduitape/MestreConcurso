@@ -26,6 +26,9 @@ export interface QuestionFilters {
   board?: string
   year?: number | ''
   status?: QuestionStatus | ''
+  origin?: 'OFFICIAL' | 'AI_GENERATED' | 'EDITORIAL'
+  /** `support` monta a fila de revisão: respaldo do gabarito mais fraco primeiro. */
+  order?: 'recent' | 'support'
 }
 
 function toSearch(filters: QuestionFilters): string {
@@ -33,7 +36,15 @@ function toSearch(filters: QuestionFilters): string {
     page: String(filters.page),
     page_size: String(filters.page_size),
   })
-  for (const key of ['search', 'subject', 'difficulty', 'board', 'status'] as const) {
+  for (const key of [
+    'search',
+    'subject',
+    'difficulty',
+    'board',
+    'status',
+    'origin',
+    'order',
+  ] as const) {
     const value = filters[key]
     if (value) search.set(key, String(value))
   }

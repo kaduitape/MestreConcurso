@@ -101,6 +101,8 @@ class AIFeatureBindingRead(BaseModel):
     temperature: Decimal | None = None
     max_output_tokens: int | None = None
     cache_ttl_hours: int | None = None
+    #: Piso de respaldo em vigor para funcionalidade de julgamento.
+    min_support: float | None = None
 
 
 class AIFeatureBindingUpdate(BaseModel):
@@ -115,6 +117,15 @@ class AIFeatureBindingUpdate(BaseModel):
     max_output_tokens: int | None = Field(default=None, ge=64, le=32_000)
     cache_ttl_hours: int | None = Field(
         default=None, ge=1, le=8760, description="Validade do cache; vazio = permanente"
+    )
+    #: Só para funcionalidades de julgamento: piso abaixo do qual o rascunho é
+    #: descartado na origem. Vazio ou zero = **nada é descartado** pelo
+    #: julgamento, que é o padrão.
+    min_support: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Piso de respaldo do gabarito; vazio ou 0 não descarta nada",
     )
 
 

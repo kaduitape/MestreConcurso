@@ -130,7 +130,7 @@ class EmbeddingResult:
 class ModelInfo:
     slug: str
     display_name: str
-    kind: Literal["chat", "embedding", "rerank", "speech"] = "chat"
+    kind: Literal["chat", "embedding", "rerank", "speech", "judgment"] = "chat"
     context_window: int | None = None
     max_output_tokens: int | None = None
     input_cost_per_1k: Decimal | None = None

@@ -37,6 +37,7 @@ function questao(): QuestionAdmin {
     ai_suggestion: { quote: 'A crase é a contração da preposição A' },
     stats: null,
     reviewed_at: null,
+    answer_key_support: null,
     created_at: '2026-10-23T10:00:00Z',
   } as unknown as QuestionAdmin
 }
@@ -55,6 +56,14 @@ function geracao(overrides: Partial<QuestionGeneration> = {}): QuestionGeneratio
     skipped_reason: null,
     model: 'gpt-4o-mini',
     prompt_version: 'v1',
+    support: {
+      ran: false,
+      reason: 'A funcionalidade de julgamento ainda não tem modelo configurado.',
+      model: null,
+      floor: 0,
+      judged: 0,
+      below_floor: 0,
+    },
     ...overrides,
   }
 }
@@ -98,6 +107,43 @@ describe('QuestionGenerateDialog', () => {
 
     await userEvent.type(screen.getByLabelText(/Material/), 'x'.repeat(200))
     expect(botao).toBeEnabled()
+  })
+
+  it('diz quando o gabarito não foi conferido por julgamento tipado', async () => {
+    renderDialog()
+
+    await userEvent.type(screen.getByLabelText(/Material/), 'x'.repeat(210))
+    await userEvent.click(screen.getByRole('button', { name: /Gerar questões/ }))
+
+    expect(await screen.findByText(/não conferido/)).toBeInTheDocument()
+    // "Não conferido" não pode ler como "está bom".
+    expect(
+      screen.getByText(/não é o mesmo que estarem boas|não é o mesmo que estar/),
+    ).toBeInTheDocument()
+  })
+
+  it('mostra a probabilidade de respaldo quando o julgamento rodou', async () => {
+    adminQuestionsApi.generate.mockResolvedValue(
+      geracao({
+        created: [{ ...questao(), answer_key_support: 0.42 }],
+        support: {
+          ran: true,
+          reason: null,
+          model: 'jev-latest',
+          floor: 0,
+          judged: 1,
+          below_floor: 0,
+        },
+      }),
+    )
+    renderDialog()
+
+    await userEvent.type(screen.getByLabelText(/Material/), 'x'.repeat(210))
+    await userEvent.click(screen.getByRole('button', { name: /Gerar questões/ }))
+
+    expect(await screen.findByText('respaldo 42%')).toBeInTheDocument()
+    // E a tela não promete o que a probabilidade não diz.
+    expect(screen.getByText(/não.*que ele esteja certo/)).toBeInTheDocument()
   })
 
   it('mostra o que entrou como rascunho e o que foi descartado, com o motivo', async () => {

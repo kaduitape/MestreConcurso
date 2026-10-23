@@ -16,7 +16,7 @@ import type { AIProvider } from '@/lib/api/types'
 type ModelOption = {
   value: string
   label: string
-  kind: 'chat' | 'embedding' | 'rerank'
+  kind: 'chat' | 'embedding' | 'rerank' | 'speech' | 'judgment'
   inputCost: number | null
   outputCost: number | null
   contextWindow: number | null
@@ -40,6 +40,9 @@ const MIN_CONTEXT: Record<string, number> = {
 function isAllowed(feature: string, option: ModelOption) {
   if (feature === 'embeddings.default') return option.kind === 'embedding'
   if (feature === 'rerank.default') return option.kind !== 'embedding'
+  // Julgamento tipado não é modelo de texto: oferecer um modelo de chat aqui
+  // faria o administrador configurar algo que a chamada recusaria depois.
+  if (feature === 'question.answer_key_support') return option.kind === 'judgment'
   return option.kind === 'chat'
 }
 

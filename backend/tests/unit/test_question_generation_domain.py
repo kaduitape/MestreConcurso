@@ -330,3 +330,43 @@ def test_every_rejection_reason_has_a_sentence_for_the_screen() -> None:
 
     assert {item.value for item in RejectionReason} == set(REASON_LABEL)
     assert all(texto.strip() for texto in REASON_LABEL.values())
+
+
+# --------------------------------------------------------------------------- #
+# O julgamento tipado do gabarito
+# --------------------------------------------------------------------------- #
+def test_without_a_probability_the_answer_key_is_not_checked() -> None:
+    """ "Não conferido" é um desfecho próprio, e não aprovação silenciosa.
+
+    É o mesmo cuidado que a plataforma já tem com amostra ausente: tratar
+    ausência como zero — ou como "está bom" — é a forma mais barata de mentir.
+    """
+    from app.domain.question_generation import SupportVerdict, support_verdict
+
+    assert support_verdict(None) == SupportVerdict.NOT_CHECKED
+    assert support_verdict(None, floor=0.9) == SupportVerdict.NOT_CHECKED
+
+
+def test_the_default_floor_discards_nothing() -> None:
+    """O padrão não joga fora nada: a régua é de quem administra, não minha.
+
+    Uma probabilidade de modelo só ganha significado depois de alguém comparar
+    as decisões dele com as de uma pessoa nos dados reais desta plataforma.
+    Antes disso, o julgamento ordena a fila e não decide descarte.
+    """
+    from app.domain.question_generation import (
+        DEFAULT_SUPPORT_FLOOR,
+        SupportVerdict,
+        support_verdict,
+    )
+
+    assert DEFAULT_SUPPORT_FLOOR == 0.0
+    assert support_verdict(0.01) == SupportVerdict.JUDGED
+    assert support_verdict(0.0) == SupportVerdict.JUDGED
+
+
+def test_a_configured_floor_rejects_below_it() -> None:
+    from app.domain.question_generation import SupportVerdict, support_verdict
+
+    assert support_verdict(0.49, floor=0.5) == SupportVerdict.BELOW_FLOOR
+    assert support_verdict(0.5, floor=0.5) == SupportVerdict.JUDGED

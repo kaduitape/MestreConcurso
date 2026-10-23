@@ -33,6 +33,7 @@ export function QuestionsSection() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<QuestionStatus | ''>('')
+  const [order, setOrder] = useState<'recent' | 'support'>('recent')
   const [editorOpen, setEditorOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
@@ -45,6 +46,10 @@ export function QuestionsSection() {
     page_size: 20,
     search: debouncedSearch || undefined,
     status: status || undefined,
+    // A fila de revisão pede as geradas por IA: ordenar todo o banco pelo
+    // respaldo não diria nada, porque questão de prova não tem esse número.
+    origin: order === 'support' ? ('AI_GENERATED' as const) : undefined,
+    order,
   }
 
   const questions = useQuery({
@@ -188,6 +193,18 @@ export function QuestionsSection() {
               </option>
             ))}
           </Select>
+          <Select
+            value={order}
+            onChange={(event) => {
+              setOrder(event.target.value as 'recent' | 'support')
+              setPage(1)
+            }}
+            aria-label="Ordenação"
+            className="w-auto"
+          >
+            <option value="recent">Mais recentes</option>
+            <option value="support">Fila de revisão (respaldo mais fraco)</option>
+          </Select>
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <Upload /> Importar
           </Button>
@@ -203,6 +220,14 @@ export function QuestionsSection() {
             <Plus /> Nova questão
           </Button>
         </div>
+
+        {order === 'support' && (
+          <p className="text-xs text-subtle">
+            Só questões geradas por IA, do respaldo mais fraco para o mais forte. As{' '}
+            <strong>não conferidas</strong> aparecem no fim: elas não têm número, e isso não
+            quer dizer que estejam boas.
+          </p>
+        )}
 
         {questions.isLoading && <SkeletonList rows={4} />}
         {questions.isError && (
@@ -330,6 +355,27 @@ export function QuestionsSection() {
                   {typeof selected.ai_suggestion.quote === 'string' && (
                     <p className="mt-2 text-xs text-muted italic">
                       Citação conferida no material: “{selected.ai_suggestion.quote}”
+                    </p>
+                  )}
+                  {selected.answer_key_support !== null ? (
+                    <p className="mt-2 text-xs">
+                      <strong
+                        className={
+                          selected.answer_key_support >= 0.7 ? 'text-success' : 'text-warning'
+                        }
+                      >
+                        {(selected.answer_key_support * 100).toFixed(0)}%
+                      </strong>{' '}
+                      é a probabilidade, dada por um modelo de julgamento tipado, de a citação{' '}
+                      <strong>sustentar</strong> esta alternativa como correta. Não é garantia de
+                      que o gabarito esteja certo — é por isso que a conferência humana continua
+                      obrigatória.
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-warning">
+                      Gabarito <strong>não conferido</strong> por julgamento tipado. Isso não é o
+                      mesmo que estar certo: ninguém, nem modelo nem pessoa, olhou se a citação
+                      sustenta a alternativa.
                     </p>
                   )}
                   <p className="mt-2 text-xs text-muted">

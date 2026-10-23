@@ -205,7 +205,11 @@ código.
 
 ## O que esta fase não entrega
 
-- **Adaptador do JEV** (item 15) — bloqueado, como explicado acima.
+- **Adaptador do JEV** (item 15) — estava bloqueado, como explicado acima.
+  **Resolvido na [parte 2c](41-fase4-parte2c-jev-julgamento-tipado.md)**, com a
+  documentação em mãos: o JEV entrou como provedor de **julgamento tipado**, em
+  porta paralela à de texto, e não como roteador — a premissa original do pedido
+  estava errada, e a advertência deste documento se confirmou inteira.
 - **Escolha automática de modelo por complexidade** — não existe medida de
   complexidade que não seja palpite. Entraria se o JEV entrar.
 - **Reserva para embedding e narração** — recusada por desenho, não esquecida.

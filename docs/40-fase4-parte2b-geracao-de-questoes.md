@@ -27,6 +27,12 @@ construído.
 copiar um trecho verdadeiro do material e marcar a alternativa errada como
 correta. A citação prova **respaldo declarado**, não leitura correta.
 
+> **Atualização:** a [parte 2c](41-fase4-parte2c-jev-julgamento-tipado.md) cobre
+> metade desse buraco com um julgamento tipado — um `Noul` do Jev dá a
+> probabilidade de a citação **sustentar** o gabarito. Continua não sendo
+> garantia de que ele esteja certo: a probabilidade ordena a fila de revisão
+> humana, e a conferência por pessoa continua obrigatória para publicar.
+
 Por isso a questão gerada nasce `DRAFT` e **nenhuma chega a candidato sem
 conferência humana**. O que a conferência de origem faz é jogar fora, sem custo
 humano, o que já é demonstravelmente ruim — para que a revisão gaste atenção no

@@ -15,6 +15,12 @@ from app.ai.base import (
     ProviderCredentials,
     Usage,
 )
+from app.ai.decisions import (
+    DecisionProvider,
+    DecisionRequest,
+    DecisionResult,
+    NoulVerdict,
+)
 
 
 class FakeProvider(AIProvider):
@@ -237,3 +243,51 @@ CLASSIFY_PAYLOAD: dict[str, Any] = {
     "confidence": 0.82,
     "rationale": "O enunciado trata de qualificadoras do homicídio.",
 }
+
+
+class FakeDecisionProvider(DecisionProvider):
+    """Provedor de julgamento falso: devolve probabilidades programadas.
+
+    Existe pelo mesmo motivo do ``FakeProvider``: exercitar o caminho inteiro —
+    resolução da funcionalidade, medição, composição em código — sem gastar
+    token e sem depender de rede. As probabilidades são dadas pelo teste, uma por
+    chamada, para que a ordem da fila de revisão possa ser conferida.
+    """
+
+    slug = "typesafe"
+    default_base_url = "https://fake.local"
+    default_model = "jev-fake"
+
+    def __init__(
+        self,
+        credentials: ProviderCredentials | None = None,
+        *,
+        probabilities: list[float] | None = None,
+        fail_with: Exception | None = None,
+    ) -> None:
+        super().__init__(credentials or ProviderCredentials(api_key="sk-fake-jev"))
+        self.probabilities = list(probabilities or [])
+        self.fail_with = fail_with
+        self.calls: list[DecisionRequest] = []
+
+    async def test_connection(self) -> ConnectionCheck:
+        return ConnectionCheck(
+            ok=True, message="falso", latency_ms=1, models_available=1, sample_models=["jev-fake"]
+        )
+
+    async def list_models(self) -> list[ModelInfo]:
+        return [ModelInfo(slug="jev-fake", display_name="Jev (falso)", kind="judgment")]
+
+    async def judge(self, request: DecisionRequest, *, model: str | None = None) -> DecisionResult:
+        self.calls.append(request)
+        if self.fail_with is not None:
+            raise self.fail_with
+        # Sem probabilidade programada, a última se repete: o teste decide
+        # quantas chamadas acontecem, não este arquivo.
+        valor = self.probabilities.pop(0) if self.probabilities else 0.9
+        return DecisionResult(
+            answers={key: NoulVerdict(probability=valor) for key in request.questions},
+            model=model or self.default_model,
+            usage=Usage(input_tokens=90, output_tokens=4),
+            latency_ms=12,
+        )
