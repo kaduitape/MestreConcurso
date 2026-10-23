@@ -27,6 +27,9 @@ from enum import StrEnum
 class GenerationKind(StrEnum):
     TRAINING_LESSON = "TRAINING_LESSON"
     MIND_MAP = "MIND_MAP"
+    #: Baralho oficial do tópico. Depende de material já conferido por uma
+    #: pessoa: cartão não nasce de rascunho de IA.
+    FLASHCARD_DECK = "FLASHCARD_DECK"
 
 
 #: Qual funcionalidade de IA cada tipo consome. É por ela que o custo medido é
@@ -34,6 +37,7 @@ class GenerationKind(StrEnum):
 FEATURE_OF: Mapping[str, str] = {
     GenerationKind.TRAINING_LESSON: "training.script",
     GenerationKind.MIND_MAP: "mindmap.generation",
+    GenerationKind.FLASHCARD_DECK: "flashcard.generation",
 }
 
 
@@ -51,6 +55,10 @@ class ItemStatus(StrEnum):
     FAILED = "FAILED"
     BUDGET_BLOCKED = "BUDGET_BLOCKED"
     CANCELED = "CANCELED"
+    #: Não rodou porque **falta material conferível** para o tópico — e isso não
+    #: é falha do item. Chamar de ``FAILED`` mandaria alguém procurar um defeito
+    #: onde o que houve foi ausência de insumo.
+    NO_SOURCE = "NO_SOURCE"
 
 
 class PlanStatus(StrEnum):
@@ -258,6 +266,7 @@ class PlanProgress:
     reused: int
     failed: int
     blocked: int
+    no_source: int = 0
 
 
 def summarize(statuses: Sequence[str]) -> PlanProgress:
@@ -269,6 +278,7 @@ def summarize(statuses: Sequence[str]) -> PlanProgress:
         reused=sum(1 for item in statuses if item == ItemStatus.REUSED),
         failed=sum(1 for item in statuses if item == ItemStatus.FAILED),
         blocked=sum(1 for item in statuses if item == ItemStatus.BUDGET_BLOCKED),
+        no_source=sum(1 for item in statuses if item == ItemStatus.NO_SOURCE),
     )
 
 

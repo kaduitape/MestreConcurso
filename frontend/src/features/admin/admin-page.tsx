@@ -16,6 +16,7 @@ import { MindMapStudioSection } from './mindmap/mindmap-studio-section'
 import { AgentsSection } from './agents/agents-section'
 import { ContentAuditSection } from './audit/content-audit-section'
 import { GenerationSection } from './generation/generation-section'
+import { DecksSection } from './decks/decks-section'
 import { ImprovementsSection } from './improvements/improvements-section'
 import { useAuth } from '@/providers/auth-provider'
 
@@ -86,6 +87,7 @@ export function AdminPage() {
         <TabsContent value="estudio">
           <div className="space-y-6">
             {hasPermission('training:write') && <GenerationSection />}
+            {hasPermission('decks:read') && <DecksSection />}
             <TrainingStudioSection />
             <MindMapStudioSection />
           </div>

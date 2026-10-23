@@ -5,6 +5,9 @@ Duas separações importantes:
 * **cartão** e **estado de memória** são tabelas distintas. Um cartão global
   (curado pela equipe) é revisado por muita gente, e cada pessoa tem seu próprio
   intervalo — misturar as duas coisas impediria isso.
+* **baralho** é o que dá escopo ao cartão global. Cartão sem dono e sem
+  baralho não existe: seria conteúdo entrando na fila de todo mundo sem
+  ninguém ter escolhido.
 * **origem** é declarada. Cartão gerado por IA nasce marcado como tal, e quando
   vem de um trecho de edital carrega a citação: a interface nunca apresenta
   redação de modelo como se fosse texto oficial.
@@ -36,6 +39,7 @@ from app.db.types import JsonType, MediumText
 
 if TYPE_CHECKING:
     from app.models.catalog import Subject
+    from app.models.deck import OfficialDeck
 
 
 class CardOrigin(StrEnum):
@@ -56,11 +60,16 @@ class Flashcard(IdMixin, PublicIdMixin, TimestampMixin, Base):
     __table_args__ = (
         Index("ix_flashcards_user_subject", "user_id", "subject_id"),
         Index("ix_flashcards_origin", "origin", "is_active"),
+        Index("ix_flashcards_deck_active", "deck_id", "is_active"),
     )
 
-    # Nulo significa cartão global, disponível para todos.
+    # Nulo significa cartão global: ele pertence a um baralho oficial, e chega
+    # ao candidato apenas pelo baralho — nunca por estar solto no banco.
     user_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    deck_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("official_decks.id", ondelete="CASCADE"), index=True
     )
     subject_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("subjects.id", ondelete="SET NULL")
@@ -89,10 +98,16 @@ class Flashcard(IdMixin, PublicIdMixin, TimestampMixin, Base):
     checksum: Mapped[str] = mapped_column(String(64), index=True)
 
     subject: Mapped[Subject | None] = relationship(lazy="selectin")
+    deck: Mapped[OfficialDeck | None] = relationship(lazy="selectin")
 
     @property
     def is_generated(self) -> bool:
         return self.origin == CardOrigin.AI
+
+    @property
+    def is_official(self) -> bool:
+        """Cartão de baralho oficial — a interface mostra o selo OFICIAL."""
+        return self.user_id is None and self.deck_id is not None
 
 
 class CardMemoryState(IdMixin, TimestampMixin, Base):

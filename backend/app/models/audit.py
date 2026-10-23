@@ -73,6 +73,11 @@ class AuditAction(StrEnum):
     TRAINING_GENERATED = "training.generated"
     TRAINING_UPDATED = "training.updated"
     TRAINING_PUBLISHED = "training.published"
+    DECK_CREATED = "deck.created"
+    DECK_GENERATED = "deck.generated"
+    DECK_CARD_REVIEWED = "deck.card_reviewed"
+    DECK_PUBLISHED = "deck.published"
+    DECK_ARCHIVED = "deck.archived"
 
     SUBSCRIPTION_CREATED = "billing.subscription_created"
     SUBSCRIPTION_CANCELED = "billing.subscription_canceled"

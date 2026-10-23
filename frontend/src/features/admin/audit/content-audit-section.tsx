@@ -50,6 +50,7 @@ const KIND_LABEL: Record<string, string> = {
   QUESTION: 'Questão',
   TRAINING_LESSON: 'Aula',
   MIND_MAP: 'Mapa mental',
+  FLASHCARD_DECK: 'Baralho oficial',
 }
 
 const TRIGGER_LABEL: Record<string, string> = {
@@ -245,6 +246,7 @@ export function ContentAuditSection() {
               <option value="QUESTION">Questões</option>
               <option value="TRAINING_LESSON">Aulas</option>
               <option value="MIND_MAP">Mapas mentais</option>
+              <option value="FLASHCARD_DECK">Baralhos oficiais</option>
             </Select>
           </div>
         </CardHeader>

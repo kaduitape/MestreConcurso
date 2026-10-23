@@ -8,7 +8,16 @@
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ban, Check, CircleDashed, Play, Recycle, TriangleAlert, Wand } from 'lucide-react'
+import {
+  Ban,
+  Check,
+  CircleDashed,
+  CircleHelp,
+  Play,
+  Recycle,
+  TriangleAlert,
+  Wand,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert } from '@/components/ui/alert'
@@ -34,6 +43,8 @@ const ITEM: Record<GenerationItemStatus, { label: string; icon: LucideIcon; tone
   FAILED: { label: 'Falhou', icon: TriangleAlert, tone: 'text-danger' },
   BUDGET_BLOCKED: { label: 'Barrado pelo teto', icon: Ban, tone: 'text-game-gold' },
   CANCELED: { label: 'Cancelado', icon: Ban, tone: 'text-muted' },
+  // Falta de material não é falha: o item diz o que precisa existir antes.
+  NO_SOURCE: { label: 'Sem material conferido', icon: CircleHelp, tone: 'text-game-cyan' },
 }
 
 const PLAN_TONE: Record<string, 'neutral' | 'info' | 'success' | 'danger' | 'warning'> = {
@@ -47,6 +58,7 @@ const PLAN_TONE: Record<string, 'neutral' | 'info' | 'success' | 'danger' | 'war
 const KIND_LABEL: Record<string, string> = {
   TRAINING_LESSON: 'Aula',
   MIND_MAP: 'Mapa mental',
+  FLASHCARD_DECK: 'Baralho de flashcards',
 }
 
 function reais(cents: string): string {

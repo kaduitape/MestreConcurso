@@ -221,7 +221,12 @@ export function DeckPage() {
           <li key={card.public_id} className="space-y-2 rounded-lg border border-border p-4">
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm font-medium">{card.front}</p>
-              <Badge variant={ORIGIN_TONE[card.origin]}>{ORIGIN_LABEL[card.origin]}</Badge>
+              <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                {/* Oficial diz quem publicou; origem diz quem escreveu. Um
+                    cartão oficial gerado por IA mostra as duas coisas. */}
+                {card.is_official && <Badge variant="success">oficial</Badge>}
+                <Badge variant={ORIGIN_TONE[card.origin]}>{ORIGIN_LABEL[card.origin]}</Badge>
+              </span>
             </div>
             <p className="text-sm text-muted">{card.back}</p>
 

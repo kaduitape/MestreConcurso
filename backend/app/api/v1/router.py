@@ -8,6 +8,7 @@ from app.api.v1.routers import (
     admin,
     admin_ai,
     admin_catalog,
+    admin_decks,
     admin_notices,
     agents,
     analytics,
@@ -15,6 +16,7 @@ from app.api.v1.routers import (
     billing,
     catalog,
     content_audit,
+    decks,
     flashcards,
     game,
     generation,
@@ -40,6 +42,7 @@ api_router.include_router(training.training_router)
 api_router.include_router(questions.router)
 api_router.include_router(intelligence.router)
 api_router.include_router(tutor.router)
+api_router.include_router(decks.router)
 api_router.include_router(flashcards.router)
 api_router.include_router(game.router)
 api_router.include_router(analytics.router)
@@ -48,6 +51,7 @@ api_router.include_router(admin.router)
 api_router.include_router(admin_ai.router)
 api_router.include_router(agents.router)
 api_router.include_router(content_audit.router)
+api_router.include_router(admin_decks.router)
 api_router.include_router(generation.router)
 api_router.include_router(improvements.router)
 api_router.include_router(notice_diff.router)

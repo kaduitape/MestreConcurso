@@ -158,7 +158,12 @@ export function ReviewPage() {
             <span>
               Cartão {index + 1} de {items.length}
             </span>
-            <span className="flex items-center gap-2">
+            <span className="flex flex-wrap items-center gap-2">
+              {current.card.is_official && (
+                <Badge variant="success">
+                  oficial{current.card.deck_title ? ` · ${current.card.deck_title}` : ''}
+                </Badge>
+              )}
               <Badge variant={ORIGIN_TONE[current.card.origin]}>
                 {ORIGIN_LABEL[current.card.origin]}
               </Badge>

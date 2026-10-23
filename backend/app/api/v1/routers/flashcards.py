@@ -54,6 +54,9 @@ def _card_read(card: Flashcard, *, user_id: int) -> FlashcardRead:
         source_document=card.source_document,
         model_slug=card.model_slug,
         is_owned=card.user_id == user_id,
+        is_official=card.is_official,
+        deck_title=card.deck.title if card.deck else None,
+        is_active=card.is_active,
         created_at=card.created_at,
     )
 

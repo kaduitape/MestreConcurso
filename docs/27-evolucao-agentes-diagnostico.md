@@ -362,6 +362,12 @@ em massa antes do portão existir.**
     com estimativa de custo confirmada antes de disparar.
 12. Deduplicação e reaproveitamento entre concursos da mesma banca.
 
+> Entregue em partes: aula e mapa mental na
+> [parte 1](32-fase4-geracao-em-massa.md); o baralho oficial de flashcards e o
+> agente de memorização na [parte 2a](39-fase4-parte2a-baralho-oficial.md). A
+> geração de questões (agente *mestre de batalhas*) é a parte 2b e segue
+> pendente: falta gerar questão com gabarito validado na origem.
+
 ### Fase 5 — Retificação e reprocessamento
 
 13. Diff entre versões de edital; marcar o que mudou; regenerar só o afetado.

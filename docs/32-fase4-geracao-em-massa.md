@@ -95,6 +95,10 @@
 
 ## O que esta parte não entrega, e por quê
 
+> **Atualização:** o primeiro item abaixo foi entregue na
+> [parte 2a](39-fase4-parte2a-baralho-oficial.md), com o desenho do baralho
+> oficial discutido antes de ser construído. O segundo continua de fora.
+
 - **Flashcards (agente Memorização)**: o flashcard aqui é *pessoal de cada
   candidato*. Não existe baralho oficial por tópico — gerar em massa exigiria
   esse desenho antes, e inventá-lo de passagem seria criar um conceito novo sem

@@ -1,17 +1,18 @@
 """Catálogo de agentes e o grafo que decide a ordem de execução.
 
-O pedido descreve oito agentes. Seis deles **já existem** na plataforma com
-outro nome — análise de edital, inteligência estatística, estúdio de aulas,
-flashcards, batalha e tutor. O orquestrador não os reimplementa: ele os nomeia,
-declara o que cada um depende e os executa na ordem certa.
+O pedido descreve oito agentes. Sete deles **já rodam** na plataforma, a maioria
+com outro nome — análise de edital, inteligência estatística, estúdio de aulas,
+baralho oficial de flashcards, tutor, auditoria de conteúdo e o analista de
+melhorias. O orquestrador não os reimplementa: ele os nomeia, declara o que cada
+um depende e os executa na ordem certa.
 
 Três regras governam o que está aqui:
 
-*Agente que não existe não finge que rodou.* Dois dos oito (memorização e
-mestre de batalhas) ainda dependem de decisões de produto que não foram
-tomadas. Eles estão declarados, com ``is_implemented=False``, e
-o orquestrador os marca como **pulados com motivo escrito** — nunca como
-concluídos. Um passo verde que não fez nada é pior que um passo vermelho.
+*Agente que não existe não finge que rodou.* Um dos oito (mestre de batalhas)
+ainda depende de uma funcionalidade que a plataforma não tem: gerar questão com
+gabarito validado na origem. Ele está declarado, com ``is_implemented=False``, e
+o orquestrador o marca como **pulado com motivo escrito** — nunca como
+concluído. Um passo verde que não fez nada é pior que um passo vermelho.
 
 *Dependência é do grafo, não da ordem do arquivo.* Quem depende de quem está
 declarado; a ordem de execução é derivada disso. Assim dá para rodar um agente
@@ -114,13 +115,14 @@ AGENTS: tuple[AgentSpec, ...] = (
     AgentSpec(
         key=AgentKey.MEMORY,
         label="Memorização",
-        description="Gera flashcards ligados aos tópicos do edital.",
-        depends_on=(AgentKey.TEACHER,),
-        is_implemented=False,
-        pending_reason=(
-            "Flashcard aqui é pessoal de cada candidato: não há onde guardar um "
-            "baralho oficial por tópico. Gerar em massa exige esse desenho antes."
+        description=(
+            "Monta o baralho oficial de cada tópico do edital, em rascunho, a "
+            "partir de aula publicada e com citação conferida."
         ),
+        # Depende do Professor porque o insumo é a aula — e não qualquer aula: a
+        # publicada, que alguém já conferiu.
+        depends_on=(AgentKey.TEACHER,),
+        max_attempts=2,
     ),
     AgentSpec(
         key=AgentKey.BATTLE_MASTER,

@@ -43,6 +43,8 @@ GENERATE_PROMPT = "flashcard_generate"
 MAX_GENERATED = 10
 MAX_MATERIAL_CHARS = 6000
 MAX_CARDS_PER_USER = 5000
+#: Abaixo disto não há material: há frase solta.
+MIN_MATERIAL_CHARS = 80
 _WHITESPACE = re.compile(r"\s+")
 
 
@@ -50,6 +52,32 @@ def front_checksum(front: str) -> str:
     """Impressão digital da frente normalizada — barra cartão repetido."""
     normalized = _WHITESPACE.sub(" ", front).strip().lower()
     return hashlib.sha256(normalized.encode()).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class CardDraft:
+    """Um cartão proposto pelo modelo que **já passou** pela conferência de citação."""
+
+    front: str
+    back: str
+    hint: str | None
+    quote: str
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateBatch:
+    """O que a chamada de IA devolveu, separado entre aprovado e descartado.
+
+    Existe para que o baralho pessoal e o baralho oficial compartilhem a mesma
+    conferência de citação. Duas cópias dessa regra dariam, mais cedo ou mais
+    tarde, dois critérios diferentes para o mesmo cartão.
+    """
+
+    cards: list[CardDraft] = field(default_factory=list)
+    discarded: list[str] = field(default_factory=list)
+    skipped_reason: str | None = None
+    model_slug: str | None = None
+    prompt_version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +143,9 @@ class FlashcardService:
         checksum = front_checksum(cleaned_front)
         if await self.cards.get_by_checksum(user.id, checksum) is not None:
             raise ConflictError(
-                "Você já tem um cartão com esta frente.", code="duplicate_flashcard"
+                "Já existe um cartão com esta frente no seu baralho — seu ou de um "
+                "baralho oficial que você assina.",
+                code="duplicate_flashcard",
             )
 
         card = Flashcard(
@@ -249,24 +279,18 @@ class FlashcardService:
     # ------------------------------------------------------------------ #
     # Geração por IA, com citação conferida
     # ------------------------------------------------------------------ #
-    async def generate(
-        self,
-        user: User,
-        *,
-        material: str,
-        quantity: int = 5,
-        subject_public_id: str | None = None,
-        source_document: str | None = None,
-        source_page: int | None = None,
-    ) -> GenerationResult:
-        """Gera cartões a partir de um material, conferindo cada citação.
+    async def generate_candidates(self, *, material: str, quantity: int = 5) -> CandidateBatch:
+        """Chama o modelo e devolve só os cartões com citação conferida.
 
         Cartão cuja citação não aparece literalmente no material é **descartado**,
         não salvo com aviso: um verso sem base entraria na repetição espaçada e
         seria memorizado por insistência.
+
+        Nada é gravado aqui. Quem grava decide onde o cartão entra — baralho do
+        candidato ou baralho oficial —, e as duas portas usam esta mesma peneira.
         """
         text = material.strip()
-        if len(text) < 80:
+        if len(text) < MIN_MATERIAL_CHARS:
             raise ValidationError(
                 "O material é curto demais para gerar cartões.", code="material_too_short"
             )
@@ -326,8 +350,8 @@ class FlashcardService:
             )
 
         haystack = normalize_for_match(text)
-        created: list[Flashcard] = []
-        discarded: list[str] = []
+        aprovados: list[CardDraft] = []
+        descartados: list[str] = []
 
         for item in (payload.get("cards") or [])[:wanted]:
             if not isinstance(item, dict):
@@ -339,22 +363,55 @@ class FlashcardService:
                 continue
 
             if len(quote) < MIN_QUOTE_LENGTH or normalize_for_match(quote) not in haystack:
-                discarded.append(front[:120])
+                descartados.append(front[:120])
                 continue
 
+            hint = item.get("hint")
+            aprovados.append(
+                CardDraft(
+                    front=front,
+                    back=back,
+                    hint=str(hint).strip() if hint else None,
+                    quote=quote,
+                )
+            )
+
+        return CandidateBatch(
+            cards=aprovados,
+            discarded=descartados,
+            skipped_reason=payload.get("skipped_reason"),
+            model_slug=resolved.model_slug,
+            prompt_version=version,
+        )
+
+    async def generate(
+        self,
+        user: User,
+        *,
+        material: str,
+        quantity: int = 5,
+        subject_public_id: str | None = None,
+        source_document: str | None = None,
+        source_page: int | None = None,
+    ) -> GenerationResult:
+        """Gera cartões no baralho do candidato, conferindo cada citação."""
+        batch = await self.generate_candidates(material=material, quantity=quantity)
+
+        created: list[Flashcard] = []
+        for draft in batch.cards:
             try:
                 card = await self.create(
                     user,
-                    front=front,
-                    back=back,
-                    hint=item.get("hint"),
+                    front=draft.front,
+                    back=draft.back,
+                    hint=draft.hint,
                     subject_public_id=subject_public_id,
                     origin=CardOrigin.AI,
-                    source_quote=quote,
+                    source_quote=draft.quote,
                     source_page=source_page,
                     source_document=source_document,
-                    model_slug=resolved.model_slug,
-                    prompt_version=version,
+                    model_slug=batch.model_slug,
+                    prompt_version=batch.prompt_version,
                 )
             except ConflictError:
                 # Cartão repetido não é erro de geração: já existe no baralho.
@@ -365,12 +422,12 @@ class FlashcardService:
             "flashcards.generated",
             user=user.public_id,
             created=len(created),
-            discarded=len(discarded),
+            discarded=len(batch.discarded),
         )
         return GenerationResult(
             created=created,
-            discarded=discarded,
-            skipped_reason=payload.get("skipped_reason"),
-            model=resolved.model_slug,
-            prompt_version=version,
+            discarded=batch.discarded,
+            skipped_reason=batch.skipped_reason,
+            model=batch.model_slug,
+            prompt_version=batch.prompt_version,
         )

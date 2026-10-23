@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BookMarked,
+  BookOpenCheck,
   Brain,
   Briefcase,
   CalendarDays,
@@ -58,6 +59,7 @@ export const navigation: NavGroup[] = [
       { label: 'Questões', to: '/questoes', icon: Target },
       { label: 'Simulados', to: '/simulados', icon: ClipboardList },
       { label: 'Flashcards', to: '/flashcards', icon: Layers },
+      { label: 'Baralhos oficiais', to: '/baralhos-oficiais', icon: BookOpenCheck },
       { label: 'Dia de treinamento', to: '/treinamentos', icon: Theater },
       { label: 'Mapas mentais', to: '/mapas-mentais', icon: Map },
       { label: 'Árvore do edital', to: '/arvore-do-conhecimento', icon: TreePine },

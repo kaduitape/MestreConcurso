@@ -110,6 +110,11 @@ const PublicCardPage = lazy(() =>
 const DeckPage = lazy(() =>
   import('@/features/flashcards/deck-page').then((module) => ({ default: module.DeckPage })),
 )
+const OfficialDecksPage = lazy(() =>
+  import('@/features/flashcards/official-decks-page').then((module) => ({
+    default: module.OfficialDecksPage,
+  })),
+)
 const ReviewPage = lazy(() =>
   import('@/features/flashcards/review-page').then((module) => ({
     default: module.ReviewPage,
@@ -213,6 +218,7 @@ export const router = createBrowserRouter([
           { path: '/mestre-ia', element: lazyRoute(<TutorPage />) },
           { path: '/vocabulario', element: lazyRoute(<VocabularyPage />) },
           { path: '/flashcards', element: lazyRoute(<DeckPage />) },
+          { path: '/baralhos-oficiais', element: lazyRoute(<OfficialDecksPage />) },
           { path: '/revisao', element: lazyRoute(<ReviewPage />) },
           { path: '/missoes', element: lazyRoute(<MissionsPage />) },
           { path: '/progresso', element: lazyRoute(<GameProfilePage />) },

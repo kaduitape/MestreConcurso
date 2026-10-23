@@ -44,6 +44,12 @@ from app.models.catalog import (
     Topic,
 )
 from app.models.content_audit import ContentAudit, ContentAuditRule
+from app.models.deck import (
+    DeckSourceKind,
+    DeckStatus,
+    DeckSubscription,
+    OfficialDeck,
+)
 from app.models.document import (
     Document,
     DocumentChunk,
@@ -172,6 +178,9 @@ __all__ = [
     "Conversation",
     "Coupon",
     "CouponRedemption",
+    "DeckSourceKind",
+    "DeckStatus",
+    "DeckSubscription",
     "Document",
     "DocumentChunk",
     "DocumentKind",
@@ -215,6 +224,7 @@ __all__ = [
     "NoticeStatus",
     "NoticeSubject",
     "NoticeTopic",
+    "OfficialDeck",
     "Organization",
     "Payment",
     "PaymentProviderConfig",

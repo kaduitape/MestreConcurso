@@ -191,7 +191,7 @@ async def test_an_unbuilt_agent_consumes_no_attempt(
     o agente que rodou e não achou o que fazer gasta tentativa; o que nem
     existe, não.
 
-    O exemplo de agente não construído é a memorização, que depende do
+    O exemplo de agente não construído é o mestre de batalhas, que depende do
     Professor. A dependência é concluída à mão aqui justamente para que o pulo
     seja por **não existir**, e não por dependência: são motivos diferentes, e
     é a diferença que este teste cobra.
@@ -218,16 +218,16 @@ async def test_an_unbuilt_agent_consumes_no_attempt(
 
     body = (
         await client.post(
-            f"/api/v1/admin/agents/{run['public_id']}/run/{AgentKey.MEMORY}",
+            f"/api/v1/admin/agents/{run['public_id']}/run/{AgentKey.BATTLE_MASTER}",
             headers=admin.auth_header,
         )
     ).json()
 
-    memorizacao = _step(body, AgentKey.MEMORY)
-    assert memorizacao["status"] == "SKIPPED"
-    assert memorizacao["attempts"] == 0
-    assert memorizacao["is_implemented"] is False
-    assert "baralho oficial" in memorizacao["detail"]
+    batalhas = _step(body, AgentKey.BATTLE_MASTER)
+    assert batalhas["status"] == "SKIPPED"
+    assert batalhas["attempts"] == 0
+    assert batalhas["is_implemented"] is False
+    assert "gabarito" in batalhas["detail"]
 
 
 async def test_the_improvements_analyst_runs_and_declares_what_it_could_not_see(

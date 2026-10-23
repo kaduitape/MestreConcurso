@@ -29,6 +29,14 @@ class FlashcardRead(BaseModel):
     source_document: str | None = None
     model_slug: str | None = None
     is_owned: bool = True
+    #: Cartão de baralho oficial. A interface mostra o selo OFICIAL junto do
+    #: selo de origem: um cartão oficial **gerado por IA** continua dizendo que
+    #: foi gerado por IA.
+    is_official: bool = False
+    deck_title: str | None = None
+    #: Falso quando a curadoria tirou o cartão de circulação. Candidato nunca
+    #: recebe cartão inativo; a tela de curadoria precisa vê-lo para devolvê-lo.
+    is_active: bool = True
     created_at: datetime
 
 

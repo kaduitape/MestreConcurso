@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError
@@ -49,6 +49,8 @@ from app.domain.content_audit import (
 )
 from app.models.audit import AuditAction
 from app.models.content_audit import ContentAudit, ContentAuditRule
+from app.models.deck import DeckSourceKind, OfficialDeck
+from app.models.flashcard import Flashcard
 from app.models.mindmap import MindMap
 from app.models.notice import Notice
 from app.models.notice_analysis import NoticeSubject, NoticeTopic
@@ -453,6 +455,34 @@ class ContentAuditService:
             self._refuse(record)
         return record
 
+    async def gate_deck(self, deck: OfficialDeck, *, actor: User, cards: int) -> ContentAudit:
+        """O portão do baralho oficial, na publicação.
+
+        ``human_reviewed`` é verdadeiro porque quem publica é uma pessoa — e é
+        exatamente isso que a regra de "IA sem conferência humana" cobra. O
+        baralho não tem concurso: ele se liga ao tópico, como o mapa mental, e
+        por isso a conferência de "tópico fora do edital" sai como **não
+        verificada** em vez de inventar um edital de referência.
+        """
+        record = await self.audit_material_row(
+            kind=TargetKind.FLASHCARD_DECK,
+            public_id=deck.public_id,
+            title=deck.title,
+            body_count=cards,
+            subject_id=deck.subject_id,
+            topic_id=deck.topic_id,
+            generated_by_ai=deck.source_kind != DeckSourceKind.EDITORIAL,
+            human_reviewed=True,
+            competition_id=None,
+            trigger=Trigger.PUBLISH,
+            actor=actor,
+            durable=True,
+        )
+        if record.verdict == Verdict.BLOCKED:
+            logger.warning("content_audit.blocked", target=record.target_public_id)
+            self._refuse(record)
+        return record
+
     async def gate_mind_map(self, mind_map: MindMap, *, actor: User) -> ContentAudit:
         record = await self.audit_material_row(
             kind=TargetKind.MIND_MAP,
@@ -489,8 +519,6 @@ class ContentAuditService:
     async def history(
         self, *, target_kind: str | None, target_public_id: str | None, limit: int, offset: int
     ) -> tuple[list[ContentAudit], int]:
-        from sqlalchemy import func
-
         # Ordena por id: dois laudos no mesmo segundo empatariam por created_at,
         # e o histórico precisa mostrar a ordem real dos fatos.
         base = select(ContentAudit).order_by(ContentAudit.id.desc())
@@ -556,6 +584,36 @@ class ContentAuditService:
                 topic_id=mapa.topic_id,
                 generated_by_ai=mapa.generated_at is not None,
                 human_reviewed=mapa.published_at is not None,
+                competition_id=None,
+                trigger=Trigger.MANUAL,
+                actor=actor,
+            )
+        elif kind == TargetKind.FLASHCARD_DECK:
+            baralho = (
+                await self.session.execute(
+                    select(OfficialDeck).where(OfficialDeck.public_id == public_id)
+                )
+            ).scalar_one_or_none()
+            if baralho is None:
+                raise NotFoundError("Baralho não encontrado.")
+            ativos = (
+                await self.session.execute(
+                    select(func.count())
+                    .select_from(Flashcard)
+                    .where(Flashcard.deck_id == baralho.id, Flashcard.is_active.is_(True))
+                )
+            ).scalar_one()
+            record = await self.audit_material_row(
+                kind=TargetKind.FLASHCARD_DECK,
+                public_id=baralho.public_id,
+                title=baralho.title,
+                body_count=int(ativos),
+                subject_id=baralho.subject_id,
+                topic_id=baralho.topic_id,
+                generated_by_ai=baralho.source_kind != DeckSourceKind.EDITORIAL,
+                # Aqui é conferência avulsa, não publicação: o revisado é o que
+                # o estado diz, não o que a ação pede.
+                human_reviewed=baralho.published_at is not None,
                 competition_id=None,
                 trigger=Trigger.MANUAL,
                 actor=actor,

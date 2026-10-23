@@ -285,3 +285,49 @@ def test_severity_can_be_lowered_without_touching_the_code() -> None:
 
     assert verdict_of(findings) == Verdict.WARNED
     assert blockers(findings) == []
+
+
+def test_an_official_deck_without_an_active_card_is_blocked() -> None:
+    """A regra de corpo vazio passou a valer para o baralho — com o nome certo.
+
+    "Conteúdo sem corpo" não diz nada a quem cura cartão. A mensagem precisa
+    falar de cartão, como falava de cena para a aula e de painel para o mapa.
+    """
+    baralho = AuditableMaterial(
+        public_id="deck1",
+        kind=TargetKind.FLASHCARD_DECK,
+        title="Crase",
+        body_count=0,
+        subject_id=1,
+        topic_id=2,
+        generated_by_ai=True,
+        human_reviewed=True,
+        topic_in_notice=True,
+    )
+
+    findings = audit_material(baralho)
+
+    vazio = [item for item in findings if item.rule == RuleKey.BODY_EMPTY]
+    assert len(vazio) == 1
+    assert "cartão" in vazio[0].message
+    assert verdict_of(findings) == Verdict.BLOCKED
+
+
+def test_an_official_deck_of_ai_cards_needs_a_person_before_publishing() -> None:
+    """O portão que impede baralho de IA de chegar a candidato sem conferência."""
+    sem_revisao = AuditableMaterial(
+        public_id="deck2",
+        kind=TargetKind.FLASHCARD_DECK,
+        title="Crase",
+        body_count=5,
+        subject_id=1,
+        topic_id=2,
+        generated_by_ai=True,
+        human_reviewed=False,
+        topic_in_notice=True,
+    )
+
+    findings = audit_material(sem_revisao)
+
+    assert any(item.rule == RuleKey.AI_WITHOUT_HUMAN_REVIEW for item in findings)
+    assert verdict_of(findings) == Verdict.BLOCKED

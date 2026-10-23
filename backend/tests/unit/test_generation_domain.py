@@ -10,6 +10,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from app.domain.generation import (
+    FEATURE_OF,
     CostSample,
     Decision,
     ExistingContent,
@@ -206,3 +207,34 @@ def test_a_plan_with_a_blocked_item_is_not_running_forever() -> None:
     """Barrado pelo teto é desfecho, não espera: o plano termina e diz o que faltou."""
     assert plan_status([ItemStatus.DONE, ItemStatus.BUDGET_BLOCKED]) == PlanStatus.DONE
     assert plan_status([ItemStatus.DONE, ItemStatus.PENDING]) == PlanStatus.RUNNING
+
+
+# --------------------------------------------------------------------------- #
+# Tipos de conteúdo
+# --------------------------------------------------------------------------- #
+def test_every_kind_declares_which_feature_it_spends() -> None:
+    """Tipo sem funcionalidade declarada quebraria o teto e a estimativa.
+
+    O mapa é consultado para procurar o custo medido e para consultar o
+    orçamento. Um tipo novo que não aparecesse aqui geraria sem passar por
+    nenhum dos dois — e o estouro só apareceria na fatura.
+    """
+    assert {kind.value for kind in GenerationKind} == set(FEATURE_OF)
+    assert FEATURE_OF[GenerationKind.FLASHCARD_DECK] == "flashcard.generation"
+
+
+def test_missing_material_is_counted_apart_from_failure() -> None:
+    """ "Sem material conferido" e "falhou" mandam a curadoria a lugares diferentes.
+
+    No primeiro caso falta publicar uma aula; no segundo, algo quebrou. Somar os
+    dois num contador só faria o painel pedir investigação onde não há defeito.
+    """
+    progresso = summarize(
+        [ItemStatus.DONE, ItemStatus.NO_SOURCE, ItemStatus.NO_SOURCE, ItemStatus.FAILED]
+    )
+
+    assert progresso.no_source == 2
+    assert progresso.failed == 1
+    assert progresso.pending == 0
+    # E item sem material não deixa o plano eternamente rodando.
+    assert plan_status([ItemStatus.DONE, ItemStatus.NO_SOURCE]) == PlanStatus.DONE

@@ -109,12 +109,17 @@ def test_a_new_run_starts_with_everything_pending() -> None:
 
 
 def test_an_unimplemented_agent_already_carries_its_reason() -> None:
-    """E o motivo diz o que falta, não só que falta."""
-    passos = {step.key: step for step in initial_steps()}
-    memorizacao = passos[AgentKey.MEMORY]
+    """E o motivo diz o que falta, não só que falta.
 
-    assert memorizacao.is_implemented is False
-    assert memorizacao.detail and "baralho oficial" in memorizacao.detail
+    O exemplo mudou duas vezes conforme os agentes foram sendo construídos — e
+    é isso que este teste protege: quem sobra declarado precisa continuar
+    trazendo o motivo escrito, e não um rótulo genérico de "não implementado".
+    """
+    passos = {step.key: step for step in initial_steps()}
+    batalhas = passos[AgentKey.BATTLE_MASTER]
+
+    assert batalhas.is_implemented is False
+    assert batalhas.detail and "gabarito" in batalhas.detail
 
 
 def test_the_auditor_does_not_wait_for_agents_that_do_not_exist() -> None:

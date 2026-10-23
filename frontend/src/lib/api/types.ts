@@ -1193,7 +1193,63 @@ export interface Flashcard {
   source_document: string | null
   model_slug: string | null
   is_owned: boolean
+  /**
+   * Cartão de baralho oficial. O selo OFICIAL soma-se ao de origem: um cartão
+   * oficial gerado por IA continua dizendo que foi gerado por IA.
+   */
+  is_official: boolean
+  deck_title: string | null
+  /** Falso quando a curadoria tirou o cartão de circulação. */
+  is_active: boolean
   created_at: string
+}
+
+export type DeckStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+
+export type DeckSourceKind = 'EDITORIAL' | 'LESSON' | 'NOTICE' | 'MATERIAL'
+
+export interface OfficialDeck {
+  public_id: string
+  title: string
+  description: string | null
+  status: DeckStatus
+  source_kind: DeckSourceKind
+  source_ref: string | null
+  topic_public_id: string | null
+  topic_name: string | null
+  subject_name: string | null
+  /** Contagens derivadas dos cartões e das assinaturas, nunca acumuladas. */
+  active_cards: number
+  inactive_cards: number
+  ai_cards: number
+  subscribers: number
+  is_subscribed: boolean
+  published_at: string | null
+  created_at: string
+}
+
+export interface OfficialDeckCards {
+  deck: OfficialDeck
+  cards: Flashcard[]
+}
+
+export interface DeckCatalogue {
+  items: OfficialDeck[]
+  total: number
+  /** De onde vem a lista, em português — inclusive quando falta concurso principal. */
+  scope: string
+  competition_name: string | null
+}
+
+export interface DeckGeneration {
+  created: Flashcard[]
+  /** Cartões descartados por citação não conferida. */
+  discarded: string[]
+  /** Cartões iguais a um que o baralho já tinha, inclusive desativado. */
+  duplicated: number
+  skipped_reason: string | null
+  model: string | null
+  prompt_version: string | null
 }
 
 export interface CardMemoryState {
@@ -2555,7 +2611,14 @@ export interface AuditRuleInput {
 export type GenerationPlanStatus = 'DRAFT' | 'CONFIRMED' | 'RUNNING' | 'DONE' | 'CANCELED'
 
 export type GenerationItemStatus =
-  'PENDING' | 'DONE' | 'REUSED' | 'FAILED' | 'BUDGET_BLOCKED' | 'CANCELED'
+  | 'PENDING'
+  | 'DONE'
+  | 'REUSED'
+  | 'FAILED'
+  | 'BUDGET_BLOCKED'
+  | 'CANCELED'
+  /** Não rodou por falta de material conferível — ausência de insumo, não falha. */
+  | 'NO_SOURCE'
 
 export interface GenerationItem {
   topic_name: string

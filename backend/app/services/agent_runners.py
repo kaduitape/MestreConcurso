@@ -5,7 +5,7 @@ que têm implementação de verdade — e isso é deliberado: registrar um agent
 não faz nada o deixaria **verde** na tela de acompanhamento, que é pior do que
 deixá-lo pulado. Pulado traz o motivo escrito; verde mente.
 
-Os cinco registrados reutilizam serviços que já estavam em produção:
+Os sete registrados reutilizam serviços que já estavam em produção:
 
 * **Analista de editais** → o pipeline de análise, com suas sete etapas e a
   conferência de cada citação no PDF.
@@ -16,13 +16,19 @@ Os cinco registrados reutilizam serviços que já estavam em produção:
 * **Auditor de qualidade** → o portão de regras determinísticas, que varre o
   conteúdo publicado do concurso e declara o próprio alcance.
 * **Professor** → os planos de geração em massa **já confirmados por uma
-  pessoa**. O agente executa; quem autoriza o gasto é gente.
+  pessoa**, nos tipos dele: aula e mapa mental. O agente executa; quem autoriza
+  o gasto é gente.
+* **Memorização** → os mesmos planos, no tipo baralho de flashcards, montando
+  rascunho a partir de aula **publicada**. Sem material conferido ele não gera,
+  e diz isso no lugar de gerar do rascunho.
 
 O orquestrador não refaz o trabalho deles. Ele os chama na ordem certa e
 registra o que aconteceu.
 """
 
 from __future__ import annotations
+
+from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -229,46 +235,55 @@ async def run_auditor(session: AsyncSession, run: AgentRun) -> AgentOutcome:
     )
 
 
-async def run_teacher(session: AsyncSession, run: AgentRun) -> AgentOutcome:
-    """Executa os planos de geração confirmados deste concurso.
+@dataclass(frozen=True, slots=True)
+class PlanPass:
+    """O que uma passada sobre os planos confirmados produziu."""
 
-    O agente **não confirma plano**. Montar o plano mostra a estimativa, e
-    disparar centenas de chamadas de IA é decisão de uma pessoa — se o agente
-    pudesse confirmar sozinho, a confirmação não valeria nada.
+    generated: int = 0
+    reused: int = 0
+    failed: int = 0
+    blocked: int = 0
+    remaining: int = 0
+    no_source: int = 0
+    plans: int = 0
+
+
+async def _run_confirmed_plans(
+    session: AsyncSession, run: AgentRun, *, kinds: tuple[str, ...]
+) -> PlanPass:
+    """Roda os planos confirmados do concurso, só nos tipos pedidos.
+
+    O filtro por tipo é o que mantém a fronteira entre os agentes honesta: o
+    Professor executa aula e mapa mental, a Memorização executa baralho. Sem
+    ele, o primeiro a rodar levaria o crédito pelo trabalho do outro na tela de
+    acompanhamento.
     """
     from app.domain.generation import PlanStatus
-    from app.models.generation import GenerationPlan
+    from app.models.generation import GenerationItem, GenerationPlan
     from app.models.user import User as UserModel
     from app.services.auth import RequestContext
     from app.services.generation import GenerationService
 
-    if run.competition_id is None:
-        return AgentOutcome(detail="A execução não está ligada a um concurso.", skipped=True)
-
     planos = list(
         (
             await session.execute(
-                select(GenerationPlan).where(
+                select(GenerationPlan)
+                .where(
                     GenerationPlan.competition_id == run.competition_id,
                     GenerationPlan.status.in_([PlanStatus.CONFIRMED, PlanStatus.RUNNING]),
+                    GenerationPlan.id.in_(
+                        select(GenerationItem.plan_id).where(GenerationItem.kind.in_(kinds))
+                    ),
                 )
+                .order_by(GenerationPlan.id)
             )
         )
         .scalars()
         .all()
     )
-    if not planos:
-        return AgentOutcome(
-            detail=(
-                "Não há plano de geração confirmado para este concurso. "
-                "Monte o plano no painel, confira a estimativa e confirme — "
-                "o agente executa, mas não autoriza o gasto."
-            ),
-            skipped=True,
-        )
 
     service = GenerationService(session)
-    gerados = reaproveitados = falhos = barrados = restantes = 0
+    resultado = PlanPass(plans=len(planos))
     for plano in planos:
         actor = (
             await session.execute(
@@ -277,30 +292,121 @@ async def run_teacher(session: AsyncSession, run: AgentRun) -> AgentOutcome:
         ).scalar_one_or_none()
         if actor is None:
             continue
-        resultado = await service.run(plano, actor, RequestContext())
-        gerados += resultado.generated
-        reaproveitados += resultado.reused
-        falhos += resultado.failed
-        barrados += resultado.blocked
-        restantes += resultado.remaining
+        passada = await service.run(plano, actor, RequestContext(), kinds=kinds)
+        resultado = PlanPass(
+            generated=resultado.generated + passada.generated,
+            reused=resultado.reused + passada.reused,
+            failed=resultado.failed + passada.failed,
+            blocked=resultado.blocked + passada.blocked,
+            remaining=resultado.remaining + passada.remaining,
+            no_source=resultado.no_source + passada.no_source,
+            plans=resultado.plans,
+        )
+    return resultado
+
+
+async def run_teacher(session: AsyncSession, run: AgentRun) -> AgentOutcome:
+    """Executa os planos de geração confirmados deste concurso: aulas e mapas.
+
+    O agente **não confirma plano**. Montar o plano mostra a estimativa, e
+    disparar centenas de chamadas de IA é decisão de uma pessoa — se o agente
+    pudesse confirmar sozinho, a confirmação não valeria nada.
+    """
+    from app.domain.generation import GenerationKind
+
+    if run.competition_id is None:
+        return AgentOutcome(detail="A execução não está ligada a um concurso.", skipped=True)
+
+    tipos = (GenerationKind.TRAINING_LESSON, GenerationKind.MIND_MAP)
+    passada = await _run_confirmed_plans(session, run, kinds=tipos)
+    if passada.plans == 0:
+        return AgentOutcome(
+            detail=(
+                "Não há plano de geração confirmado com aula ou mapa mental para "
+                "este concurso. Monte o plano no painel, confira a estimativa e "
+                "confirme — o agente executa, mas não autoriza o gasto."
+            ),
+            skipped=True,
+        )
 
     detalhe = (
-        f"{gerados} rascunhos gerados, {reaproveitados} tópicos reaproveitados e {falhos} falhas."
+        f"{passada.generated} rascunhos gerados, {passada.reused} tópicos reaproveitados "
+        f"e {passada.failed} falhas."
     )
-    if barrados:
-        detalhe += f" {barrados} itens barrados pelo teto de gasto."
-    if restantes:
-        detalhe += f" {restantes} itens continuam na fila para a próxima passada."
+    if passada.blocked:
+        detalhe += f" {passada.blocked} itens barrados pelo teto de gasto."
+    if passada.remaining:
+        detalhe += f" {passada.remaining} itens continuam na fila para a próxima passada."
     detalhe += " Nada foi publicado: rascunho de IA espera conferência humana."
 
     return AgentOutcome(
         detail=detalhe,
         result={
-            "generated": gerados,
-            "reused": reaproveitados,
-            "failed": falhos,
-            "blocked": barrados,
-            "remaining": restantes,
+            "generated": passada.generated,
+            "reused": passada.reused,
+            "failed": passada.failed,
+            "blocked": passada.blocked,
+            "remaining": passada.remaining,
+        },
+    )
+
+
+async def run_memory(session: AsyncSession, run: AgentRun) -> AgentOutcome:
+    """Monta os baralhos oficiais dos tópicos, em rascunho, a partir de aula publicada.
+
+    Duas regras do desenho aparecem no resultado deste agente, e nenhuma das
+    duas é rodapé:
+
+    *Cartão não nasce de rascunho.* O baralho é gerado do texto de uma aula
+    **publicada** — material que uma pessoa já conferiu. Tópico cuja aula ainda
+    é rascunho fica sem baralho, com o motivo escrito, e não vira falha.
+
+    *Nenhum baralho é publicado aqui.* Ele fica em rascunho, invisível para
+    candidato, esperando curadoria. Publicar é ação de pessoa, e passa pelo
+    portão da Fase 3.
+    """
+    from app.domain.generation import GenerationKind
+
+    if run.competition_id is None:
+        return AgentOutcome(detail="A execução não está ligada a um concurso.", skipped=True)
+
+    passada = await _run_confirmed_plans(session, run, kinds=(GenerationKind.FLASHCARD_DECK,))
+    if passada.plans == 0:
+        return AgentOutcome(
+            detail=(
+                "Não há plano de geração confirmado com baralho de flashcards para "
+                "este concurso. Inclua o tipo no plano, confira a estimativa e "
+                "confirme — o agente executa, mas não autoriza o gasto."
+            ),
+            skipped=True,
+        )
+
+    detalhe = (
+        f"{passada.generated} baralho(s) montado(s) em rascunho, "
+        f"{passada.reused} tópico(s) que já tinham baralho e {passada.failed} falha(s)."
+    )
+    if passada.no_source:
+        # Sem aula publicada não há cartão, e isto é resultado, não nota de pé
+        # de página: é o que a curadoria precisa resolver para o agente render.
+        detalhe += (
+            f" {passada.no_source} tópico(s) sem material conferido: o cartão oficial "
+            "não nasce de rascunho de aula."
+        )
+    if passada.blocked:
+        detalhe += f" {passada.blocked} itens barrados pelo teto de gasto."
+    if passada.remaining:
+        detalhe += f" {passada.remaining} itens continuam na fila para a próxima passada."
+    detalhe += " Nenhum baralho foi publicado: rascunho espera conferência humana."
+
+    return AgentOutcome(
+        detail=detalhe,
+        result={
+            "generated": passada.generated,
+            "reused": passada.reused,
+            "failed": passada.failed,
+            "blocked": passada.blocked,
+            "remaining": passada.remaining,
+            "no_source": passada.no_source,
         },
     )
 
@@ -362,10 +468,10 @@ async def run_improvements(session: AsyncSession, run: AgentRun) -> AgentOutcome
 def register_default_agents() -> None:
     """Liga as chaves do catálogo às implementações reais.
 
-    Só estes seis — e são exatamente os seis que o catálogo declara como
-    construídos. Os outros dois continuam declarados e pulados com o motivo que
-    o catálogo traz: memorização não tem onde guardar baralho oficial e mestre
-    de batalhas depende de uma geração de questões que ainda não existe.
+    Só estes sete — e são exatamente os sete que o catálogo declara como
+    construídos. O oitavo continua declarado e pulado com o motivo que o
+    catálogo traz: mestre de batalhas depende de uma geração de questões, com
+    validação de gabarito, que a plataforma ainda não tem.
 
     Catálogo e registro precisam contar a mesma história. Um agente declarado
     como construído sem implementação registrada seria pulado dizendo "ainda
@@ -376,6 +482,7 @@ def register_default_agents() -> None:
     registry.register(AgentKey.TUTOR, run_tutor)
     registry.register(AgentKey.AUDITOR, run_auditor)
     registry.register(AgentKey.TEACHER, run_teacher)
+    registry.register(AgentKey.MEMORY, run_memory)
     registry.register(AgentKey.IMPROVEMENTS, run_improvements)
 
 

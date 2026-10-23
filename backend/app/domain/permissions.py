@@ -46,6 +46,8 @@ TRAINING_READ = "training:read"
 TRAINING_WRITE = "training:write"
 CONTENT_AUDIT_READ = "content_audit:read"
 CONTENT_AUDIT_WRITE = "content_audit:write"
+DECKS_READ = "decks:read"
+DECKS_WRITE = "decks:write"
 IMPROVEMENTS_READ = "improvements:read"
 IMPROVEMENTS_WRITE = "improvements:write"
 
@@ -77,6 +79,11 @@ PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec(
         CONTENT_AUDIT_WRITE,
         "Rodar auditorias e configurar as regras que barram publicação",
+    ),
+    PermissionSpec(DECKS_READ, "Consultar os baralhos oficiais de flashcards"),
+    PermissionSpec(
+        DECKS_WRITE,
+        "Criar, gerar, curar, publicar e arquivar baralhos oficiais de flashcards",
     ),
     PermissionSpec(IMPROVEMENTS_READ, "Ver os achados do analista de melhorias"),
     PermissionSpec(
@@ -125,6 +132,10 @@ ROLES: tuple[RoleSpec, ...] = (
             BILLING_READ,
             TRAINING_READ,
             TRAINING_WRITE,
+            # Curadoria de baralho oficial é trabalho da equipe, e publicar um
+            # baralho é o que o portão da Fase 3 confere de todo jeito.
+            DECKS_READ,
+            DECKS_WRITE,
             # A equipe precisa ver por que a publicação foi barrada; desligar
             # uma regra de bloqueio continua sendo decisão de administrador.
             CONTENT_AUDIT_READ,

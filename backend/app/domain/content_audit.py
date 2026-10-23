@@ -51,6 +51,7 @@ class TargetKind(StrEnum):
     QUESTION = "QUESTION"
     TRAINING_LESSON = "TRAINING_LESSON"
     MIND_MAP = "MIND_MAP"
+    FLASHCARD_DECK = "FLASHCARD_DECK"
 
 
 class RuleKey(StrEnum):
@@ -78,7 +79,12 @@ class RuleSpec:
     config: Mapping[str, Any] = field(default_factory=dict)
 
 
-_TODOS = (TargetKind.QUESTION, TargetKind.TRAINING_LESSON, TargetKind.MIND_MAP)
+_TODOS = (
+    TargetKind.QUESTION,
+    TargetKind.TRAINING_LESSON,
+    TargetKind.MIND_MAP,
+    TargetKind.FLASHCARD_DECK,
+)
 
 RULES: tuple[RuleSpec, ...] = (
     RuleSpec(
@@ -149,9 +155,9 @@ RULES: tuple[RuleSpec, ...] = (
     RuleSpec(
         RuleKey.BODY_EMPTY,
         "Conteúdo vazio",
-        "Aula sem cena ou mapa sem painel.",
+        "Aula sem cena, mapa sem painel ou baralho sem cartão.",
         Severity.BLOCKER,
-        (TargetKind.TRAINING_LESSON, TargetKind.MIND_MAP),
+        (TargetKind.TRAINING_LESSON, TargetKind.MIND_MAP, TargetKind.FLASHCARD_DECK),
     ),
 )
 
@@ -433,6 +439,15 @@ def audit_question(
     return findings
 
 
+#: O corpo vazio tem nome diferente em cada tipo, e dizer "corpo" para quem cura
+#: não ajuda ninguém a entender o que falta.
+_EMPTY_MESSAGE: Mapping[str, str] = {
+    TargetKind.MIND_MAP: "Mapa sem painel não vai para quem estuda.",
+    TargetKind.TRAINING_LESSON: "Aula sem cena não vai para quem estuda.",
+    TargetKind.FLASHCARD_DECK: "Baralho sem cartão ativo não vai para quem estuda.",
+}
+
+
 def audit_material(
     material: AuditableMaterial, settings: Mapping[str, RuleSetting] | None = None
 ) -> list[Finding]:
@@ -445,10 +460,8 @@ def audit_material(
             Finding(
                 rule=vazio.key,
                 severity=vazio.severity,
-                message=(
-                    "Mapa sem painel não vai para quem estuda."
-                    if material.kind == TargetKind.MIND_MAP
-                    else "Aula sem cena não vai para quem estuda."
+                message=_EMPTY_MESSAGE.get(
+                    material.kind, "Conteúdo sem corpo não vai para quem estuda."
                 ),
             )
         )
