@@ -9,6 +9,7 @@ from app.api.v1.routers import (
     admin_ai,
     admin_catalog,
     admin_decks,
+    admin_intake,
     admin_notices,
     agents,
     analytics,
@@ -57,6 +58,7 @@ api_router.include_router(improvements.router)
 api_router.include_router(notice_diff.router)
 api_router.include_router(admin_catalog.router)
 api_router.include_router(admin_notices.router)
+api_router.include_router(admin_intake.router)
 api_router.include_router(mindmap.admin_router)
 api_router.include_router(training.admin_router)
 api_router.include_router(notice_analysis.router)

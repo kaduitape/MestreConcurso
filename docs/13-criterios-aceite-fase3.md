@@ -47,3 +47,11 @@
 32. `pytest` verde (171 testes), incluindo pipeline completo com provedor de IA simulado, PDF gerado em memória, Qdrant local e os três caminhos do validador de citação.
 33. `ruff` e `mypy` sem erro; `tsc`, `eslint` e `vitest` (37 testes) verdes no frontend.
 34. Migração da Fase 3 aplica e reverte limpo; `docker compose config` válido com o serviço `qdrant` e a fila `documents` no worker.
+
+---
+
+> **Atualização (out/2026):** este pipeline passou a ter uma segunda entrada. O
+> [cadastro de concurso a partir do edital](42-cadastro-de-concurso-pelo-edital.md) cria o
+> edital, guarda o PDF e chama esta mesma análise — e a ficha do concurso que ele
+> monta é feita dos fatos daqui, com a mesma regra: só citação conferida
+> literalmente chega preenchida.

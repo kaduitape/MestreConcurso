@@ -202,11 +202,7 @@ export interface AIModelRoute {
 }
 
 export type AIRouteOutcome =
-  | 'MATCHED'
-  | 'NOT_MATCHED'
-  | 'NOT_EVALUATED'
-  | 'DISABLED'
-  | 'UNUSABLE'
+  'MATCHED' | 'NOT_MATCHED' | 'NOT_EVALUATED' | 'DISABLED' | 'UNUSABLE'
 
 export interface AIRouteConditionTrace {
   signal: string
@@ -2767,7 +2763,6 @@ export interface NoticeDiff {
   created_at: string
 }
 
-
 // --------------------------------------------------------------------------- //
 // Fase 7 — árvore de conhecimento
 // --------------------------------------------------------------------------- //
@@ -2845,7 +2840,6 @@ export interface KnowledgeTree {
   unavailable_reason: string | null
 }
 
-
 // --------------------------------------------------------------------------- //
 // Agente 8 — analista de melhorias
 // --------------------------------------------------------------------------- //
@@ -2913,4 +2907,88 @@ export interface ImprovementRun {
   resolved: number
   reopened: number
   muted: number
+}
+
+// --------------------------------------------------------------------------
+// Cadastro de concurso por URL
+// --------------------------------------------------------------------------
+export type IntakeStatus =
+  | 'FETCHING'
+  | 'AWAITING_CHOICE'
+  | 'ANALYZING'
+  | 'AWAITING_REVIEW'
+  | 'APPLIED'
+  | 'REJECTED'
+  | 'FAILED'
+
+export interface IntakeCandidate {
+  url: string
+  text: string
+  score: number
+  explanation: string
+}
+
+export interface IntakeGap {
+  code: string
+  label: string
+  detail: string | null
+}
+
+export interface IntakeField {
+  field_path: string
+  label: string
+  value: unknown
+  evidence_level: EvidenceLevel
+  quote: string | null
+  page_number: number | null
+  /** Para onde o campo vai na ficha do concurso, quando vai. */
+  target: string | null
+  /** Para onde ele vai no cargo. Nos dois, num só, ou em nenhum. */
+  position_target: string | null
+  /** `false` quando a evidência não é oficial nem confirmada: chega em branco. */
+  applicable: boolean
+}
+
+export interface IntakeProposal {
+  fields: IntakeField[]
+  applicable: number
+  needs_typing: number
+}
+
+export interface CompetitionIntake {
+  public_id: string
+  source_kind: 'URL' | 'UPLOAD'
+  source_url: string | null
+  source_name: string | null
+  status: IntakeStatus
+  chosen_url: string | null
+  choice_reason: string | null
+  detail: string | null
+  candidates: IntakeCandidate[]
+  proposal: IntakeProposal
+  matches: {
+    organization?: { public_id: string; name: string } | null
+    exam_board?: { public_id: string; name: string } | null
+    competitions?: { public_id: string; name: string; year: number }[]
+  }
+  /** `true` quando o cadastro saiu sem ninguém digitar nada. */
+  auto_applied: boolean
+  /** O que o automático não preencheu. Vazio só quando o edital sustentava tudo. */
+  gaps: IntakeGap[]
+  notice_public_id: string | null
+  competition_public_id: string | null
+  applied_at: string | null
+  created_at: string
+}
+
+export interface IntakeApplyInput {
+  name: string
+  year: number
+  organization_public_id?: string | null
+  organization_name?: string | null
+  organization_short_name?: string | null
+  exam_board_public_id?: string | null
+  fields: Record<string, unknown>
+  /** Os campos do cargo. Sem `name`, nenhum cargo é criado — nem a grade. */
+  position?: Record<string, unknown>
 }

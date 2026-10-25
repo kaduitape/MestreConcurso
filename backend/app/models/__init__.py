@@ -76,6 +76,7 @@ from app.models.game import (
 )
 from app.models.generation import GenerationItem, GenerationPlan
 from app.models.improvement import ImprovementDetectorSetting, ImprovementFinding
+from app.models.intake import CompetitionIntake, IntakeSourceKind, IntakeStatus
 from app.models.intelligence import (
     AnalysisSource,
     BoardProfileMetric,
@@ -171,6 +172,7 @@ __all__ = [
     "CardOrigin",
     "ChatMode",
     "Competition",
+    "CompetitionIntake",
     "CompetitionStatus",
     "ConsentLog",
     "ContentAudit",
@@ -201,6 +203,8 @@ __all__ = [
     "GovernmentSphere",
     "ImprovementDetectorSetting",
     "ImprovementFinding",
+    "IntakeSourceKind",
+    "IntakeStatus",
     "InvoiceLine",
     "KnowledgeSource",
     "MasterScoreSnapshot",

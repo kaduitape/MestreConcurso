@@ -6,6 +6,7 @@ import { SubjectsSection } from './subjects-section'
 import { NoticesSection } from './notices-section'
 import { CatalogLinksSection } from './catalog-links-section'
 import { NoticeDiffSection } from './notice-diff-section'
+import { IntakeSection } from '../intake/intake-section'
 
 export function CatalogSection() {
   return (
@@ -16,6 +17,7 @@ export function CatalogSection() {
         <TabsTrigger value="orgaos">Órgãos</TabsTrigger>
         <TabsTrigger value="disciplinas">Disciplinas</TabsTrigger>
         <TabsTrigger value="editais">Editais</TabsTrigger>
+        <TabsTrigger value="por-edital">Cadastrar pelo edital</TabsTrigger>
         <TabsTrigger value="retificacoes">Retificações</TabsTrigger>
         <TabsTrigger value="vinculos">Vínculos</TabsTrigger>
       </TabsList>
@@ -33,6 +35,9 @@ export function CatalogSection() {
       </TabsContent>
       <TabsContent value="editais">
         <NoticesSection />
+      </TabsContent>
+      <TabsContent value="por-edital">
+        <IntakeSection />
       </TabsContent>
       <TabsContent value="retificacoes">
         <NoticeDiffSection />

@@ -189,3 +189,9 @@ fica em **Questões → ordenação "Fila de revisão"**.
   de LLM existente, e trocar quatro de uma vez impediria de saber qual melhorou.
 - **Julgamento no baralho oficial.** O cartão tem o mesmo problema de gabarito
   que a questão. Entra depois, quando houver calibração para comparar.
+
+---
+
+> **Próxima parte:** [cadastro de concurso a partir do edital](42-cadastro-de-concurso-pelo-edital.md)
+> — sobe o PDF e o concurso sai cadastrado, com o que o edital sustenta por
+> citação conferida e com o que faltou dito item por item.

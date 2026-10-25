@@ -43,6 +43,7 @@ export const queryKeys = {
   adminSubjects: (params: unknown) => ['admin', 'catalog', 'subjects', params] as const,
   adminTopics: (subjectId: string) => ['admin', 'catalog', 'topics', subjectId] as const,
   adminNotices: (params: unknown) => ['admin', 'notices', params] as const,
+  adminIntakes: (params: unknown) => ['admin', 'intakes', params] as const,
   boardKnowledge: (publicId: string) => ['catalog', 'board-knowledge', publicId] as const,
   competitions: (params: unknown) => ['catalog', 'competitions', params] as const,
   competition: (publicId: string) => ['catalog', 'competition', publicId] as const,
