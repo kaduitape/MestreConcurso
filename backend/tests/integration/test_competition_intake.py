@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.base import ProviderCredentials
 from app.models.catalog import Competition, Position, PositionSubject
 from app.models.notice import Notice
-from app.models.notice_analysis import EvidenceLevel
+from app.models.notice_analysis import EvidenceLevel, NoticePosition
 from app.services import intake as intake_service
 from app.services.web_fetch import FetchedResource, FetchRefusedError
 from tests.conftest import CapturingDispatcher
@@ -30,8 +30,8 @@ from tests.factories import (
     create_subject,
     create_user,
 )
-from tests.fake_ai import EXTRACTION_PAYLOAD, FakeProvider
-from tests.pdf_fixtures import build_edital_pdf
+from tests.fake_ai import EXTRACTION_MULTICARGO, EXTRACTION_PAYLOAD, FakeProvider
+from tests.pdf_fixtures import EDITAL_MULTICARGO_PAGES, build_edital_pdf
 
 PAGINA_DO_CONCURSO = """
 <html><body>
@@ -666,3 +666,156 @@ async def test_sem_orgao_conferido_o_automatico_tambem_devolve_a_decisao(
     assert corpo["competition_public_id"] is None
     assert "órgão" in corpo["detail"]
     assert [item["code"] for item in corpo["gaps"]] == ["NO_ORGANIZATION"]
+
+
+# --------------------------------------------------------------------------- #
+# Edital com vários cargos — o caso comum, não a exceção
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def multicargo(monkeypatch: pytest.MonkeyPatch) -> FakeProvider:
+    provider = FakeProvider(completion_payload=EXTRACTION_MULTICARGO)
+
+    def build(slug: str, credentials: ProviderCredentials) -> FakeProvider:
+        provider.credentials = credentials
+        return provider
+
+    from app.services import ai_settings
+
+    monkeypatch.setattr(ai_settings, "build_provider", build)
+    return provider
+
+
+async def test_edital_com_tres_cargos_cadastra_os_tres(
+    client: AsyncClient,
+    emails: CapturingDispatcher,
+    multicargo: FakeProvider,
+    db_session: AsyncSession,
+) -> None:
+    """Cadastrar um e descartar os outros apagaria quem estuda para eles."""
+    admin = await create_admin(client, emails, email="multi1@exemplo.com.br")
+    await configure_ai(client, admin)
+    await create_subject(client, admin, name="Língua Portuguesa")
+    await create_subject(client, admin, name="Direito Administrativo")
+    await create_subject(client, admin, name="Banco de Dados")
+
+    corpo = await _subir(client, admin, pdf=build_edital_pdf(pages=EDITAL_MULTICARGO_PAGES))
+    assert corpo["status"] == "APPLIED", corpo.get("detail")
+
+    concurso = await client.get(
+        f"/api/v1/admin/catalog/competitions/{corpo['competition_public_id']}",
+        headers=admin.auth_header,
+    )
+    assert concurso.status_code == 200, concurso.text
+    cargos = {item["name"]: item for item in concurso.json()["positions"]}
+
+    assert set(cargos) == {
+        "Analista Judiciario - Area Administrativa",
+        "Analista Judiciario - Area de Tecnologia",
+        "Tecnico Judiciario - Area Administrativa",
+    }
+
+    # Cada cargo com os seus próprios números, não os do cargo principal.
+    administrativa = cargos["Analista Judiciario - Area Administrativa"]
+    assert administrativa["education_level"] == "SUPERIOR"
+    assert administrativa["vacancies"] == 150
+    assert administrativa["salary_cents"] == 1399478
+    assert administrativa["workload_hours"] == 40
+
+    tecnologia = cargos["Analista Judiciario - Area de Tecnologia"]
+    assert tecnologia["vacancies"] == 40
+    # Cadastro de reserva não é somado às vagas imediatas.
+    assert tecnologia["cr_vacancies"] == 80
+
+    tecnico = cargos["Tecnico Judiciario - Area Administrativa"]
+    assert tecnico["education_level"] == "MEDIO"
+    assert tecnico["vacancies"] == 300
+    assert tecnico["salary_cents"] == 852965
+
+    # O cargo extraído aponta para o cargo do catálogo — é o que permite a uma
+    # retificação saber qual cargo mudou.
+    extraidos = (
+        (await db_session.execute(select(NoticePosition).order_by(NoticePosition.order_index)))
+        .scalars()
+        .all()
+    )
+    vinculados = [item for item in extraidos if item.position_id is not None]
+    assert len(vinculados) == 3
+
+
+async def test_cada_cargo_recebe_a_grade_comum_mais_a_propria(
+    client: AsyncClient, emails: CapturingDispatcher, multicargo: FakeProvider
+) -> None:
+    """Disciplina sem cargo declarado vale para todos; com cargo, só para ele."""
+    admin = await create_admin(client, emails, email="multi2@exemplo.com.br")
+    await configure_ai(client, admin)
+    await create_subject(client, admin, name="Língua Portuguesa")
+    await create_subject(client, admin, name="Direito Administrativo")
+    await create_subject(client, admin, name="Banco de Dados")
+
+    corpo = await _subir(client, admin, pdf=build_edital_pdf(pages=EDITAL_MULTICARGO_PAGES))
+    concurso = await client.get(
+        f"/api/v1/admin/catalog/competitions/{corpo['competition_public_id']}",
+        headers=admin.auth_header,
+    )
+    grades = {
+        item["name"]: {link["subject"]["name"] for link in item["subjects"]}
+        for item in concurso.json()["positions"]
+    }
+
+    # Português é comum: entra nos três.
+    assert grades["Analista Judiciario - Area Administrativa"] == {
+        "Língua Portuguesa",
+        "Direito Administrativo",
+    }
+    assert grades["Analista Judiciario - Area de Tecnologia"] == {
+        "Língua Portuguesa",
+        "Banco de Dados",
+    }
+    # O técnico só tem a comum: a específica dele não está no catálogo.
+    assert grades["Tecnico Judiciario - Area Administrativa"] == {"Língua Portuguesa"}
+
+    # E a que ficou de fora é nomeada, com o motivo.
+    fora = [item for item in corpo["gaps"] if item["code"] == "SUBJECT_WITHOUT_CATALOG"]
+    assert any("Arquivologia" in item["label"] for item in fora)
+
+
+async def test_cargo_com_citacao_inventada_nao_entra_e_fica_declarado(
+    client: AsyncClient, emails: CapturingDispatcher, multicargo: FakeProvider
+) -> None:
+    """A regra de citação vale para cargo como vale para qualquer outro campo."""
+    admin = await create_admin(client, emails, email="multi3@exemplo.com.br")
+    await configure_ai(client, admin)
+
+    corpo = await _subir(client, admin, pdf=build_edital_pdf(pages=EDITAL_MULTICARGO_PAGES))
+    concurso = await client.get(
+        f"/api/v1/admin/catalog/competitions/{corpo['competition_public_id']}",
+        headers=admin.auth_header,
+    )
+    nomes = {item["name"] for item in concurso.json()["positions"]}
+
+    # "Oficial de Justica" foi afirmado pelo modelo com citação que não existe
+    # no PDF: não virou cargo.
+    assert "Oficial de Justica" not in nomes
+
+    recusados = [item for item in corpo["gaps"] if item["code"] == "POSITION_WITHOUT_EVIDENCE"]
+    assert len(recusados) == 1
+    assert "Oficial de Justica" in recusados[0]["label"]
+    assert "não foi localizada no PDF" in (recusados[0]["detail"] or "")
+
+
+async def test_edital_de_cargo_unico_continua_cadastrando_um(
+    client: AsyncClient, emails: CapturingDispatcher, fake_provider: FakeProvider
+) -> None:
+    """Quem tem um cargo só não ganha cargo nenhum a mais."""
+    admin = await create_admin(client, emails, email="multi4@exemplo.com.br")
+    await configure_ai(client, admin)
+
+    corpo = await _subir(client, admin)
+    concurso = await client.get(
+        f"/api/v1/admin/catalog/competitions/{corpo['competition_public_id']}",
+        headers=admin.auth_header,
+    )
+    cargos = concurso.json()["positions"]
+    assert len(cargos) == 1
+    assert cargos[0]["name"] == "Agente de Polícia"
+    assert cargos[0]["vacancies"] == 1200

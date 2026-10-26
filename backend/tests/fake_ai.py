@@ -181,6 +181,21 @@ EXTRACTION_PAYLOAD: dict[str, Any] = {
             "confidence": 0.9,
         },
     },
+    "positions": [
+        {
+            "name": "Agente de Polícia",
+            "education_level": "SUPERIOR",
+            "salary_cents": 815700,
+            "vacancies": 1200,
+            "cr_vacancies": None,
+            "workload_hours": None,
+            "requirements": "diploma de curso superior em qualquer área",
+            "questions_count": 120,
+            "exam_duration_minutes": 240,
+            "quote": "provimento de 1.200 vagas para o cargo de Agente de Polícia",
+            "page": 1,
+        },
+    ],
     "subjects": [
         {
             "name": "Língua Portuguesa",
@@ -229,6 +244,207 @@ EXTRACTION_PAYLOAD: dict[str, Any] = {
             "is_critical": False,
             "quote": None,
             "page": None,
+        },
+    ],
+}
+
+
+#: Extração de um edital com **três cargos**, que é o caso comum. Um deles tem
+#: cadastro de reserva, e cada um tem uma disciplina específica além da grade
+#: comum — é o que o ``position_label`` das disciplinas amarra.
+EXTRACTION_MULTICARGO: dict[str, Any] = {
+    "fields": {
+        "competition.name": {
+            "value": "Concurso Público para provimento de cargos do TJDFT",
+            "quote": "CONCURSO PÚBLICO PARA PROVIMENTO DE CARGOS DO QUADRO DE PESSOAL",
+            "page": 1,
+            "confidence": 0.9,
+        },
+        "organization.name": {
+            "value": "Tribunal de Justica do Distrito Federal",
+            "quote": "cargos do Tribunal de Justica do Distrito Federal",
+            "page": 1,
+            "confidence": 0.9,
+        },
+        "exam_board.name": {
+            "value": "Cebraspe",
+            "quote": "executado pelo Cebraspe",
+            "page": 1,
+            "confidence": 0.9,
+        },
+        # O cargo principal é o de mais vagas; a lista traz os três.
+        "position.name": {
+            "value": "Tecnico Judiciario - Area Administrativa",
+            "quote": "Tecnico Judiciario - Area Administrativa: 300 vagas",
+            "page": 1,
+            "confidence": 0.9,
+        },
+        "position.education_level": {
+            "value": "MEDIO",
+            "quote": "exigido certificado de conclusao do ensino medio",
+            "page": 1,
+            "confidence": 0.8,
+        },
+        "position.salary_cents": {
+            "value": 852965,
+            "quote": "remuneracao inicial de\nR$ 8.529,65",
+            "page": 1,
+            "confidence": 0.9,
+        },
+        "position.vacancies": {
+            "value": 300,
+            "quote": "Area Administrativa: 300 vagas",
+            "page": 1,
+            "confidence": 0.9,
+        },
+        "registration.start_date": {
+            "value": "2026-02-02",
+            "quote": "As inscrições poderão ser efetuadas de 2 de fevereiro de 2026",
+            "page": 2,
+            "confidence": 0.9,
+        },
+        "registration.end_date": {
+            "value": "2026-03-01",
+            "quote": "a 1 de março de 2026.",
+            "page": 2,
+            "confidence": 0.85,
+        },
+        "registration.fee_cents": {
+            "value": 13000,
+            "quote": "O valor da taxa de inscrição é de R$ 130,00",
+            "page": 2,
+            "confidence": 0.9,
+        },
+        "exam.date": {
+            "value": "2026-04-19",
+            "quote": "A prova objetiva será aplicada no dia 19 de abril de 2026",
+            "page": 2,
+            "confidence": 0.9,
+        },
+        "exam.duration_minutes": {
+            "value": 240,
+            "quote": "com duração de 4 horas",
+            "page": 2,
+            "confidence": 0.85,
+        },
+        "exam.questions_count": {
+            "value": 120,
+            "quote": "cargos de nivel superior tera 120 questoes",
+            "page": 2,
+            "confidence": 0.85,
+        },
+        "exam.min_score_rule": {"value": None, "quote": None, "page": None, "confidence": 0.0},
+        "elimination.rules": {
+            "value": "Eliminado quem obtiver nota inferior a 30% em qualquer bloco",
+            "quote": "Será eliminado o candidato que obtiver nota inferior a 30%",
+            "page": 2,
+            "confidence": 0.9,
+        },
+    },
+    "positions": [
+        {
+            "name": "Analista Judiciario - Area Administrativa",
+            "education_level": "SUPERIOR",
+            "salary_cents": 1399478,
+            "vacancies": 150,
+            "cr_vacancies": None,
+            "workload_hours": 40,
+            "requirements": "diploma de curso superior em qualquer area",
+            "questions_count": 120,
+            "exam_duration_minutes": 240,
+            "quote": "Analista Judiciario - Area Administrativa: 150 vagas",
+            "page": 1,
+        },
+        {
+            "name": "Analista Judiciario - Area de Tecnologia",
+            "education_level": "SUPERIOR",
+            "salary_cents": 1399478,
+            "vacancies": 40,
+            "cr_vacancies": 80,
+            "workload_hours": None,
+            "requirements": "diploma de curso superior em computacao",
+            "questions_count": 120,
+            "exam_duration_minutes": 240,
+            "quote": "Analista Judiciario - Area de Tecnologia: 40 vagas e cadastro de reserva",
+            "page": 1,
+        },
+        {
+            "name": "Tecnico Judiciario - Area Administrativa",
+            "education_level": "MEDIO",
+            "salary_cents": 852965,
+            "vacancies": 300,
+            "cr_vacancies": None,
+            "workload_hours": 40,
+            "requirements": "certificado de conclusao do ensino medio",
+            "questions_count": None,
+            "exam_duration_minutes": 240,
+            "quote": "Tecnico Judiciario - Area Administrativa: 300 vagas",
+            "page": 1,
+        },
+        # Cargo que o modelo afirmou com citação que não existe no PDF: não pode
+        # virar cargo no catálogo, e tem de aparecer declarado.
+        {
+            "name": "Oficial de Justica",
+            "education_level": "SUPERIOR",
+            "salary_cents": None,
+            "vacancies": 10,
+            "cr_vacancies": None,
+            "workload_hours": None,
+            "requirements": None,
+            "questions_count": None,
+            "exam_duration_minutes": None,
+            "quote": "Oficial de Justica: 10 vagas conforme quadro anexo deste edital",
+            "page": 1,
+        },
+    ],
+    "subjects": [
+        {
+            "name": "Língua Portuguesa",
+            "position_label": None,
+            "weight": None,
+            "questions_count": None,
+            "topics": ["Compreensão e interpretação de textos", "Ortografia oficial"],
+            "quote": "LÍNGUA PORTUGUESA: 1 Compreensão e interpretação de textos.",
+            "page": 3,
+        },
+        {
+            "name": "Direito Administrativo",
+            "position_label": "Analista Judiciario - Area Administrativa",
+            "weight": None,
+            "questions_count": None,
+            "topics": ["Princípios da administração pública", "Atos administrativos"],
+            "quote": "DIREITO ADMINISTRATIVO: 1 Princípios da administração pública.",
+            "page": 3,
+        },
+        {
+            "name": "Banco de Dados",
+            "position_label": "Analista Judiciario - Area de Tecnologia",
+            "weight": None,
+            "questions_count": None,
+            "topics": ["Modelo relacional", "Linguagem SQL"],
+            "quote": "BANCO DE DADOS: 1 Modelo relacional. 2 Linguagem SQL.",
+            "page": 3,
+        },
+        # Disciplina própria de um cargo que o catálogo não tem: o cargo entra
+        # com a grade comum, e esta fica declarada como lacuna.
+        {
+            "name": "Nocoes de Arquivologia",
+            "position_label": "Tecnico Judiciario - Area Administrativa",
+            "weight": None,
+            "questions_count": None,
+            "topics": ["Gestão de documentos", "Tabela de temporalidade"],
+            "quote": "NOCOES DE ARQUIVOLOGIA: 1 Gestão de documentos.",
+            "page": 3,
+        },
+    ],
+    "events": [
+        {
+            "kind": "EXAM",
+            "title": "Aplicação da prova objetiva",
+            "date_start": "2026-04-19",
+            "is_critical": True,
+            "quote": "A prova objetiva será aplicada no dia 19 de abril de 2026",
+            "page": 2,
         },
     ],
 }

@@ -28,7 +28,12 @@ from app.ai.base import (
     ProviderNotConfiguredError,
 )
 from app.ai.prompts import get_prompt, latest_version
-from app.ai.schemas import EXPECTED_FIELDS, ExtractedField, NoticeExtraction
+from app.ai.schemas import (
+    EXPECTED_FIELDS,
+    ExtractedField,
+    ExtractedPosition,
+    NoticeExtraction,
+)
 from app.ai.vector_store import (
     COLLECTION_NOTICES,
     GLOBAL_TENANT,
@@ -50,6 +55,7 @@ from app.models.notice_analysis import (
     EvidenceLevel,
     NoticeEvent,
     NoticeFact,
+    NoticePosition,
     NoticeSection,
     NoticeSubject,
     NoticeTopic,
@@ -86,12 +92,55 @@ _SECTION_PRIORITY = {
 }
 
 
+#: Teto de cargos por edital. Acima disso o documento não é um edital de
+#: concurso: é um anexo de tabela de lotação, ou a extração se perdeu. Cadastrar
+#: duzentos cargos por engano é mais caro de desfazer que de evitar.
+MAX_POSITIONS_PER_NOTICE = 60
+
+
+def _fallback_position(extraction: NoticeExtraction) -> ExtractedPosition | None:
+    """O cargo principal como lista de um item.
+
+    Serve a dois casos reais: edital de cargo único, e resposta de cache gerada
+    pela v1 do prompt (que não pedia a lista). Sem isto, um edital analisado
+    antes desta mudança passaria a não ter cargo nenhum — regressão silenciosa
+    no que já funcionava.
+    """
+    campos = extraction.fields
+    nome = campos.get("position.name")
+    if nome is None or not isinstance(nome.value, str) or not nome.value.strip():
+        return None
+
+    def valor(path: str) -> Any:
+        campo = campos.get(path)
+        return campo.value if campo is not None else None
+
+    def inteiro(path: str) -> int | None:
+        bruto = valor(path)
+        return bruto if isinstance(bruto, int) and not isinstance(bruto, bool) else None
+
+    nivel = valor("position.education_level")
+    return ExtractedPosition(
+        name=nome.value.strip()[:160],
+        education_level=nivel if isinstance(nivel, str) else None,
+        salary_cents=inteiro("position.salary_cents"),
+        vacancies=inteiro("position.vacancies"),
+        questions_count=inteiro("exam.questions_count"),
+        exam_duration_minutes=inteiro("exam.duration_minutes"),
+        # A citação é a do campo que nomeia o cargo: é dela que a evidência
+        # deste cargo depende, e é ela que será conferida no PDF.
+        quote=nome.quote,
+        page=nome.page,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class AnalysisOutcome:
     notice_public_id: str
     document_id: int
     chunk_count: int
     facts_created: int
+    positions_created: int
     subjects_created: int
     events_created: int
     coverage: dict[str, float | int]
@@ -199,6 +248,7 @@ class NoticeAnalysisService:
             resource_id=notice.public_id,
             meta={
                 "facts": outcome.facts_created,
+                "positions": outcome.positions_created,
                 "subjects": outcome.subjects_created,
                 "coverage": outcome.coverage,
                 "cached": outcome.cached,
@@ -263,6 +313,7 @@ class NoticeAnalysisService:
         facts, levels = await self._persist_facts(
             notice, extraction, refs, model_slug, prompt_version
         )
+        positions = await self._persist_positions(notice, extraction, refs)
         subjects = await self._persist_subjects(notice, extraction, refs)
         events = await self._persist_events(notice, extraction, refs)
         await self._persist_sections(notice, chunks)
@@ -276,7 +327,7 @@ class NoticeAnalysisService:
         await progress.update(
             "persist",
             StepStatus.DONE,
-            f"{facts} campos · {subjects} disciplinas · {events} datas",
+            f"{facts} campos · {positions} cargos · {subjects} disciplinas · {events} datas",
         )
 
         extra = dict(notice.extra or {})
@@ -289,6 +340,7 @@ class NoticeAnalysisService:
             document_id=document.id,
             chunk_count=len(chunks),
             facts_created=facts,
+            positions_created=positions,
             subjects_created=subjects,
             events_created=events,
             coverage=coverage,
@@ -612,6 +664,59 @@ class NoticeAnalysisService:
         await self.session.flush()
         return created, levels
 
+    async def _persist_positions(
+        self, notice: Notice, extraction: NoticeExtraction, refs: list[ChunkRef]
+    ) -> int:
+        """Grava os cargos do edital, cada um com a citação que o comprova.
+
+        Edital com vinte cargos produz vinte linhas. A regra de evidência é a
+        mesma dos campos escalares: a citação é conferida caractere a caractere
+        no texto do PDF, e cargo com citação inventada fica ``INFERIDO`` — o que
+        o impede de virar cargo no catálogo sozinho.
+
+        Quando o modelo não devolve lista de cargos (edital de cargo único, ou
+        resposta de cache gerada pela v1 do prompt), o cargo principal dos
+        campos ``position.*`` é usado como a lista de um item. É o caminho de
+        volta que mantém funcionando tudo que foi analisado antes desta mudança.
+        """
+        await self.session.execute(
+            delete(NoticePosition).where(NoticePosition.notice_id == notice.id)
+        )
+        await self.session.flush()
+
+        cargos = extraction.positions[:MAX_POSITIONS_PER_NOTICE]
+        if not cargos:
+            principal = _fallback_position(extraction)
+            if principal is None:
+                return 0
+            cargos = [principal]
+
+        for order, cargo in enumerate(cargos):
+            match = verify_quote(cargo.quote, refs)
+            self.session.add(
+                NoticePosition(
+                    notice_id=notice.id,
+                    raw_label=cargo.name[:200],
+                    education_level=cargo.education_level,
+                    salary_cents=cargo.salary_cents,
+                    vacancies=cargo.vacancies,
+                    cr_vacancies=cargo.cr_vacancies,
+                    workload_hours=cargo.workload_hours,
+                    requirements=cargo.requirements,
+                    questions_count=cargo.questions_count,
+                    exam_duration_minutes=cargo.exam_duration_minutes,
+                    order_index=order,
+                    evidence_level=match.level,
+                    # Página só acompanha o cargo quando a citação foi
+                    # conferida: página "informada" pelo modelo seria falsa origem.
+                    page_number=match.page_number if match else None,
+                    quote=match.quote if match else cargo.quote,
+                )
+            )
+
+        await self.session.flush()
+        return len(cargos)
+
     async def _persist_subjects(
         self, notice: Notice, extraction: NoticeExtraction, refs: list[ChunkRef]
     ) -> int:
@@ -625,6 +730,7 @@ class NoticeAnalysisService:
             record = NoticeSubject(
                 notice_id=notice.id,
                 raw_label=subject.name[:255],
+                position_label=subject.position_label,
                 weight=_parse_decimal(subject.weight),
                 questions_count=subject.questions_count,
                 order_index=order,

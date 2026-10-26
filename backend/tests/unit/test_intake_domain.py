@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
+from app.ai.schemas import EDUCATION_LEVELS, ExtractedPosition, NoticeExtraction
 from app.domain.intake import (
     AddressRefusedError,
     LinkCandidate,
@@ -13,7 +15,9 @@ from app.domain.intake import (
     pdf_links,
     score_candidate,
 )
+from app.models.catalog import EducationLevel
 from app.services.intake import ProposedField, _derived_short_name, _year_from
+from app.services.notice_analysis import _fallback_position
 
 PAGINA = """
 <html><body>
@@ -194,3 +198,77 @@ def test_nome_curto_demais_para_render_sigla_vira_o_proprio_nome() -> None:
     # Uma inicial só não é sigla; melhor mostrar o nome do que uma letra solta.
     assert _derived_short_name("Prefeitura") == "Prefeitura"
     assert _derived_short_name("") == "ORG"
+
+
+# --------------------------------------------------------------------------- #
+# O contrato de extração dos cargos
+# --------------------------------------------------------------------------- #
+def test_as_duas_listas_de_escolaridade_continuam_iguais() -> None:
+    """A cópia na camada de IA só é honesta enquanto este teste passar.
+
+    ``app.ai.schemas`` não importa modelos, então a lista de escolaridades está
+    repetida lá. Repetição que ninguém confere viraria divergência silenciosa:
+    o catálogo ganharia um nível novo e a extração passaria a descartá-lo.
+    """
+    assert {item.value for item in EducationLevel} == EDUCATION_LEVELS
+
+
+def test_escolaridade_fora_da_lista_e_descartada_em_vez_de_virar_palpite() -> None:
+    assert ExtractedPosition(name="Analista", education_level="superior").education_level == (
+        "SUPERIOR"
+    )
+    assert ExtractedPosition(name="Analista", education_level="mestrado").education_level is None
+    assert ExtractedPosition(name="Analista").education_level is None
+
+
+def test_cadastro_de_reserva_e_campo_proprio_e_nao_entra_nas_vagas() -> None:
+    cargo = ExtractedPosition(name="Analista", vacancies=40, cr_vacancies=80)
+    assert cargo.vacancies == 40
+    assert cargo.cr_vacancies == 80
+
+
+def test_nome_de_cargo_curto_demais_nao_vira_cargo() -> None:
+    with pytest.raises(ValidationError):
+        ExtractedPosition(name="A")
+
+
+def test_edital_sem_lista_de_cargos_usa_o_cargo_principal() -> None:
+    """Edital de cargo único — e resposta de cache da v1 do prompt."""
+    extracao = NoticeExtraction.model_validate(
+        {
+            "fields": {
+                "position.name": {
+                    "value": "Agente de Polícia",
+                    "quote": "para o cargo de Agente de Polícia",
+                    "page": 1,
+                },
+                "position.education_level": {"value": "SUPERIOR"},
+                "position.vacancies": {"value": 1200},
+                "position.salary_cents": {"value": 815700},
+                "exam.questions_count": {"value": 120},
+                "exam.duration_minutes": {"value": 240},
+            }
+        }
+    )
+    assert extracao.positions == []
+
+    principal = _fallback_position(extracao)
+    assert principal is not None
+    assert principal.name == "Agente de Polícia"
+    assert principal.education_level == "SUPERIOR"
+    assert principal.vacancies == 1200
+    assert principal.salary_cents == 815700
+    assert principal.questions_count == 120
+    assert principal.exam_duration_minutes == 240
+    # A citação é a do campo que nomeia o cargo: é ela que será conferida no PDF.
+    assert principal.quote == "para o cargo de Agente de Polícia"
+
+
+def test_sem_nome_de_cargo_nenhum_nao_ha_cargo_principal() -> None:
+    assert _fallback_position(NoticeExtraction()) is None
+    assert (
+        _fallback_position(
+            NoticeExtraction.model_validate({"fields": {"position.name": {"value": None}}})
+        )
+        is None
+    )

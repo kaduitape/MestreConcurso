@@ -83,3 +83,13 @@ e o conteúdo continuar apontando para um programa que não existe mais.
 - **Arquivar o conteúdo órfão em lote.** O caminho existe (o Estúdio arquiva),
   mas em lote isso vira "apagar com outro nome". Fica como decisão humana,
   item a item.
+
+> **Atualização (out/2026) — a comparação passou a cobrir cargos.** Com os
+> cargos do edital virando lista própria (ver
+> [cadastro pelo edital](42-cadastro-de-concurso-pelo-edital.md)), a retificação
+> ganhou um escopo novo: `POSITION`. Cargo que entra, sai, ou muda de vagas,
+> cadastro de reserva, salário ou escolaridade agora aparece no diff, com o
+> antes e o depois. Era a mudança mais cara que passava invisível: quem escolheu
+> um cargo removido perdeu o concurso, e um cargo novo abre uma disputa que
+> ninguém estava acompanhando. O casamento é pelo nome normalizado — edital que
+> reescreve o nome em maiúsculas não vira cargo novo.

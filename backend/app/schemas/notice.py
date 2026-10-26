@@ -110,11 +110,36 @@ class FactReviewInput(BaseModel):
     value: Any = Field(description="Valor correto do campo, conforme o edital")
 
 
+class PositionRead(BaseModel):
+    """Um cargo do edital, com a procedência à vista."""
+
+    model_config = _READ
+
+    public_id: str
+    name: str
+    education_level: str | None = None
+    salary_cents: int | None = None
+    vacancies: int | None = None
+    #: Cadastro de reserva, separado das vagas imediatas de propósito.
+    cr_vacancies: int | None = None
+    workload_hours: int | None = None
+    questions_count: int | None = None
+    exam_duration_minutes: int | None = None
+    requirements: str | None = None
+    evidence_level: str
+    page_number: int | None = None
+    quote: str | None = None
+    #: ``True`` quando este cargo já existe no catálogo.
+    registered: bool = False
+
+
 class SubjectRead(BaseModel):
     model_config = _READ
 
     public_id: str
     name: str
+    #: De qual cargo é esta disciplina. ``None`` quer dizer "de todos".
+    position_label: str | None = None
     weight: float | None = None
     questions_count: int | None = None
     topics_count: int
@@ -155,12 +180,17 @@ class RadiographyRead(BaseModel):
     exam_date: date | None = None
     days_until_exam: int | None = None
     page_count: int | None = None
+    positions_count: int = 0
     subjects_count: int
     topics_count: int
     questions_count: int | None = None
     vacancies: int | None = None
     salary_cents: int | None = None
+    #: Soma das vagas de todos os cargos. Fica ao lado de ``vacancies`` (que é
+    #: do cargo principal): são duas perguntas diferentes.
+    vacancies_all_positions: int | None = None
     facts: list[FactRead] = Field(default_factory=list)
+    positions: list[PositionRead] = Field(default_factory=list)
     subjects: list[SubjectRead] = Field(default_factory=list)
     events: list[EventRead] = Field(default_factory=list)
     critical_events: list[EventRead] = Field(default_factory=list)

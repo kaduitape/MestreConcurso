@@ -36,6 +36,7 @@ class ChangeKind(StrEnum):
 
 
 class ChangeScope(StrEnum):
+    POSITION = "POSITION"
     SUBJECT = "SUBJECT"
     TOPIC = "TOPIC"
     EVENT = "EVENT"
@@ -47,6 +48,23 @@ class ImpactAction(StrEnum):
     ORPHANED = "ORPHANED"
     #: Tópico novo, sem conteúdo nenhum.
     MISSING = "MISSING"
+
+
+@dataclass(frozen=True, slots=True)
+class PositionEntry:
+    """Um cargo do edital, do jeito que a comparação precisa.
+
+    Cargo que entra ou sai numa retificação é das mudanças mais caras para quem
+    estuda: o candidato que escolheu um cargo removido perdeu o concurso, e o
+    cargo novo abre um concurso que ninguém estava acompanhando. Antes desta
+    comparação, essa mudança passava invisível.
+    """
+
+    raw_label: str
+    education_level: str | None = None
+    salary_cents: int | None = None
+    vacancies: int | None = None
+    cr_vacancies: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +103,7 @@ class FactEntry:
 class ProgrammeSnapshot:
     """O que uma análise de edital produziu, no formato que a comparação usa."""
 
+    positions: tuple[PositionEntry, ...] = ()
     subjects: tuple[SubjectEntry, ...] = ()
     topics: tuple[TopicEntry, ...] = ()
     events: tuple[EventEntry, ...] = ()
@@ -148,6 +167,69 @@ def _key(entry: SubjectEntry | TopicEntry) -> str:
     if entry.subject_id is not None:
         return f"id:{entry.subject_id}"
     return f"txt:{normalize(entry.raw_label)}"
+
+
+def _cargo(entry: PositionEntry) -> str:
+    """A ficha do cargo em texto, para o antes e o depois da tela."""
+    partes: list[str] = []
+    if entry.vacancies is not None:
+        partes.append(f"{entry.vacancies} vaga(s)")
+    if entry.cr_vacancies is not None:
+        partes.append(f"CR {entry.cr_vacancies}")
+    if entry.salary_cents is not None:
+        partes.append(
+            f"R$ {entry.salary_cents / 100:,.2f}".replace(",", "@")
+            .replace(".", ",")
+            .replace("@", ".")
+        )
+    if entry.education_level is not None:
+        partes.append(entry.education_level.lower())
+    return ", ".join(partes) or "sem dados declarados"
+
+
+def diff_positions(before: Sequence[PositionEntry], after: Sequence[PositionEntry]) -> list[Change]:
+    """Cargos que entraram, saíram ou mudaram de vagas, salário ou nível."""
+    antes = {normalize(item.raw_label): item for item in before}
+    depois = {normalize(item.raw_label): item for item in after}
+    mudancas: list[Change] = []
+
+    for chave, item in depois.items():
+        if chave not in antes:
+            mudancas.append(
+                Change(
+                    scope=ChangeScope.POSITION,
+                    kind=ChangeKind.ADDED,
+                    label=item.raw_label,
+                    after=_cargo(item),
+                    detail="Cargo que o edital anterior não oferecia.",
+                )
+            )
+            continue
+        anterior = antes[chave]
+        if _cargo(anterior) != _cargo(item):
+            mudancas.append(
+                Change(
+                    scope=ChangeScope.POSITION,
+                    kind=ChangeKind.CHANGED,
+                    label=item.raw_label,
+                    before=_cargo(anterior),
+                    after=_cargo(item),
+                    detail="Vagas, salário ou escolaridade do cargo mudaram.",
+                )
+            )
+
+    for chave, item in antes.items():
+        if chave not in depois:
+            mudancas.append(
+                Change(
+                    scope=ChangeScope.POSITION,
+                    kind=ChangeKind.REMOVED,
+                    label=item.raw_label,
+                    before=_cargo(item),
+                    detail="Cargo que saiu do edital — quem escolheu este cargo precisa saber.",
+                )
+            )
+    return mudancas
 
 
 def _peso(entry: SubjectEntry) -> str:
@@ -344,6 +426,7 @@ def diff_facts(before: Sequence[FactEntry], after: Sequence[FactEntry]) -> list[
 def diff(before: ProgrammeSnapshot, after: ProgrammeSnapshot) -> list[Change]:
     """A comparação inteira, na ordem em que uma pessoa lê o edital."""
     return [
+        *diff_positions(before.positions, after.positions),
         *diff_subjects(before.subjects, after.subjects),
         *diff_topics(before.topics, after.topics),
         *diff_events(before.events, after.events),

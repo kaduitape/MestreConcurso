@@ -570,9 +570,30 @@ export interface NoticeFact {
   prompt_version: string | null
 }
 
+export interface NoticePositionView {
+  public_id: string
+  name: string
+  education_level: string | null
+  salary_cents: number | null
+  vacancies: number | null
+  /** Cadastro de reserva, separado das vagas imediatas de propósito. */
+  cr_vacancies: number | null
+  workload_hours: number | null
+  questions_count: number | null
+  exam_duration_minutes: number | null
+  requirements: string | null
+  evidence_level: EvidenceLevel
+  page_number: number | null
+  quote: string | null
+  /** `true` quando este cargo já existe no catálogo. */
+  registered: boolean
+}
+
 export interface NoticeSubjectView {
   public_id: string
   name: string
+  /** De qual cargo é esta disciplina. `null` quer dizer "de todos". */
+  position_label: string | null
   weight: number | null
   questions_count: number | null
   topics_count: number
@@ -605,12 +626,16 @@ export interface Radiography {
   exam_date: string | null
   days_until_exam: number | null
   page_count: number | null
+  positions_count: number
   subjects_count: number
   topics_count: number
   questions_count: number | null
   vacancies: number | null
   salary_cents: number | null
+  /** Soma das vagas de todos os cargos — pergunta diferente de `vacancies`. */
+  vacancies_all_positions: number | null
   facts: NoticeFact[]
+  positions: NoticePositionView[]
   subjects: NoticeSubjectView[]
   events: NoticeEventView[]
   critical_events: NoticeEventView[]

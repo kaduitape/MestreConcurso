@@ -16,6 +16,7 @@ from app.domain.notice_diff import (
     EventEntry,
     FactEntry,
     ImpactAction,
+    PositionEntry,
     ProgrammeSnapshot,
     SubjectEntry,
     TopicEntry,
@@ -27,6 +28,7 @@ from app.domain.notice_diff import (
 
 def _snapshot(**overrides: object) -> ProgrammeSnapshot:
     base: dict[str, object] = {
+        "positions": (PositionEntry("Analista Judiciário", "SUPERIOR", 1399478, vacancies=150),),
         "subjects": (SubjectEntry("Português", subject_id=1, weight="2.00", questions_count=20),),
         "topics": (TopicEntry("Crase", "Português", topic_id=10),),
         "events": (
@@ -242,3 +244,55 @@ def test_the_summary_is_derived_from_the_changes() -> None:
     assert resumo.changed == 1  # o número de vagas
     assert resumo.missing == 1
     assert resumo.orphaned == 0
+
+
+# --------------------------------------------------------------------------- #
+# Cargos
+# --------------------------------------------------------------------------- #
+def test_a_new_position_is_reported_with_its_numbers() -> None:
+    """Cargo novo abre um concurso que ninguém estava acompanhando."""
+    depois = _snapshot(
+        positions=(
+            PositionEntry("Analista Judiciário", "SUPERIOR", 1399478, vacancies=150),
+            PositionEntry("Oficial de Justiça", "SUPERIOR", 900000, vacancies=20, cr_vacancies=5),
+        )
+    )
+    mudancas = [item for item in diff(_snapshot(), depois) if item.scope == ChangeScope.POSITION]
+
+    assert len(mudancas) == 1
+    assert mudancas[0].kind == ChangeKind.ADDED
+    assert mudancas[0].label == "Oficial de Justiça"
+    assert "20 vaga(s)" in (mudancas[0].after or "")
+    # Cadastro de reserva aparece separado, não somado às vagas imediatas.
+    assert "CR 5" in (mudancas[0].after or "")
+
+
+def test_a_removed_position_says_who_needs_to_know() -> None:
+    """Quem escolheu o cargo removido perdeu o concurso: isso tem de aparecer."""
+    depois = _snapshot(positions=())
+    mudancas = [item for item in diff(_snapshot(), depois) if item.scope == ChangeScope.POSITION]
+
+    assert len(mudancas) == 1
+    assert mudancas[0].kind == ChangeKind.REMOVED
+    assert mudancas[0].label == "Analista Judiciário"
+    assert "quem escolheu este cargo precisa saber" in (mudancas[0].detail or "")
+
+
+def test_more_vacancies_in_the_same_position_shows_both_sides() -> None:
+    depois = _snapshot(
+        positions=(PositionEntry("Analista Judiciário", "SUPERIOR", 1399478, vacancies=200),)
+    )
+    mudancas = [item for item in diff(_snapshot(), depois) if item.scope == ChangeScope.POSITION]
+
+    assert len(mudancas) == 1
+    assert mudancas[0].kind == ChangeKind.CHANGED
+    assert "150 vaga(s)" in (mudancas[0].before or "")
+    assert "200 vaga(s)" in (mudancas[0].after or "")
+
+
+def test_a_position_renamed_only_in_case_or_accent_is_not_a_change() -> None:
+    """Edital reescrevendo o nome não é cargo novo."""
+    depois = _snapshot(
+        positions=(PositionEntry("ANALISTA JUDICIARIO", "SUPERIOR", 1399478, vacancies=150),)
+    )
+    assert [item for item in diff(_snapshot(), depois) if item.scope == ChangeScope.POSITION] == []

@@ -30,6 +30,7 @@ async def _analyze(notice_public_id: str) -> dict[str, Any]:
             "status": "OK",
             "chunks": outcome.chunk_count,
             "facts": outcome.facts_created,
+            "positions": outcome.positions_created,
             "subjects": outcome.subjects_created,
             "cached": outcome.cached,
         }

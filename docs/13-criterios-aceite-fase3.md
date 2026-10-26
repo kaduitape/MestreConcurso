@@ -55,3 +55,13 @@
 > edital, guarda o PDF e chama esta mesma análise — e a ficha do concurso que ele
 > monta é feita dos fatos daqui, com a mesma regra: só citação conferida
 > literalmente chega preenchida.
+
+> **Atualização (out/2026) — o prompt subiu para v2.** A extração passou a pedir
+> a **lista de cargos** do edital (`positions`), além dos campos `position.*`
+> que descrevem o cargo principal e continuam valendo. Cada cargo da lista tem
+> citação, página e nível de evidência próprios, pela mesma regra do item 15. A
+> coluna `position_label` das disciplinas, que existia sem uso, passou a dizer
+> de qual cargo é cada disciplina. Consequência do item 24: a impressão digital
+> do cache mudou, então **todo edital re-extrai na próxima análise**. Edital sem
+> lista de cargos (ou resposta de cache da v1) usa o cargo principal como lista
+> de um item — nada que já funcionava deixou de funcionar.

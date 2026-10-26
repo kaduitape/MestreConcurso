@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   AlertTriangle,
+  Briefcase,
   CalendarClock,
   FileText,
   Layers,
@@ -63,10 +64,21 @@ export function RadiographyPanel({
             : 'prova realizada',
       icon: CalendarClock,
     },
+    { label: 'Cargos', value: String(data.positions_count), icon: Briefcase },
     { label: 'Disciplinas', value: String(data.subjects_count), icon: Layers },
     { label: 'Assuntos', value: String(data.topics_count), icon: ListChecks },
     { label: 'Questões', value: data.questions_count?.toString() ?? '—', icon: ListChecks },
-    { label: 'Vagas', value: data.vacancies?.toLocaleString('pt-BR') ?? '—', icon: Users },
+    {
+      // A soma de todos os cargos quando houver mais de um; o cargo principal
+      // quando não houver. São duas perguntas, e o rótulo diz qual é a resposta.
+      label: data.positions_count > 1 ? 'Vagas (todos os cargos)' : 'Vagas',
+      value:
+        (data.positions_count > 1
+          ? data.vacancies_all_positions
+          : data.vacancies
+        )?.toLocaleString('pt-BR') ?? '—',
+      icon: Users,
+    },
     { label: 'Salário', value: formatCurrency(data.salary_cents), icon: FileText },
     { label: 'Páginas do PDF', value: data.page_count?.toString() ?? '—', icon: FileText },
     { label: 'Data da prova', value: formatDate(data.exam_date), icon: CalendarClock },
@@ -186,6 +198,59 @@ export function RadiographyPanel({
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Cargos do edital</CardTitle>
+          <CardDescription>
+            Um por cargo que o edital oferece, com a citação que o comprova. Cargo sem citação
+            conferida não é cadastrado automaticamente — aparece aqui para alguém conferir.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {data.positions.length === 0 && (
+            <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted">
+              Nenhum cargo extraído deste edital.
+            </p>
+          )}
+          <ul className="space-y-3">
+            {data.positions.map((position) => (
+              <li key={position.public_id} className="rounded-md border border-border p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium">{position.name}</p>
+                  <EvidenceBadge level={position.evidence_level} />
+                  {position.registered && <Badge variant="success">cadastrado</Badge>}
+                  {position.education_level !== null && (
+                    <Badge variant="outline">{position.education_level.toLowerCase()}</Badge>
+                  )}
+                  {position.vacancies !== null && (
+                    <Badge variant="neutral">
+                      {position.vacancies.toLocaleString('pt-BR')} vaga(s)
+                    </Badge>
+                  )}
+                  {position.cr_vacancies !== null && (
+                    <Badge variant="neutral">CR {position.cr_vacancies}</Badge>
+                  )}
+                  {position.salary_cents !== null && (
+                    <Badge variant="neutral">{formatCurrency(position.salary_cents)}</Badge>
+                  )}
+                </div>
+                {position.requirements && (
+                  <p className="mt-1.5 text-sm text-muted">{position.requirements}</p>
+                )}
+                {position.quote && (
+                  <blockquote className="mt-2 border-l-2 border-border-strong pl-2 text-xs text-muted italic">
+                    “{position.quote}”
+                    {position.page_number !== null && (
+                      <span className="not-italic"> — página {position.page_number}</span>
+                    )}
+                  </blockquote>
+                )}
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -213,6 +278,9 @@ export function RadiographyPanel({
                     {subject.questions_count !== null && (
                       <Badge variant="neutral">{subject.questions_count} questões</Badge>
                     )}
+                    <Badge variant={subject.position_label ? 'primary' : 'outline'}>
+                      {subject.position_label ?? 'todos os cargos'}
+                    </Badge>
                   </div>
                   {subject.topics.length > 0 ? (
                     <ul className="mt-2 space-y-0.5 text-sm text-muted">

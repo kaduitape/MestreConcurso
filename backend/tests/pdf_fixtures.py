@@ -38,6 +38,48 @@ Agente de Polícia: 1.200 vagas, sendo 20% reservadas conforme legislação vige
 ]
 
 
+#: Edital com vários cargos, que é o caso comum e não a exceção: cada cargo tem
+#: sua escolaridade, suas vagas, seu salário — e dois deles têm disciplina
+#: própria, além da grade comum a todos.
+EDITAL_MULTICARGO_PAGES: list[str] = [
+    """EDITAL Nº 7/2026 - TJDFT, DE 5 DE JANEIRO DE 2026
+CONCURSO PÚBLICO PARA PROVIMENTO DE CARGOS DO QUADRO DE PESSOAL
+
+1 DAS DISPOSIÇÕES PRELIMINARES
+1.1 O concurso público será regido por este edital e executado pelo Cebraspe.
+1.2 A seleção destina-se ao provimento de cargos do Tribunal de Justica do Distrito Federal.
+
+2 DOS CARGOS
+2.1 Analista Judiciario - Area Administrativa: 150 vagas, remuneracao inicial de
+R$ 13.994,78, exigido diploma de curso superior em qualquer area, jornada de 40 horas.
+2.2 Analista Judiciario - Area de Tecnologia: 40 vagas e cadastro de reserva de 80,
+remuneracao inicial de R$ 13.994,78, exigido diploma de curso superior em computacao.
+2.3 Tecnico Judiciario - Area Administrativa: 300 vagas, remuneracao inicial de
+R$ 8.529,65, exigido certificado de conclusao do ensino medio, jornada de 40 horas.""",
+    """3 DAS INSCRIÇÕES
+3.1 As inscrições poderão ser efetuadas de 2 de fevereiro de 2026 a 1 de março de 2026.
+3.2 O valor da taxa de inscrição é de R$ 130,00 para nivel superior.
+
+4 DAS PROVAS
+4.1 A prova objetiva será aplicada no dia 19 de abril de 2026, com duração de 4 horas.
+4.2 A prova objetiva para os cargos de nivel superior tera 120 questoes.
+4.3 Será eliminado o candidato que obtiver nota inferior a 30% em qualquer bloco.""",
+    """5 DO CONTEÚDO PROGRAMÁTICO
+
+5.1 CONHECIMENTOS BASICOS PARA TODOS OS CARGOS
+5.1.1 LÍNGUA PORTUGUESA: 1 Compreensão e interpretação de textos. 2 Ortografia oficial.
+3 Emprego do sinal indicativo de crase.
+
+5.2 CONHECIMENTOS ESPECIFICOS
+5.2.1 Para o cargo de Analista Judiciario - Area Administrativa:
+DIREITO ADMINISTRATIVO: 1 Princípios da administração pública. 2 Atos administrativos.
+5.2.2 Para o cargo de Analista Judiciario - Area de Tecnologia:
+BANCO DE DADOS: 1 Modelo relacional. 2 Linguagem SQL.
+5.2.3 Para o cargo de Tecnico Judiciario - Area Administrativa:
+NOCOES DE ARQUIVOLOGIA: 1 Gestão de documentos. 2 Tabela de temporalidade.""",
+]
+
+
 def build_edital_pdf(pages: list[str] | None = None) -> bytes:
     """PDF com camada de texto, como um edital publicado digitalmente."""
     document = pymupdf.open()

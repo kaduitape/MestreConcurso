@@ -85,12 +85,14 @@ async def run_notice_analyst(session: AsyncSession, run: AgentRun) -> AgentOutco
     )
     return AgentOutcome(
         detail=(
-            f"Edital analisado: {outcome.subjects_created} disciplinas, "
+            f"Edital analisado: {outcome.positions_created} cargo(s), "
+            f"{outcome.subjects_created} disciplinas, "
             f"{outcome.facts_created} dados extraídos e "
             f"{outcome.events_created} datas identificadas."
         ),
         result={
             "notice": outcome.notice_public_id,
+            "positions_created": outcome.positions_created,
             "subjects_created": outcome.subjects_created,
             "facts_created": outcome.facts_created,
             "events_created": outcome.events_created,

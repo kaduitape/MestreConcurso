@@ -25,6 +25,7 @@ from app.domain.notice_diff import (
     ContentRef,
     EventEntry,
     FactEntry,
+    PositionEntry,
     ProgrammeSnapshot,
     SubjectEntry,
     TopicEntry,
@@ -36,7 +37,13 @@ from app.models.audit import AuditAction
 from app.models.catalog import Competition
 from app.models.mindmap import MindMap
 from app.models.notice import Notice
-from app.models.notice_analysis import NoticeEvent, NoticeFact, NoticeSubject, NoticeTopic
+from app.models.notice_analysis import (
+    NoticeEvent,
+    NoticeFact,
+    NoticePosition,
+    NoticeSubject,
+    NoticeTopic,
+)
 from app.models.notice_diff import NoticeDiff
 from app.models.training import TrainingLesson
 from app.models.user import User
@@ -68,6 +75,28 @@ class NoticeDiffService:
     # Retrato de uma análise
     # ------------------------------------------------------------------ #
     async def _snapshot(self, notice_id: int) -> ProgrammeSnapshot:
+        cargos = (
+            (
+                await self.session.execute(
+                    select(NoticePosition)
+                    .where(NoticePosition.notice_id == notice_id)
+                    .order_by(NoticePosition.order_index)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        positions = tuple(
+            PositionEntry(
+                raw_label=item.raw_label,
+                education_level=item.education_level,
+                salary_cents=item.salary_cents,
+                vacancies=item.vacancies,
+                cr_vacancies=item.cr_vacancies,
+            )
+            for item in cargos
+        )
+
         disciplinas = (
             (
                 await self.session.execute(
@@ -153,7 +182,9 @@ class NoticeDiffService:
             for item in dados
         )
 
-        return ProgrammeSnapshot(subjects=subjects, topics=topics, events=events, facts=facts)
+        return ProgrammeSnapshot(
+            positions=positions, subjects=subjects, topics=topics, events=events, facts=facts
+        )
 
     async def _content_by_topic(self, topic_ids: list[int]) -> dict[int, list[ContentRef]]:
         """Conteúdo vivo ligado a cada tópico — rascunho inclusive."""

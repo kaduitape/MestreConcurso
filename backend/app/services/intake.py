@@ -59,7 +59,12 @@ from app.models.catalog import (
 )
 from app.models.intake import CompetitionIntake, IntakeSourceKind, IntakeStatus
 from app.models.notice import NoticeKind
-from app.models.notice_analysis import EvidenceLevel, NoticeFact, NoticeSubject
+from app.models.notice_analysis import (
+    EvidenceLevel,
+    NoticeFact,
+    NoticePosition,
+    NoticeSubject,
+)
 from app.models.user import User
 from app.services.audit import AuditService
 from app.services.auth import RequestContext
@@ -122,6 +127,8 @@ class GapCode(StrEnum):
 
     FIELD_WITHOUT_EVIDENCE = "FIELD_WITHOUT_EVIDENCE"
     POSITION_NOT_FOUND = "POSITION_NOT_FOUND"
+    POSITION_WITHOUT_EVIDENCE = "POSITION_WITHOUT_EVIDENCE"
+    POSITION_DUPLICATED = "POSITION_DUPLICATED"
     SUBJECT_WITHOUT_CATALOG = "SUBJECT_WITHOUT_CATALOG"
     GRADE_EMPTY = "GRADE_EMPTY"
     SHORT_NAME_DERIVED = "SHORT_NAME_DERIVED"
@@ -732,7 +739,10 @@ class CompetitionIntakeService:
             organization=organizacao,
             exam_board_public_id=banca_id,
             competition_fields=_targeted(aplicaveis, FIELD_TO_COMPETITION),
-            position_fields=_targeted(aplicaveis, FIELD_TO_POSITION),
+            # Vazio de propósito: no automático os cargos vêm da **lista** que a
+            # análise extraiu (``notice_positions``), não dos campos escalares
+            # ``position.*`` — que descrevem só o cargo principal.
+            position_fields={},
             gaps=lacunas,
             automatic=True,
             actor=actor,
@@ -857,11 +867,14 @@ class CompetitionIntakeService:
             context=context,
         )
 
-        cargo = await self._create_position(
-            competicao, position_fields, gaps, actor=actor, context=context
-        )
-        if cargo is not None:
-            await self._build_grade(cargo, intake, gaps)
+        # Automático cadastra todos os cargos do edital; revisado cadastra o que
+        # a pessoa digitou. A grade de cada um sai junto.
+        if automatic:
+            await self._create_positions(competicao, intake, gaps, actor=actor, context=context)
+        else:
+            await self._create_positions_from_form(
+                competicao, intake, position_fields, gaps, actor=actor, context=context
+            )
 
         # O edital passa a pertencer ao concurso: é o vínculo que faz o
         # orquestrador (e o conteúdo programático já analisado) encontrarem um
@@ -899,19 +912,132 @@ class CompetitionIntakeService:
         )
         return competicao
 
-    async def _create_position(
+    async def _create_positions(
         self,
         competition: Competition,
+        intake: CompetitionIntake,
+        gaps: list[Gap],
+        *,
+        actor: User,
+        context: RequestContext,
+    ) -> list[Position]:
+        """Cria **um cargo por cargo do edital**, cada um com a sua grade.
+
+        Edital de concurso raramente tem um cargo só: tem vinte, cada um com
+        escolaridade, vagas e salário próprios. Cadastrar um e descartar
+        dezenove apagaria da plataforma todo candidato que estuda para os
+        outros — que é o oposto do que este cadastro existe para fazer.
+
+        Só entra cargo com **citação conferida**. Cargo que a IA deduziu, ou
+        cujo nome o modelo inventou, fica de fora e é nomeado nas lacunas: um
+        cargo que não está no edital apareceria na tela do candidato como se
+        fosse informação.
+        """
+        from app.services.catalog import CatalogService
+
+        extraidos = (
+            (
+                await self.session.execute(
+                    select(NoticePosition)
+                    .where(NoticePosition.notice_id == intake.notice_id)
+                    .order_by(NoticePosition.order_index)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        aplicaveis = [item for item in extraidos if item.evidence_level in APPLICABLE_LEVELS]
+        for recusado in extraidos:
+            if recusado.evidence_level not in APPLICABLE_LEVELS:
+                gaps.append(
+                    Gap(
+                        code=GapCode.POSITION_WITHOUT_EVIDENCE,
+                        label=f"Cargo não cadastrado: {recusado.raw_label}",
+                        detail=(
+                            "a citação que comprovaria este cargo não foi localizada no PDF. "
+                            "Cadastre-o em Concursos depois de conferir no edital."
+                        ),
+                    )
+                )
+
+        if not aplicaveis:
+            gaps.append(
+                Gap(
+                    code=GapCode.POSITION_NOT_FOUND,
+                    label="Nenhum cargo foi cadastrado",
+                    detail=(
+                        "nenhum cargo do edital saiu com citação conferida. Sem cargo não há "
+                        "grade de disciplinas — cadastre-o em Concursos."
+                    ),
+                )
+            )
+            return []
+
+        catalog = CatalogService(self.session)
+        criados: list[Position] = []
+        vistos: set[str] = set()
+        for extraido in aplicaveis:
+            chave = extraido.raw_label.strip().casefold()
+            if chave in vistos:
+                # Duas linhas com o mesmo nome violariam o índice do cargo no
+                # concurso; a segunda fica declarada em vez de estourar.
+                gaps.append(
+                    Gap(
+                        code=GapCode.POSITION_DUPLICATED,
+                        label=f"Cargo repetido no edital: {extraido.raw_label}",
+                        detail="já havia entrado por outra linha da extração",
+                    )
+                )
+                continue
+            vistos.add(chave)
+
+            cargo = await catalog.create_position(
+                competition.public_id,
+                {
+                    "name": extraido.raw_label[:160],
+                    **{
+                        coluna: valor
+                        for coluna, valor in (
+                            ("education_level", extraido.education_level),
+                            ("salary_cents", extraido.salary_cents),
+                            ("vacancies", extraido.vacancies),
+                            ("cr_vacancies", extraido.cr_vacancies),
+                            ("workload_hours", extraido.workload_hours),
+                            ("requirements", extraido.requirements),
+                            ("questions_count", extraido.questions_count),
+                            ("exam_duration_minutes", extraido.exam_duration_minutes),
+                        )
+                        if valor is not None
+                    },
+                },
+                actor=actor,
+                context=context,
+            )
+            # O cargo extraído passa a apontar para o cargo do catálogo: é o que
+            # permite a uma retificação saber qual cargo mudou.
+            extraido.position_id = cargo.id
+            criados.append(cargo)
+            await self._build_grade(cargo, intake, gaps, position_label=extraido.raw_label)
+
+        return criados
+
+    async def _create_positions_from_form(
+        self,
+        competition: Competition,
+        intake: CompetitionIntake,
         position_fields: dict[str, Any],
         gaps: list[Gap],
         *,
         actor: User,
         context: RequestContext,
-    ) -> Position | None:
-        """Cria o cargo. Sem nome de cargo conferido, não cria nada.
+    ) -> list[Position]:
+        """Cria o cargo que uma pessoa digitou no formulário de revisão.
 
-        Um cargo chamado "Cargo" seria pior que nenhum: ele apareceria na tela
-        do candidato como se fosse informação.
+        O caminho revisado cadastra **um** cargo — o que está no formulário —,
+        porque é o que a pessoa conferiu. Os outros cargos do edital continuam
+        na ficha do edital e podem ser cadastrados em Concursos, ou pelo
+        caminho automático.
         """
         from app.services.catalog import CatalogService
 
@@ -922,26 +1048,38 @@ class CompetitionIntakeService:
                     code=GapCode.POSITION_NOT_FOUND,
                     label="Nenhum cargo foi cadastrado",
                     detail=(
-                        "o nome do cargo não foi encontrado no edital com citação conferida. "
-                        "Sem cargo não há grade de disciplinas — cadastre-o em Concursos."
+                        "o formulário veio sem nome de cargo. Sem cargo não há grade de "
+                        "disciplinas — cadastre-o em Concursos."
                     ),
                 )
             )
-            return None
+            return []
 
         dados: dict[str, Any] = {"name": nome[:160]}
         for chave, valor in position_fields.items():
             if chave != "name" and valor is not None:
                 dados[chave] = _coerced_position(chave, valor)
 
-        return await CatalogService(self.session).create_position(
+        cargo = await CatalogService(self.session).create_position(
             competition.public_id, dados, actor=actor, context=context
         )
+        await self._build_grade(cargo, intake, gaps, position_label=nome)
+        return [cargo]
 
     async def _build_grade(
-        self, position: Position, intake: CompetitionIntake, gaps: list[Gap]
+        self,
+        position: Position,
+        intake: CompetitionIntake,
+        gaps: list[Gap],
+        *,
+        position_label: str,
     ) -> None:
-        """Monta a grade do cargo a partir das disciplinas do edital.
+        """Monta a grade de um cargo a partir das disciplinas do edital.
+
+        A disciplina do edital diz de qual cargo ela é (``position_label``).
+        Quando não diz, a grade é comum a todos os cargos — o caso mais
+        frequente — e vale para este também. Então as disciplinas deste cargo
+        são: as que o nomeiam, mais as comuns.
 
         O peso e o número de questões vêm do edital, conferidos pela mesma regra
         de citação dos outros campos. O **nome** da disciplina precisa casar com
@@ -950,7 +1088,7 @@ class CompetitionIntakeService:
         lugar certo. Disciplina sem par exato no catálogo não entra — e é
         nomeada na lista de lacunas, uma por uma.
         """
-        disciplinas_edital = (
+        todas = (
             (
                 await self.session.execute(
                     select(NoticeSubject)
@@ -961,12 +1099,23 @@ class CompetitionIntakeService:
             .scalars()
             .all()
         )
+        alvo = position_label.strip().casefold()
+        proprias = [
+            item
+            for item in todas
+            if item.position_label and item.position_label.strip().casefold() == alvo
+        ]
+        comuns = [item for item in todas if not item.position_label]
+        disciplinas_edital = proprias + comuns
+
         if not disciplinas_edital:
             gaps.append(
                 Gap(
                     code=GapCode.GRADE_EMPTY,
-                    label="O cargo ficou sem grade de disciplinas",
-                    detail="a análise não extraiu nenhuma disciplina deste edital",
+                    label=f"O cargo '{position.name}' ficou sem grade de disciplinas",
+                    detail=(
+                        "a análise não extraiu nenhuma disciplina para este cargo neste edital"
+                    ),
                 )
             )
             return
@@ -1039,7 +1188,7 @@ class CompetitionIntakeService:
             gaps.append(
                 Gap(
                     code=GapCode.GRADE_EMPTY,
-                    label="O cargo ficou sem grade de disciplinas",
+                    label=f"O cargo '{position.name}' ficou sem grade de disciplinas",
                     detail=(
                         f"nenhuma das {len(disciplinas_edital)} disciplinas do edital tem nome "
                         "idêntico a uma disciplina do catálogo"

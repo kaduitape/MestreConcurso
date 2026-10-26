@@ -143,6 +143,47 @@ class NoticeEvent(IdMixin, TimestampMixin, Base):
     page_number: Mapped[int | None] = mapped_column(Integer)
 
 
+class NoticePosition(IdMixin, PublicIdMixin, TimestampMixin, Base):
+    """Um cargo do edital, como o edital o descreve.
+
+    Edital de concurso raramente tem um cargo só. A tabela existe porque a
+    alternativa — espremer vinte cargos nos campos escalares ``position.*`` —
+    obrigaria a escolher um e jogar dezenove fora, e o candidato que estuda para
+    o cargo descartado não existiria para a plataforma.
+
+    Cada linha carrega a própria procedência: citação literal, página e nível de
+    evidência, conferidos pela mesma regra dos outros campos. Cargo sem citação
+    conferida **não** vira cargo no catálogo — vira lacuna declarada.
+    """
+
+    __tablename__ = "notice_positions"
+    __table_args__ = (Index("ix_notice_positions_notice", "notice_id", "order_index"),)
+
+    notice_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("notices.id", ondelete="CASCADE"), index=True
+    )
+    #: O cargo já cadastrado no catálogo, quando o cadastro aconteceu. Anulável
+    #: porque "extraído mas não cadastrado" é um estado real e frequente.
+    position_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("positions.id", ondelete="SET NULL")
+    )
+    raw_label: Mapped[str] = mapped_column(String(200))
+    education_level: Mapped[str | None] = mapped_column(String(20))
+    salary_cents: Mapped[int | None] = mapped_column(BigInteger)
+    #: Vagas imediatas. Separada do cadastro de reserva de propósito: somar as
+    #: duas infla o número que o candidato usa para decidir se vale estudar.
+    vacancies: Mapped[int | None] = mapped_column(Integer)
+    cr_vacancies: Mapped[int | None] = mapped_column(Integer)
+    workload_hours: Mapped[int | None] = mapped_column(Integer)
+    requirements: Mapped[str | None] = mapped_column(MediumText)
+    questions_count: Mapped[int | None] = mapped_column(Integer)
+    exam_duration_minutes: Mapped[int | None] = mapped_column(Integer)
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
+    evidence_level: Mapped[str] = mapped_column(String(20), default=EvidenceLevel.INFERRED)
+    page_number: Mapped[int | None] = mapped_column(Integer)
+    quote: Mapped[str | None] = mapped_column(MediumText)
+
+
 class NoticeSubject(IdMixin, PublicIdMixin, TimestampMixin, Base):
     """Disciplina cobrada, como aparece no edital (e o vínculo com a disciplina canônica)."""
 
@@ -152,6 +193,9 @@ class NoticeSubject(IdMixin, PublicIdMixin, TimestampMixin, Base):
     notice_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("notices.id", ondelete="CASCADE"), index=True
     )
+    #: De qual cargo é esta disciplina, como o edital o nomeia. Nulo quando a
+    #: grade é comum a todos os cargos — o caso mais frequente. É o que permite
+    #: montar a grade cargo por cargo sem duplicar o conteúdo programático.
     position_label: Mapped[str | None] = mapped_column(String(200))
     subject_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("subjects.id", ondelete="SET NULL")

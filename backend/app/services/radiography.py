@@ -23,6 +23,7 @@ from app.models.notice_analysis import (
     EvidenceLevel,
     NoticeEvent,
     NoticeFact,
+    NoticePosition,
     NoticeSubject,
 )
 
@@ -43,6 +44,32 @@ class FactView:
 
 
 @dataclass(frozen=True, slots=True)
+class PositionView:
+    """Um cargo do edital, com a procedência à vista.
+
+    Aparece no Raio-X porque quem revisa o edital precisa conferir os cargos
+    antes de eles virarem cargos no catálogo — e porque o total de vagas do
+    concurso é a soma dos cargos, não o número de um deles.
+    """
+
+    public_id: str
+    name: str
+    education_level: str | None
+    salary_cents: int | None
+    vacancies: int | None
+    cr_vacancies: int | None
+    workload_hours: int | None
+    questions_count: int | None
+    exam_duration_minutes: int | None
+    requirements: str | None
+    evidence_level: str
+    page_number: int | None
+    quote: str | None
+    #: Verdadeiro quando este cargo já existe no catálogo.
+    registered: bool
+
+
+@dataclass(frozen=True, slots=True)
 class SubjectView:
     public_id: str
     name: str
@@ -52,6 +79,9 @@ class SubjectView:
     topics: list[str]
     evidence_level: str
     page_number: int | None
+    #: De qual cargo é esta disciplina. ``None`` quer dizer "de todos os
+    #: cargos", que é o caso mais frequente — e por isso é o padrão.
+    position_label: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,12 +104,19 @@ class Radiography:
     exam_date: date | None
     days_until_exam: int | None
     page_count: int | None
+    positions_count: int
     subjects_count: int
     topics_count: int
     questions_count: int | None
     vacancies: int | None
     salary_cents: int | None
+    #: Soma das vagas imediatas de todos os cargos extraídos. Fica ao lado de
+    #: ``vacancies`` (que é do cargo principal) em vez de substituí-lo: são duas
+    #: perguntas diferentes, e trocar uma pela outra mudaria o significado de um
+    #: número que já está em telas.
+    vacancies_all_positions: int | None = None
     facts: list[FactView] = field(default_factory=list)
+    positions: list[PositionView] = field(default_factory=list)
     subjects: list[SubjectView] = field(default_factory=list)
     events: list[EventView] = field(default_factory=list)
     critical_events: list[EventView] = field(default_factory=list)
@@ -151,6 +188,17 @@ class RadiographyService:
             .scalars()
             .all()
         )
+        positions = list(
+            (
+                await self.session.execute(
+                    select(NoticePosition)
+                    .where(NoticePosition.notice_id == notice.id)
+                    .order_by(NoticePosition.order_index)
+                )
+            )
+            .scalars()
+            .all()
+        )
         events = list(
             (
                 await self.session.execute(
@@ -183,10 +231,31 @@ class RadiographyService:
             return (fact.value or {}).get("raw")
 
         exam_date = _as_date(value_of("exam.date"))
+        position_views = [
+            PositionView(
+                public_id=position.public_id,
+                name=position.raw_label,
+                education_level=position.education_level,
+                salary_cents=position.salary_cents,
+                vacancies=position.vacancies,
+                cr_vacancies=position.cr_vacancies,
+                workload_hours=position.workload_hours,
+                questions_count=position.questions_count,
+                exam_duration_minutes=position.exam_duration_minutes,
+                requirements=position.requirements,
+                evidence_level=position.evidence_level,
+                page_number=position.page_number,
+                quote=position.quote,
+                registered=position.position_id is not None,
+            )
+            for position in positions
+        ]
+        declared = [view.vacancies for view in position_views if view.vacancies is not None]
         subject_views = [
             SubjectView(
                 public_id=subject.public_id,
                 name=subject.raw_label,
+                position_label=subject.position_label,
                 weight=float(subject.weight) if subject.weight is not None else None,
                 questions_count=subject.questions_count,
                 topics_count=len(subject.topics),
@@ -217,11 +286,15 @@ class RadiographyService:
             exam_date=exam_date,
             days_until_exam=days_between(exam_date, today=today),
             page_count=document.page_count if document else None,
+            positions_count=len(position_views),
             subjects_count=len(subject_views),
             topics_count=sum(view.topics_count for view in subject_views),
             questions_count=_as_int(value_of("exam.questions_count")),
             vacancies=_as_int(value_of("position.vacancies")),
             salary_cents=_as_int(value_of("position.salary_cents")),
+            # Soma só o que foi declarado: cargo sem número de vagas não entra
+            # como zero, e sem nenhum declarado o total é "não sei", não 0.
+            vacancies_all_positions=sum(declared) if declared else None,
             facts=[
                 FactView(
                     id=fact.id,
@@ -238,6 +311,7 @@ class RadiographyService:
                 )
                 for fact in facts
             ],
+            positions=position_views,
             subjects=subject_views,
             events=event_views,
             critical_events=[view for view in event_views if view.is_critical],
@@ -246,7 +320,9 @@ class RadiographyService:
                 key=lambda view: (view.topics_count, view.questions_count or 0),
                 reverse=True,
             )[:5],
-            attention_points=build_attention_points(facts, subject_views, event_views),
+            attention_points=build_attention_points(
+                facts, subject_views, event_views, position_views
+            ),
             coverage=coverage_summary([fact.evidence_level for fact in facts]),
         )
 
@@ -255,6 +331,7 @@ def build_attention_points(
     facts: list[NoticeFact],
     subjects: list[SubjectView],
     events: list[EventView],
+    positions: list[PositionView] | None = None,
 ) -> list[dict[str, str]]:
     """Alertas derivados do que foi (ou não foi) encontrado — sem opinião de modelo."""
     points: list[dict[str, str]] = []
@@ -299,6 +376,20 @@ def build_attention_points(
                 "kind": "PHYSICAL_TEST",
                 "title": "Teste de aptidão física previsto",
                 "detail": physical[0].title,
+            }
+        )
+
+    unproven = [
+        view.name
+        for view in (positions or [])
+        if view.evidence_level not in {EvidenceLevel.OFFICIAL, EvidenceLevel.CONFIRMED}
+    ]
+    if unproven:
+        points.append(
+            {
+                "kind": "POSITIONS_WITHOUT_EVIDENCE",
+                "title": f"{len(unproven)} cargo(s) sem citação conferida no edital",
+                "detail": (", ".join(unproven[:6]) + " — não serão cadastrados automaticamente."),
             }
         )
 

@@ -380,9 +380,11 @@ function ApplyForm({ intake }: { intake: CompetitionIntake }) {
         ))}
       </div>
       <p className="text-xs text-subtle">
-        Sem o nome do cargo, nenhum cargo é criado — e sem cargo não há grade de disciplinas. A
-        grade não é digitada aqui: ela sai das disciplinas do edital que têm nome idêntico a uma
-        disciplina do catálogo.
+        Este formulário cadastra <strong>um</strong> cargo — o que você conferiu. Edital com
+        vários cargos cadastra todos pelo caminho automático; os outros ficam na ficha do edital
+        e podem ser cadastrados em Concursos. Sem nome de cargo, nenhum cargo é criado — e sem
+        cargo não há grade de disciplinas. A grade não é digitada aqui: ela sai das disciplinas
+        do edital que têm nome idêntico a uma disciplina do catálogo.
       </p>
 
       {bancaAchada && (
