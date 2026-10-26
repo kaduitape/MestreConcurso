@@ -93,3 +93,10 @@ e o conteúdo continuar apontando para um programa que não existe mais.
 > um cargo removido perdeu o concurso, e um cargo novo abre uma disputa que
 > ninguém estava acompanhando. O casamento é pelo nome normalizado — edital que
 > reescreve o nome em maiúsculas não vira cargo novo.
+
+> **Nota (out/2026) — a comparação de assuntos ganhou âncora.** A comparação
+> casa assunto por `topic_id` quando ele existe, e por texto quando não. Até
+> agora ele **nunca** era escrito: o cadastro pelo edital passou a escrevê-lo
+> ao cadastrar o conteúdo programático, então a partir de editais analisados
+> por esse caminho a comparação deixa de depender do texto — edital que
+> reescreve "1.1 Crase" como "Crase" não vira mais assunto novo.

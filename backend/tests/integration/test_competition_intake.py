@@ -17,9 +17,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.base import ProviderCredentials
-from app.models.catalog import Competition, Position, PositionSubject
+from app.models.catalog import Competition, Position, PositionSubject, Topic
 from app.models.notice import Notice
-from app.models.notice_analysis import EvidenceLevel, NoticePosition
+from app.models.notice_analysis import (
+    EvidenceLevel,
+    NoticePosition,
+    NoticeSubject,
+    NoticeTopic,
+)
 from app.services import intake as intake_service
 from app.services.web_fetch import FetchedResource, FetchRefusedError
 from tests.conftest import CapturingDispatcher
@@ -819,3 +824,237 @@ async def test_edital_de_cargo_unico_continua_cadastrando_um(
     assert len(cargos) == 1
     assert cargos[0]["name"] == "Agente de Polícia"
     assert cargos[0]["vacancies"] == 1200
+
+
+# --------------------------------------------------------------------------- #
+# Os assuntos de cada disciplina
+# --------------------------------------------------------------------------- #
+async def test_o_conteudo_programatico_vira_assunto_no_catalogo(
+    client: AsyncClient,
+    emails: CapturingDispatcher,
+    fake_provider: FakeProvider,
+    db_session: AsyncSession,
+) -> None:
+    """Sem assunto, o conteúdo programático fica guardado e não gera nada."""
+    admin = await create_admin(client, emails, email="assunto1@exemplo.com.br")
+    await configure_ai(client, admin)
+    portugues = await create_subject(client, admin, name="Língua Portuguesa")
+    await create_subject(client, admin, name="Direito Penal")
+
+    corpo = await _subir(client, admin)
+    assert corpo["status"] == "APPLIED", corpo.get("detail")
+
+    assuntos = await client.get(
+        f"/api/v1/admin/catalog/subjects/{portugues['public_id']}/topics",
+        headers=admin.auth_header,
+    )
+    assert assuntos.status_code == 200, assuntos.text
+    nomes = {item["name"] for item in assuntos.json()}
+    assert "Compreensão e interpretação de textos" in nomes
+    assert "Ortografia oficial" in nomes
+    assert "Emprego do sinal indicativo de crase" in nomes
+
+    # Cada item do edital passa a apontar para o assunto do catálogo — é o que
+    # faz uma retificação saber qual assunto mudou.
+    itens = (
+        (
+            await db_session.execute(
+                select(NoticeTopic)
+                .join(NoticeSubject)
+                .where(NoticeSubject.raw_label == "Língua Portuguesa")
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert itens
+    assert all(item.topic_id is not None for item in itens)
+
+
+async def test_assunto_que_ja_existe_e_reaproveitado_e_nao_duplicado(
+    client: AsyncClient,
+    emails: CapturingDispatcher,
+    fake_provider: FakeProvider,
+    db_session: AsyncSession,
+) -> None:
+    """Duplicar dividiria o progresso do candidato entre duas linhas iguais."""
+    admin = await create_admin(client, emails, email="assunto2@exemplo.com.br")
+    await configure_ai(client, admin)
+    portugues = await create_subject(client, admin, name="Língua Portuguesa")
+
+    # O assunto já existe no catálogo, escrito igual.
+    criado = await client.post(
+        f"/api/v1/admin/catalog/subjects/{portugues['public_id']}/topics",
+        headers=admin.auth_header,
+        json={"name": "Ortografia oficial", "sort_order": 1},
+    )
+    assert criado.status_code == 201, criado.text
+    antes = criado.json()["public_id"]
+
+    await _subir(client, admin)
+
+    assuntos = await client.get(
+        f"/api/v1/admin/catalog/subjects/{portugues['public_id']}/topics",
+        headers=admin.auth_header,
+    )
+    ortografia = [item for item in assuntos.json() if item["name"] == "Ortografia oficial"]
+    assert len(ortografia) == 1
+    assert ortografia[0]["public_id"] == antes
+
+    # E o item do edital aponta para o assunto que já existia.
+    topico = (await db_session.execute(select(Topic).where(Topic.public_id == antes))).scalar_one()
+    itens = (
+        (await db_session.execute(select(NoticeTopic).where(NoticeTopic.topic_id == topico.id)))
+        .scalars()
+        .all()
+    )
+    assert len(itens) == 1
+
+
+async def test_assunto_parecido_entra_e_o_parecido_e_declarado(
+    client: AsyncClient, emails: CapturingDispatcher, fake_provider: FakeProvider
+) -> None:
+    """Juntar no chute mandaria o estudo para o lugar errado."""
+    admin = await create_admin(client, emails, email="assunto3@exemplo.com.br")
+    await configure_ai(client, admin)
+    portugues = await create_subject(client, admin, name="Língua Portuguesa")
+    await client.post(
+        f"/api/v1/admin/catalog/subjects/{portugues['public_id']}/topics",
+        headers=admin.auth_header,
+        json={"name": "Crase", "sort_order": 1},
+    )
+
+    corpo = await _subir(client, admin)
+
+    # "Emprego do sinal indicativo de crase" é parecido com "Crase", não igual:
+    # entra como assunto novo, e o par vai declarado.
+    assuntos = await client.get(
+        f"/api/v1/admin/catalog/subjects/{portugues['public_id']}/topics",
+        headers=admin.auth_header,
+    )
+    nomes = {item["name"] for item in assuntos.json()}
+    assert "Crase" in nomes
+    assert "Emprego do sinal indicativo de crase" in nomes
+
+    parecidos = [item for item in corpo["gaps"] if item["code"] == "TOPIC_LOOKS_LIKE_ANOTHER"]
+    assert parecidos
+    aviso = next(item for item in parecidos if "crase" in item["label"].lower())
+    assert "Crase" in (aviso["detail"] or "")
+    assert "confira se são o mesmo" in (aviso["detail"] or "")
+
+
+async def test_rotulo_com_varios_assuntos_numa_linha_nao_vira_assunto(
+    client: AsyncClient, emails: CapturingDispatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Um assunto que cobre cinco coisas é item de plano que não fecha nunca."""
+    admin = await create_admin(client, emails, email="assunto4@exemplo.com.br")
+
+    payload = deepcopy(EXTRACTION_PAYLOAD)
+    payload["fields"]["competition.name"]["value"] = "Concurso com extração torta"
+    payload["subjects"][0]["topics"] = [
+        "1 Compreensão e interpretação de textos. 2 Ortografia oficial. 3 Crase",
+        "Ortografia oficial",
+        "a)",
+    ]
+    provider = FakeProvider(completion_payload=payload)
+
+    def build(slug: str, credentials: ProviderCredentials) -> FakeProvider:
+        provider.credentials = credentials
+        return provider
+
+    from app.services import ai_settings
+
+    monkeypatch.setattr(ai_settings, "build_provider", build)
+    await configure_ai(client, admin)
+    portugues = await create_subject(client, admin, name="Língua Portuguesa")
+
+    corpo = await _subir(client, admin)
+
+    assuntos = await client.get(
+        f"/api/v1/admin/catalog/subjects/{portugues['public_id']}/topics",
+        headers=admin.auth_header,
+    )
+    nomes = {item["name"] for item in assuntos.json()}
+    # Só o que é um assunto de verdade entrou.
+    assert nomes == {"Ortografia oficial"}
+
+    recusados = [item for item in corpo["gaps"] if item["code"] == "TOPIC_NOT_A_TOPIC"]
+    assert len(recusados) == 2
+    motivos = " ".join(item["detail"] or "" for item in recusados)
+    assert "vários assuntos numerados numa linha só" in motivos
+    assert "curto demais" in motivos
+
+
+async def test_a_numeracao_do_edital_nao_entra_no_nome_do_assunto(
+    client: AsyncClient, emails: CapturingDispatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ "1.1 Crase" e "Crase" são o mesmo assunto; o número é daquele edital."""
+    admin = await create_admin(client, emails, email="assunto5@exemplo.com.br")
+
+    payload = deepcopy(EXTRACTION_PAYLOAD)
+    payload["subjects"][0]["topics"] = [
+        "1.1 Crimes contra a pessoa",
+        "a) Ortografia oficial",
+        "IV - Atos administrativos",
+    ]
+    provider = FakeProvider(completion_payload=payload)
+
+    def build(slug: str, credentials: ProviderCredentials) -> FakeProvider:
+        provider.credentials = credentials
+        return provider
+
+    from app.services import ai_settings
+
+    monkeypatch.setattr(ai_settings, "build_provider", build)
+    await configure_ai(client, admin)
+    portugues = await create_subject(client, admin, name="Língua Portuguesa")
+
+    await _subir(client, admin)
+
+    assuntos = await client.get(
+        f"/api/v1/admin/catalog/subjects/{portugues['public_id']}/topics",
+        headers=admin.auth_header,
+    )
+    assert {item["name"] for item in assuntos.json()} == {
+        "Crimes contra a pessoa",
+        "Ortografia oficial",
+        "Atos administrativos",
+    }
+
+
+async def test_disciplina_fora_do_catalogo_nao_cadastra_assunto_nenhum(
+    client: AsyncClient, emails: CapturingDispatcher, fake_provider: FakeProvider
+) -> None:
+    """Assunto mora na disciplina: sem disciplina, não há onde cadastrá-lo."""
+    admin = await create_admin(client, emails, email="assunto6@exemplo.com.br")
+    await configure_ai(client, admin)
+    # O catálogo não tem nenhuma das disciplinas do edital.
+    outra = await create_subject(client, admin, name="Matemática")
+
+    corpo = await _subir(client, admin)
+
+    assuntos = await client.get(
+        f"/api/v1/admin/catalog/subjects/{outra['public_id']}/topics",
+        headers=admin.auth_header,
+    )
+    assert assuntos.json() == []
+    # E o motivo continua sendo o da disciplina, não um sobre assunto.
+    assert any(item["code"] == "SUBJECT_WITHOUT_CATALOG" for item in corpo["gaps"])
+    assert not any(item["code"] == "TOPIC_NOT_A_TOPIC" for item in corpo["gaps"])
+
+
+async def test_cada_cargo_recebe_os_assuntos_da_sua_disciplina(
+    client: AsyncClient, emails: CapturingDispatcher, multicargo: FakeProvider
+) -> None:
+    admin = await create_admin(client, emails, email="assunto7@exemplo.com.br")
+    await configure_ai(client, admin)
+    await create_subject(client, admin, name="Língua Portuguesa")
+    banco = await create_subject(client, admin, name="Banco de Dados")
+
+    await _subir(client, admin, pdf=build_edital_pdf(pages=EDITAL_MULTICARGO_PAGES))
+
+    assuntos = await client.get(
+        f"/api/v1/admin/catalog/subjects/{banco['public_id']}/topics",
+        headers=admin.auth_header,
+    )
+    assert {item["name"] for item in assuntos.json()} == {"Modelo relacional", "Linguagem SQL"}

@@ -281,6 +281,18 @@ export function RadiographyPanel({
                     <Badge variant={subject.position_label ? 'primary' : 'outline'}>
                       {subject.position_label ?? 'todos os cargos'}
                     </Badge>
+                    {subject.topics_count > 0 && (
+                      <Badge
+                        variant={
+                          subject.topics_registered === subject.topics_count
+                            ? 'success'
+                            : 'warning'
+                        }
+                      >
+                        {subject.topics_registered} de {subject.topics_count} assuntos
+                        cadastrados
+                      </Badge>
+                    )}
                   </div>
                   {subject.topics.length > 0 ? (
                     <ul className="mt-2 space-y-0.5 text-sm text-muted">

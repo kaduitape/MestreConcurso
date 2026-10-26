@@ -6,6 +6,7 @@ import csv
 import io
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.core.slugify import slugify
+from app.domain.catalog_match import (
+    TOPIC_PROBLEM_LABEL,
+    CatalogEntry,
+    MatchReason,
+    clean_topic_label,
+    suggest,
+    topic_label_problem,
+)
 from app.models.audit import AuditAction
 from app.models.catalog import (
     Competition,
@@ -40,6 +49,32 @@ logger = get_logger(__name__)
 
 MAX_TOPIC_DEPTH = 4
 MAX_IMPORT_ROWS = 2000
+
+
+class TopicAction(StrEnum):
+    """O que aconteceu com um item do conteúdo programático."""
+
+    #: Já existia na disciplina, com nome idêntico: reaproveitado.
+    LINKED = "LINKED"
+    #: Não existia: entrou no catálogo.
+    CREATED = "CREATED"
+    #: O rótulo não é um assunto. O motivo acompanha.
+    SKIPPED = "SKIPPED"
+
+
+@dataclass(frozen=True, slots=True)
+class TopicOutcome:
+    """Um item do conteúdo programático e o que foi feito dele."""
+
+    raw_label: str
+    topic: Topic | None
+    action: str
+    #: Por que foi pulado, quando foi.
+    reason: str | None = None
+    #: Assunto parecido que já existia — vai à tela para alguém conferir se são
+    #: o mesmo. O serviço não junta os dois por conta própria.
+    near: str | None = None
+    near_reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -563,6 +598,122 @@ class CatalogService:
         await self.topics.delete_subtree(topic)
         await self._audit(AuditAction.CATALOG_DELETED, actor, context, "topic", public_id)
         await self.session.commit()
+
+    async def link_or_create_topics(
+        self,
+        subject: Subject,
+        labels: Sequence[str],
+        *,
+        actor: User,
+        context: RequestContext,
+    ) -> list[TopicOutcome]:
+        """Cadastra o conteúdo programático de uma disciplina, item por item.
+
+        O conteúdo programático **é** a lista oficial do que cai: é a única
+        fonte que diz, com autoridade, quais assuntos aquele concurso cobra. Por
+        isso aqui o serviço **cria** o que não existe, ao contrário do que faz
+        com disciplina (que é global e compartilhada entre concursos, e por isso
+        só é vinculada quando o nome é idêntico).
+
+        Três coisas governam o que acontece com cada rótulo:
+
+        *Nome idêntico vincula, não duplica.* Assunto que já existe na
+        disciplina é reaproveitado — senão o progresso do candidato se dividiria
+        entre duas linhas que são a mesma coisa.
+
+        *Parecido cria, e declara o parecido.* "Crase" e "Emprego do sinal
+        indicativo de crase" podem ser o mesmo assunto ou não, e decidir isso no
+        chute mandaria o estudo para o lugar errado. Então o assunto entra, e
+        junto vai o nome do parecido para alguém conferir e juntar.
+
+        *Rótulo que não é um assunto não entra.* Um item com vários assuntos
+        numerados numa linha, ou um parágrafo inteiro do edital, seria um item
+        do plano de estudo que cobre cinco coisas e não fecha nunca.
+
+        Não comita: quem chama decide a transação, porque isto roda no meio do
+        cadastro de um concurso inteiro.
+        """
+        existentes = list(await self.topics.list_for_subject(subject.id))
+        catalogo = [
+            CatalogEntry(public_id=item.public_id, name=item.name, path=item.path)
+            for item in existentes
+        ]
+        por_public_id = {item.public_id: item for item in existentes}
+        por_slug = {item.slug: item for item in existentes}
+        resultados: list[TopicOutcome] = []
+        ordem = max((item.sort_order for item in existentes), default=0)
+
+        for bruto in labels:
+            problema = topic_label_problem(bruto)
+            if problema is not None:
+                resultados.append(
+                    TopicOutcome(
+                        raw_label=bruto,
+                        topic=None,
+                        action=TopicAction.SKIPPED,
+                        reason=TOPIC_PROBLEM_LABEL[problema],
+                    )
+                )
+                continue
+
+            nome = clean_topic_label(bruto)
+            melhor = suggest(nome, catalogo).best
+
+            if melhor is not None and melhor.reason == MatchReason.EXACT:
+                resultados.append(
+                    TopicOutcome(
+                        raw_label=bruto,
+                        topic=por_public_id[melhor.entry.public_id],
+                        action=TopicAction.LINKED,
+                    )
+                )
+                continue
+
+            slug = slugify(nome, max_length=200)
+            if (ja_existe := por_slug.get(slug)) is not None:
+                # Mesmo slug é o mesmo assunto, só escrito de outro jeito. Isto
+                # é deduplicação, não palpite.
+                resultados.append(
+                    TopicOutcome(raw_label=bruto, topic=ja_existe, action=TopicAction.LINKED)
+                )
+                continue
+
+            ordem += 1
+            criado = await self._build_topic(subject, None, nome, ordem, None)
+            existentes.append(criado)
+            catalogo.append(
+                CatalogEntry(public_id=criado.public_id, name=criado.name, path=criado.path)
+            )
+            por_public_id[criado.public_id] = criado
+            por_slug[criado.slug] = criado
+            resultados.append(
+                TopicOutcome(
+                    raw_label=bruto,
+                    topic=criado,
+                    action=TopicAction.CREATED,
+                    near=melhor.entry.name if melhor is not None else None,
+                    near_reason=melhor.reason_label if melhor is not None else None,
+                )
+            )
+
+        await self.session.flush()
+        criados = sum(1 for item in resultados if item.action == TopicAction.CREATED)
+        if criados:
+            await self._audit(
+                AuditAction.CATALOG_IMPORTED,
+                actor,
+                context,
+                "subject",
+                subject.public_id,
+                {
+                    "source": "notice",
+                    "topics_created": criados,
+                    "topics_linked": sum(
+                        1 for item in resultados if item.action == TopicAction.LINKED
+                    ),
+                },
+            )
+        return resultados
 
     async def import_topics_csv(
         self,

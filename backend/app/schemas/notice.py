@@ -144,6 +144,9 @@ class SubjectRead(BaseModel):
     questions_count: int | None = None
     topics_count: int
     topics: list[str] = Field(default_factory=list)
+    #: Quantos assuntos desta disciplina já existem no catálogo. A diferença
+    #: para ``topics_count`` é o que ainda não gera aula, questão nem plano.
+    topics_registered: int = 0
     evidence_level: str
     page_number: int | None = None
 

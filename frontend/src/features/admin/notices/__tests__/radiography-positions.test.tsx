@@ -38,6 +38,7 @@ function disciplina(overrides: Partial<NoticeSubjectView> = {}): NoticeSubjectVi
     questions_count: null,
     topics_count: 2,
     topics: ['Crase', 'Ortografia'],
+    topics_registered: 2,
     evidence_level: 'OFFICIAL',
     page_number: 3,
     ...overrides,
@@ -173,5 +174,29 @@ describe('RadiographyPanel — cargos', () => {
     expect(
       screen.getByText('Analista Judiciário — Área de Tecnologia', { selector: 'span' }),
     ).toBeInTheDocument()
+  })
+})
+
+describe('RadiographyPanel — assuntos cadastrados', () => {
+  it('diz quantos assuntos da disciplina já existem no catálogo', () => {
+    render(<RadiographyPanel data={radiography()} />)
+    expect(screen.getByText('2 de 2 assuntos cadastrados')).toBeInTheDocument()
+  })
+
+  it('a diferença aparece marcada: guardado não é cadastrado', () => {
+    render(
+      <RadiographyPanel
+        data={radiography({
+          subjects: [
+            disciplina({
+              topics_count: 5,
+              topics: ['Crase', 'Ortografia', 'Sintaxe', 'Semântica', 'Pontuação'],
+              topics_registered: 3,
+            }),
+          ],
+        })}
+      />,
+    )
+    expect(screen.getByText('3 de 5 assuntos cadastrados')).toBeInTheDocument()
   })
 })

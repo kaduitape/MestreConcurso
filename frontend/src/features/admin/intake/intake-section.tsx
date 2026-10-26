@@ -608,8 +608,9 @@ export function IntakeSection() {
           <CardDescription>
             Suba o PDF do edital, ou cole o endereço da página do concurso. O serviço lê o
             documento, confere cada dado contra a citação que o sustenta e cadastra o concurso,
-            o cargo e a grade de disciplinas. O que o edital não sustentar fica em branco e
-            aparece nomeado — cadastrado não quer dizer completo.
+            <strong> todos os cargos</strong>, a grade de disciplinas de cada um e os{' '}
+            <strong>assuntos</strong> do conteúdo programático. O que o edital não sustentar
+            fica em branco e aparece nomeado — cadastrado não quer dizer completo.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

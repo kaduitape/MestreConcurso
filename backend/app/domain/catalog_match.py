@@ -155,6 +155,87 @@ class MatchResult:
         return False
 
 
+#: Tamanho máximo do nome de um assunto — é o da coluna. Rótulo maior que isto
+#: não é um assunto: é um parágrafo do edital que a extração não dividiu.
+MAX_TOPIC_NAME = 200
+
+#: Mínimo para um rótulo significar algo. "1" e "a)" não são assunto.
+MIN_TOPIC_NAME = 3
+
+#: Enumeração embutida: "1 Compreensão de textos. 2 Ortografia oficial." é a
+#: assinatura de uma extração que não dividiu a lista. Dois ou mais desses num
+#: rótulo só querem dizer que ali vinha mais de um assunto.
+_ENUMERATION = re.compile(r"(?:^|[.;)\s])(\d{1,2})\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇa-z]")
+
+
+class TopicLabelProblem(StrEnum):
+    """Por que um rótulo do conteúdo programático não pode virar assunto."""
+
+    TOO_SHORT = "TOO_SHORT"
+    TOO_LONG = "TOO_LONG"
+    SEVERAL_IN_ONE = "SEVERAL_IN_ONE"
+
+
+TOPIC_PROBLEM_LABEL: dict[str, str] = {
+    TopicLabelProblem.TOO_SHORT: "o rótulo é curto demais para nomear um assunto",
+    TopicLabelProblem.TOO_LONG: (
+        f"o rótulo passa de {MAX_TOPIC_NAME} caracteres — é um trecho do edital, "
+        "não o nome de um assunto"
+    ),
+    TopicLabelProblem.SEVERAL_IN_ONE: (
+        "o rótulo traz vários assuntos numerados numa linha só — a extração não os dividiu"
+    ),
+}
+
+
+#: Numeração do edital no começo do rótulo: "1 ", "1.1 ", "2.3.4 ", "a) ",
+#: "IV - ". É numeração do documento, não nome do assunto.
+_LEADING_ENUMERATION = re.compile(
+    r"^\s*(?:\d{1,2}(?:\.\d{1,2})*|[a-z]|[ivxlcdm]{1,6})\s*[.)\-–—]?\s+",
+    re.IGNORECASE,
+)
+
+
+def clean_topic_label(label: str) -> str:
+    """O nome do assunto sem a numeração do edital e sem pontuação de borda.
+
+    Isto é **normalização**, não palpite: "1.1 Crimes contra a pessoa" e
+    "Crimes contra a pessoa" são o mesmo assunto, e o "1.1" é a numeração
+    daquele edital — que o próximo edital escreve com outro número. Manter a
+    numeração no nome encheria o catálogo de duplicatas que só diferem no
+    prefixo, e dividiria o progresso do candidato entre elas.
+    """
+    limpo = " ".join((label or "").split())
+    limpo = _LEADING_ENUMERATION.sub("", limpo, count=1)
+    return limpo.strip(" .;,:-–—").strip()
+
+
+def topic_label_problem(label: str) -> str | None:
+    """O que impede este rótulo de virar um assunto do catálogo, ou ``None``.
+
+    A função existe porque cadastrar o conteúdo programático errado é pior que
+    não cadastrar: o assunto é a unidade a que todo o estudo é endereçado — aula,
+    questão, flashcard, plano. Um assunto chamado "1 Compreensão e interpretação
+    de textos. 2 Ortografia oficial." viraria um item do plano de estudo que
+    cobre duas coisas e não fecha nunca.
+
+    É pura: a mesma entrada dá sempre a mesma saída, e o motivo é legível.
+    """
+    bruto = " ".join((label or "").split())
+    limpo = clean_topic_label(label)
+    if len(limpo) < MIN_TOPIC_NAME:
+        return TopicLabelProblem.TOO_SHORT
+    if len(limpo) > MAX_TOPIC_NAME:
+        return TopicLabelProblem.TOO_LONG
+    # A enumeração é contada no rótulo **bruto**, antes de a numeração inicial
+    # sair: "1 Textos. 2 Ortografia." tem dois marcadores e são dois assuntos,
+    # enquanto "Art. 5 da Constituição" tem um e é um só. Contar no rótulo já
+    # limpo faria o primeiro caso passar — foi o que aconteceu ao escrever isto.
+    if len(_ENUMERATION.findall(bruto)) >= 2:
+        return TopicLabelProblem.SEVERAL_IN_ONE
+    return None
+
+
 def score_pair(query: str, name: str) -> tuple[float, str]:
     """Nota de 0 a 1 entre dois nomes, com o motivo.
 

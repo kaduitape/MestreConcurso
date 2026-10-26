@@ -79,6 +79,11 @@ class SubjectView:
     topics: list[str]
     evidence_level: str
     page_number: int | None
+    #: Quantos assuntos desta disciplina já existem no catálogo. Fica ao lado de
+    #: ``topics_count`` porque a diferença entre os dois é o que ainda não gera
+    #: aula, questão nem plano — e esconder essa diferença faria o conteúdo
+    #: programático parecer aproveitado quando só está guardado.
+    topics_registered: int = 0
     #: De qual cargo é esta disciplina. ``None`` quer dizer "de todos os
     #: cargos", que é o caso mais frequente — e por isso é o padrão.
     position_label: str | None = None
@@ -260,6 +265,7 @@ class RadiographyService:
                 questions_count=subject.questions_count,
                 topics_count=len(subject.topics),
                 topics=[topic.raw_label for topic in subject.topics],
+                topics_registered=sum(1 for topic in subject.topics if topic.topic_id is not None),
                 evidence_level=subject.evidence_level,
                 page_number=subject.page_number,
             )

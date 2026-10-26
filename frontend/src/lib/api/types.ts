@@ -598,6 +598,11 @@ export interface NoticeSubjectView {
   questions_count: number | null
   topics_count: number
   topics: string[]
+  /**
+   * Quantos assuntos desta disciplina já existem no catálogo. A diferença para
+   * `topics_count` é o que ainda não gera aula, questão nem plano.
+   */
+  topics_registered: number
   evidence_level: EvidenceLevel
   page_number: number | null
 }

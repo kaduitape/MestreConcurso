@@ -130,6 +130,8 @@ class GapCode(StrEnum):
     POSITION_WITHOUT_EVIDENCE = "POSITION_WITHOUT_EVIDENCE"
     POSITION_DUPLICATED = "POSITION_DUPLICATED"
     SUBJECT_WITHOUT_CATALOG = "SUBJECT_WITHOUT_CATALOG"
+    TOPIC_NOT_A_TOPIC = "TOPIC_NOT_A_TOPIC"
+    TOPIC_LOOKS_LIKE_ANOTHER = "TOPIC_LOOKS_LIKE_ANOTHER"
     GRADE_EMPTY = "GRADE_EMPTY"
     SHORT_NAME_DERIVED = "SHORT_NAME_DERIVED"
     BOARD_NOT_FOUND = "BOARD_NOT_FOUND"
@@ -1018,7 +1020,14 @@ class CompetitionIntakeService:
             # permite a uma retificação saber qual cargo mudou.
             extraido.position_id = cargo.id
             criados.append(cargo)
-            await self._build_grade(cargo, intake, gaps, position_label=extraido.raw_label)
+            await self._build_grade(
+                cargo,
+                intake,
+                gaps,
+                position_label=extraido.raw_label,
+                actor=actor,
+                context=context,
+            )
 
         return criados
 
@@ -1063,7 +1072,9 @@ class CompetitionIntakeService:
         cargo = await CatalogService(self.session).create_position(
             competition.public_id, dados, actor=actor, context=context
         )
-        await self._build_grade(cargo, intake, gaps, position_label=nome)
+        await self._build_grade(
+            cargo, intake, gaps, position_label=nome, actor=actor, context=context
+        )
         return [cargo]
 
     async def _build_grade(
@@ -1073,6 +1084,8 @@ class CompetitionIntakeService:
         gaps: list[Gap],
         *,
         position_label: str,
+        actor: User,
+        context: RequestContext,
     ) -> None:
         """Monta a grade de um cargo a partir das disciplinas do edital.
 
@@ -1182,6 +1195,7 @@ class CompetitionIntakeService:
                 )
             )
             vinculadas += 1
+            await self._register_topics(disciplina, canonica, gaps, actor=actor, context=context)
 
         await self.session.flush()
         if vinculadas == 0:
@@ -1195,6 +1209,76 @@ class CompetitionIntakeService:
                     ),
                 )
             )
+
+    async def _register_topics(
+        self,
+        notice_subject: NoticeSubject,
+        subject: Subject,
+        gaps: list[Gap],
+        *,
+        actor: User,
+        context: RequestContext,
+    ) -> None:
+        """Cadastra o conteúdo programático da disciplina e o liga ao edital.
+
+        O assunto é a unidade a que **todo o estudo é endereçado**: aula,
+        questão, flashcard, plano, mapa mental. Sem assunto, o conteúdo
+        programático do edital fica guardado como texto e não gera nada.
+
+        Aqui o serviço cria o que não existe — diferente do que faz com
+        disciplina. O motivo é a autoridade da fonte: disciplina é global e
+        compartilhada entre concursos, enquanto o conteúdo programático **é** a
+        lista oficial do que aquele concurso cobra. Criar é obedecer ao edital;
+        não criar seria guardar a lista e não usá-la.
+
+        O ``topic_id`` de cada item do edital passa a apontar para o assunto do
+        catálogo — é o que faz uma retificação saber qual assunto mudou, em vez
+        de comparar texto solto.
+        """
+        from app.services.catalog import CatalogService, TopicAction
+
+        itens = list(notice_subject.topics)
+        if not itens:
+            return
+
+        resultados = await CatalogService(self.session).link_or_create_topics(
+            subject,
+            [item.raw_label for item in itens],
+            actor=actor,
+            context=context,
+        )
+
+        for item, resultado in zip(itens, resultados, strict=True):
+            if resultado.topic is not None:
+                item.topic_id = resultado.topic.id
+
+            if resultado.action == TopicAction.SKIPPED:
+                gaps.append(
+                    Gap(
+                        code=GapCode.TOPIC_NOT_A_TOPIC,
+                        label=f"Assunto não cadastrado em {subject.name}: {item.raw_label[:120]}",
+                        detail=resultado.reason,
+                    )
+                )
+            elif resultado.action == TopicAction.CREATED and resultado.near is not None:
+                # Criado, não juntado: decidir no chute que são o mesmo assunto
+                # mandaria o estudo para o lugar errado. A tela mostra o par.
+                gaps.append(
+                    Gap(
+                        code=GapCode.TOPIC_LOOKS_LIKE_ANOTHER,
+                        label=(
+                            f"Assunto novo em {subject.name}: "
+                            f"'{resultado.topic.name if resultado.topic else item.raw_label}'"
+                        ),
+                        detail=(
+                            f"parecido com '{resultado.near}' que já existia "
+                            f"({resultado.near_reason}) — confira se são o mesmo e junte, "
+                            "se forem"
+                        ),
+                    )
+                )
+
+        await self.session.flush()
 
     async def _duplicate(self, name: str, year: int) -> Competition | None:
         """O mesmo concurso, mesmo ano, já cadastrado."""

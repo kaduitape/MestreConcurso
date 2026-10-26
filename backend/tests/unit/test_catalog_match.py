@@ -7,15 +7,21 @@ Não casar é melhor, e precisa continuar sendo um resultado possível.
 
 from __future__ import annotations
 
+import pytest
+
 from app.domain.catalog_match import (
     MIN_SCORE,
     STRONG_SCORE,
+    TOPIC_PROBLEM_LABEL,
     CatalogEntry,
     MatchReason,
+    TopicLabelProblem,
+    clean_topic_label,
     normalize,
     score_pair,
     suggest,
     tokens,
+    topic_label_problem,
 )
 
 DISCIPLINAS = [
@@ -125,3 +131,69 @@ def test_each_candidate_explains_itself() -> None:
 def test_the_list_is_capped() -> None:
     muitos = [CatalogEntry(public_id=str(i), name=f"Direito {i}") for i in range(30)]
     assert len(suggest("Direito", muitos).candidates) <= 5
+
+
+# --------------------------------------------------------------------------- #
+# O que conta como UM assunto
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    ("rotulo", "nome"),
+    [
+        ("1 Princípios da administração pública", "Princípios da administração pública"),
+        ("1.1 Crimes contra a pessoa", "Crimes contra a pessoa"),
+        ("2.3.4 Lei de Execução Penal", "Lei de Execução Penal"),
+        ("a) Ortografia oficial", "Ortografia oficial"),
+        ("IV - Atos administrativos", "Atos administrativos"),
+        ("  Crase.  ", "Crase"),
+        ("Crase", "Crase"),
+    ],
+)
+def test_a_numeracao_do_edital_sai_do_nome_do_assunto(rotulo: str, nome: str) -> None:
+    """O número é daquele edital; o próximo escreve outro. Não é parte do nome."""
+    assert clean_topic_label(rotulo) == nome
+
+
+def test_numero_que_e_parte_do_nome_fica(rotulo: str = "Lei nº 8.112/1990") -> None:
+    assert clean_topic_label(rotulo) == "Lei nº 8.112/1990"
+    assert clean_topic_label("Art. 5 da Constituição Federal") == ("Art. 5 da Constituição Federal")
+
+
+@pytest.mark.parametrize(
+    "rotulo",
+    [
+        "Crase",
+        "Emprego do sinal indicativo de crase",
+        "Princípios aplicáveis ao direito penal",
+        "Lei nº 8.112/1990",
+        "Art. 5 da Constituição Federal",
+        "Lei 8.666 de 1993 e suas alterações",
+        "1 Princípios da administração pública",
+    ],
+)
+def test_rotulo_que_e_um_assunto_passa(rotulo: str) -> None:
+    assert topic_label_problem(rotulo) is None
+
+
+def test_varios_assuntos_numa_linha_nao_e_um_assunto() -> None:
+    """A assinatura de uma extração que não dividiu a lista."""
+    assert (
+        topic_label_problem("1 Compreensão de textos. 2 Ortografia oficial. 3 Crase")
+        == TopicLabelProblem.SEVERAL_IN_ONE
+    )
+    assert (
+        topic_label_problem("LÍNGUA PORTUGUESA: 1 Compreensão de textos. 2 Ortografia.")
+        == TopicLabelProblem.SEVERAL_IN_ONE
+    )
+
+
+def test_rotulo_curto_ou_longo_demais_nao_e_um_assunto() -> None:
+    assert topic_label_problem("1") == TopicLabelProblem.TOO_SHORT
+    assert topic_label_problem("a)") == TopicLabelProblem.TOO_SHORT
+    assert topic_label_problem("") == TopicLabelProblem.TOO_SHORT
+    # Parágrafo inteiro do edital: seria um item de plano que cobre tudo.
+    assert topic_label_problem("Direito " * 40) == TopicLabelProblem.TOO_LONG
+
+
+def test_todo_motivo_de_recusa_tem_texto_para_a_tela() -> None:
+    assert set(TOPIC_PROBLEM_LABEL) == {item.value for item in TopicLabelProblem}
+    assert all(TOPIC_PROBLEM_LABEL[item].strip() for item in TopicLabelProblem)
