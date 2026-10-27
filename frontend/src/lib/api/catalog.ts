@@ -3,6 +3,7 @@ import type {
   BoardKnowledgeCoverage,
   BoardKnowledgeEntry,
   Competition,
+  CompetitionEvent,
   CompetitionSummary,
   ExamBoard,
   MessageResponse,
@@ -46,6 +47,9 @@ export const catalogApi = {
 
   competitionNotices: (publicId: string) =>
     api.get<Notice[]>(`/catalog/competitions/${publicId}/notices`),
+
+  competitionSchedule: (publicId: string) =>
+    api.get<CompetitionEvent[]>(`/catalog/competitions/${publicId}/schedule`),
 
   boards: (params: { page: number; page_size: number }) =>
     api.get<Page<ExamBoard>>(`/catalog/boards${query({ ...params })}`),
@@ -108,6 +112,9 @@ export const adminCatalogApi = {
     api.patch<ExamBoard>(`/admin/catalog/boards/${publicId}`, input),
   deleteBoard: (publicId: string) =>
     api.delete<MessageResponse>(`/admin/catalog/boards/${publicId}`),
+
+  competitionSchedule: (publicId: string) =>
+    api.get<CompetitionEvent[]>(`/admin/catalog/competitions/${publicId}/schedule`),
 
   boardKnowledge: (publicId: string) =>
     api.get<BoardKnowledgeEntry[]>(`/admin/catalog/boards/${publicId}/knowledge`),

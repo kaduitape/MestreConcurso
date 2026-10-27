@@ -216,6 +216,26 @@ class PositionUpdate(BaseModel):
     exam_duration_minutes: int | None = Field(default=None, ge=0, le=1440)
 
 
+class CompetitionEventRead(BaseModel):
+    """Uma data do cronograma do concurso, com a procedência à vista."""
+
+    model_config = _READ
+
+    public_id: str
+    kind: str
+    title: str
+    date_start: date
+    date_end: date | None = None
+    #: Prazo que, perdido, tira o candidato do concurso.
+    is_critical: bool = False
+    #: ``NOTICE`` quando veio do edital com citação conferida; ``MANUAL`` quando
+    #: uma pessoa digitou ou corrigiu.
+    source: str = "NOTICE"
+    evidence_level: str = "INFERRED"
+    page_number: int | None = None
+    quote: str | None = None
+
+
 class CompetitionRead(BaseModel):
     model_config = _READ
 

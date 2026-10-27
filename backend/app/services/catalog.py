@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, ValidationError
@@ -26,6 +27,7 @@ from app.models.audit import AuditAction
 from app.models.catalog import (
     Competition,
     CompetitionEditorialStatus,
+    CompetitionEvent,
     ExamBoard,
     Organization,
     Position,
@@ -598,6 +600,23 @@ class CatalogService:
         await self.topics.delete_subtree(topic)
         await self._audit(AuditAction.CATALOG_DELETED, actor, context, "topic", public_id)
         await self.session.commit()
+
+    async def competition_schedule(
+        self, public_id: str, *, published_only: bool = False
+    ) -> Sequence[CompetitionEvent]:
+        """O cronograma do concurso, em ordem de data."""
+        competition = await self.get_competition(public_id, published_only=published_only)
+        return (
+            (
+                await self.session.execute(
+                    select(CompetitionEvent)
+                    .where(CompetitionEvent.competition_id == competition.id)
+                    .order_by(CompetitionEvent.date_start, CompetitionEvent.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
 
     async def link_or_create_topics(
         self,

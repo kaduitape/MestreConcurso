@@ -100,3 +100,10 @@ e o conteúdo continuar apontando para um programa que não existe mais.
 > ao cadastrar o conteúdo programático, então a partir de editais analisados
 > por esse caminho a comparação deixa de depender do texto — edital que
 > reescreve "1.1 Crase" como "Crase" não vira mais assunto novo.
+
+> **Lacuna conhecida (out/2026).** O concurso passou a ter cronograma próprio
+> (ver [cadastro pelo edital](42-cadastro-de-concurso-pelo-edital.md)), e cada
+> data registra de qual edital veio — foi desenhado para que uma retificação
+> possa substituí-la. Mas **aplicar** a retificação ao cronograma ainda não
+> existe: o diff diz que a prova foi adiada e o cronograma continua com a data
+> antiga. Está escrito aqui para não ser descoberto por um candidato.

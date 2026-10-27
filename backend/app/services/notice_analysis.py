@@ -778,6 +778,7 @@ class NoticeAnalysisService:
                     is_critical=event.is_critical,
                     evidence_level=match.level,
                     page_number=match.page_number,
+                    quote=match.quote if match else event.quote,
                 )
             )
             created += 1

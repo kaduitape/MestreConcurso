@@ -9,6 +9,7 @@ aplica.
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import date, timedelta
 from typing import Any
 
 import pytest
@@ -1058,3 +1059,172 @@ async def test_cada_cargo_recebe_os_assuntos_da_sua_disciplina(
         headers=admin.auth_header,
     )
     assert {item["name"] for item in assuntos.json()} == {"Modelo relacional", "Linguagem SQL"}
+
+
+# --------------------------------------------------------------------------- #
+# O cronograma do concurso
+# --------------------------------------------------------------------------- #
+async def test_as_datas_do_cronograma_viram_cronograma_do_concurso(
+    client: AsyncClient, emails: CapturingDispatcher, fake_provider: FakeProvider
+) -> None:
+    """Antes disso as datas ficavam no edital e o concurso não tinha linha do tempo."""
+    admin = await create_admin(client, emails, email="data1@exemplo.com.br")
+    await configure_ai(client, admin)
+
+    corpo = await _subir(client, admin)
+    assert corpo["status"] == "APPLIED", corpo.get("detail")
+
+    cronograma = await client.get(
+        f"/api/v1/admin/catalog/competitions/{corpo['competition_public_id']}/schedule",
+        headers=admin.auth_header,
+    )
+    assert cronograma.status_code == 200, cronograma.text
+    datas = cronograma.json()
+    assert datas
+
+    # Em ordem de data, com a procedência de cada uma.
+    assert [item["date_start"] for item in datas] == sorted(item["date_start"] for item in datas)
+    prova = next(item for item in datas if item["kind"] == "EXAM")
+    assert prova["date_start"] == "2026-03-15"
+    assert prova["is_critical"] is True
+    assert prova["source"] == "NOTICE"
+    assert prova["evidence_level"] == EvidenceLevel.OFFICIAL
+    # A citação da data: era a única coisa extraída que não guardava a prova.
+    assert "15 de março de 2026" in (prova["quote"] or "")
+    assert prova["page_number"] is not None
+
+    # O teste de aptidão física é eliminatório e está no cronograma.
+    assert any(item["kind"] == "PHYSICAL_TEST" for item in datas)
+
+
+async def test_data_sem_citacao_conferida_nao_entra_e_fica_declarada(
+    client: AsyncClient, emails: CapturingDispatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Prazo errado na tela é pior que prazo ausente."""
+    admin = await create_admin(client, emails, email="data2@exemplo.com.br")
+
+    payload = deepcopy(EXTRACTION_PAYLOAD)
+    payload["events"] = [
+        {
+            "kind": "EXAM",
+            "title": "Aplicação da prova objetiva",
+            "date_start": "2026-03-15",
+            "is_critical": True,
+            "quote": "A prova objetiva será aplicada no dia 15 de março de 2026",
+            "page": 2,
+        },
+        {
+            "kind": "RESULT",
+            "title": "Resultado final",
+            "date_start": "2026-06-30",
+            "is_critical": False,
+            "quote": "FRASE QUE NAO EXISTE EM LUGAR NENHUM DO DOCUMENTO",
+            "page": 4,
+        },
+    ]
+    provider = FakeProvider(completion_payload=payload)
+
+    def build(slug: str, credentials: ProviderCredentials) -> FakeProvider:
+        provider.credentials = credentials
+        return provider
+
+    from app.services import ai_settings
+
+    monkeypatch.setattr(ai_settings, "build_provider", build)
+    await configure_ai(client, admin)
+
+    corpo = await _subir(client, admin)
+    cronograma = await client.get(
+        f"/api/v1/admin/catalog/competitions/{corpo['competition_public_id']}/schedule",
+        headers=admin.auth_header,
+    )
+    tipos = {item["kind"] for item in cronograma.json()}
+    assert "EXAM" in tipos
+    assert "RESULT" not in tipos
+
+    recusadas = [item for item in corpo["gaps"] if item["code"] == "DATE_WITHOUT_EVIDENCE"]
+    assert len(recusadas) == 1
+    assert "Resultado final" in recusadas[0]["label"]
+    assert "pior que prazo ausente" in (recusadas[0]["detail"] or "")
+
+
+async def test_o_cronograma_completa_a_ficha_quando_o_campo_nao_tem_citacao(
+    client: AsyncClient, emails: CapturingDispatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A data está no documento duas vezes; recusar a segunda prova seria perda."""
+    admin = await create_admin(client, emails, email="data3@exemplo.com.br")
+
+    payload = deepcopy(EXTRACTION_PAYLOAD)
+    # O campo escalar da prova vem com citação inventada...
+    payload["fields"]["exam.date"]["quote"] = "ISTO NAO APARECE NO DOCUMENTO"
+    # ...mas o cronograma traz a mesma data com citação que existe.
+    provider = FakeProvider(completion_payload=payload)
+
+    def build(slug: str, credentials: ProviderCredentials) -> FakeProvider:
+        provider.credentials = credentials
+        return provider
+
+    from app.services import ai_settings
+
+    monkeypatch.setattr(ai_settings, "build_provider", build)
+    await configure_ai(client, admin)
+
+    corpo = await _subir(client, admin)
+    campos = {item["field_path"]: item for item in corpo["proposal"]["fields"]}
+    # O campo em si continua inferido: a ficha não mente sobre a citação dele.
+    assert campos["exam.date"]["evidence_level"] == EvidenceLevel.INFERRED
+    assert campos["exam.date"]["applicable"] is False
+
+    # E ainda assim a data entrou na ficha, pela prova do cronograma.
+    concurso = await client.get(
+        f"/api/v1/admin/catalog/competitions/{corpo['competition_public_id']}",
+        headers=admin.auth_header,
+    )
+    assert concurso.json()["exam_date"] == "2026-03-15"
+
+
+async def test_o_estado_do_concurso_sai_das_datas(
+    client: AsyncClient, emails: CapturingDispatcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Concurso de inscrições abertas não pode nascer marcado como previsto."""
+    admin = await create_admin(client, emails, email="data4@exemplo.com.br")
+
+    hoje = date.today()
+    payload = deepcopy(EXTRACTION_PAYLOAD)
+    # Inscrições abertas agora: começaram ontem, terminam amanhã.
+    payload["fields"]["registration.start_date"]["value"] = str(hoje - timedelta(days=1))
+    payload["fields"]["registration.end_date"]["value"] = str(hoje + timedelta(days=1))
+    payload["fields"]["exam.date"]["value"] = str(hoje + timedelta(days=60))
+    provider = FakeProvider(completion_payload=payload)
+
+    def build(slug: str, credentials: ProviderCredentials) -> FakeProvider:
+        provider.credentials = credentials
+        return provider
+
+    from app.services import ai_settings
+
+    monkeypatch.setattr(ai_settings, "build_provider", build)
+    await configure_ai(client, admin)
+
+    corpo = await _subir(client, admin)
+    concurso = await client.get(
+        f"/api/v1/admin/catalog/competitions/{corpo['competition_public_id']}",
+        headers=admin.auth_header,
+    )
+    assert concurso.json()["status"] == "OPEN"
+
+
+async def test_o_candidato_so_ve_o_cronograma_de_concurso_publicado(
+    client: AsyncClient, emails: CapturingDispatcher, fake_provider: FakeProvider
+) -> None:
+    """Cadastro automático nasce rascunho; o cronograma segue a ficha."""
+    admin = await create_admin(client, emails, email="data5@exemplo.com.br")
+    await configure_ai(client, admin)
+    corpo = await _subir(client, admin)
+
+    candidato = await create_user(client, emails, email="data5.aluno@exemplo.com.br")
+    publico = await client.get(
+        f"/api/v1/catalog/competitions/{corpo['competition_public_id']}/schedule",
+        headers=candidato.auth_header,
+    )
+    assert publico.status_code == 404

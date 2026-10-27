@@ -21,6 +21,7 @@
 import { useRef, useState } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  CalendarClock,
   CircleAlert,
   FileSearch,
   FileUp,
@@ -43,6 +44,7 @@ import { SkeletonList } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorState } from '@/components/feedback/error-state'
 import { ApiError } from '@/lib/api/client'
+import { adminCatalogApi } from '@/lib/api/catalog'
 import { intakeApi } from '@/lib/api/intake'
 import { queryKeys } from '@/lib/query-client'
 import { EvidenceBadge } from '../notices/evidence'
@@ -163,6 +165,70 @@ function GapList({ gaps }: { gaps: IntakeGap[] }) {
           <li key={`${gap.code}-${index}`} className="text-sm text-foreground">
             {gap.label}
             {gap.detail && <span className="block text-xs text-muted">{gap.detail}</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+const EVENT_LABEL: Record<string, string> = {
+  REGISTRATION_START: 'abertura das inscrições',
+  REGISTRATION_END: 'encerramento das inscrições',
+  FEE_DEADLINE: 'prazo da taxa',
+  EXEMPTION_PERIOD: 'isenção',
+  EXAM: 'prova',
+  RESULT: 'resultado',
+  APPEAL: 'recursos',
+  PHYSICAL_TEST: 'teste físico',
+  OTHER: 'outra data',
+}
+
+function formatDate(value: string): string {
+  return new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR')
+}
+
+/**
+ * O cronograma que o concurso passou a ter.
+ *
+ * Mostra a citação de cada data porque prazo é a informação que o candidato
+ * usa para não perder o concurso: ele precisa poder conferir de onde veio.
+ */
+function ScheduleCard({ competitionPublicId }: { competitionPublicId: string }) {
+  const cronograma = useQuery({
+    queryKey: queryKeys.adminCompetitionSchedule(competitionPublicId),
+    queryFn: () => adminCatalogApi.competitionSchedule(competitionPublicId),
+  })
+
+  if (cronograma.isLoading) return <SkeletonList rows={1} />
+  const datas = cronograma.data ?? []
+  if (datas.length === 0) return null
+
+  return (
+    <div className="rounded-lg border border-border p-3">
+      <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+        <CalendarClock className="size-4" aria-hidden />
+        Cronograma cadastrado — {datas.length} data(s)
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {datas.map((evento) => (
+          <li key={evento.public_id} className="text-sm">
+            <span className="flex flex-wrap items-center gap-2">
+              <strong className="text-foreground">{formatDate(evento.date_start)}</strong>
+              {evento.date_end && evento.date_end !== evento.date_start && (
+                <span className="text-muted">a {formatDate(evento.date_end)}</span>
+              )}
+              <span className="text-muted">{evento.title}</span>
+              <Badge variant="outline">{EVENT_LABEL[evento.kind] ?? evento.kind}</Badge>
+              {evento.is_critical && <Badge variant="danger">prazo crítico</Badge>}
+              <EvidenceBadge level={evento.evidence_level} />
+            </span>
+            {evento.quote && (
+              <span className="block text-xs text-subtle italic">
+                “{evento.quote}”
+                {evento.page_number !== null && ` — página ${evento.page_number}`}
+              </span>
+            )}
           </li>
         ))}
       </ul>
@@ -532,6 +598,7 @@ function IntakeCard({ intake }: { intake: CompetitionIntake }) {
                 </Badge>
               )}
             </div>
+            <ScheduleCard competitionPublicId={intake.competition_public_id} />
             <GapList gaps={intake.gaps} />
             <div className="space-y-2">
               {intake.proposal.fields.map((field) => (

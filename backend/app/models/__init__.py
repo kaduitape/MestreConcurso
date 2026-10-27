@@ -33,6 +33,8 @@ from app.models.board_knowledge import (
 )
 from app.models.catalog import (
     Competition,
+    CompetitionEvent,
+    CompetitionEventSource,
     CompetitionStatus,
     EducationLevel,
     ExamBoard,
@@ -173,6 +175,8 @@ __all__ = [
     "CardOrigin",
     "ChatMode",
     "Competition",
+    "CompetitionEvent",
+    "CompetitionEventSource",
     "CompetitionIntake",
     "CompetitionStatus",
     "ConsentLog",

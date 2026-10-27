@@ -22,6 +22,7 @@ from app.schemas.catalog import (
     CatalogMatchRead,
     CompetitionCreate,
     CompetitionEditorialUpdate,
+    CompetitionEventRead,
     CompetitionRead,
     CompetitionSummary,
     CompetitionUpdate,
@@ -279,6 +280,19 @@ async def create_competition(
         context=ctx,
     )
     return CompetitionRead.model_validate(competition)
+
+
+@router.get(
+    "/competitions/{public_id}/schedule",
+    response_model=list[CompetitionEventRead],
+    summary="Cronograma do concurso",
+)
+async def competition_schedule(
+    public_id: str, _: CatalogReader, db: DbSession
+) -> list[CompetitionEventRead]:
+    """As datas do concurso, inclusive as de ficha ainda não publicada."""
+    eventos = await CatalogService(db).competition_schedule(public_id)
+    return [CompetitionEventRead.model_validate(item) for item in eventos]
 
 
 @router.get(

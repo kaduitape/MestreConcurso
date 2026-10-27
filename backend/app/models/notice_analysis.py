@@ -141,6 +141,11 @@ class NoticeEvent(IdMixin, TimestampMixin, Base):
     )
     evidence_level: Mapped[str] = mapped_column(String(20), default=EvidenceLevel.INFERRED)
     page_number: Mapped[int | None] = mapped_column(Integer)
+    #: A citação conferida no PDF. Era a única coisa extraída deste projeto que
+    #: não guardava a própria prova: o nível de evidência dizia que a data tinha
+    #: citação, e a citação não ficava em lugar nenhum. Sem ela não há como o
+    #: cronograma do concurso mostrar de onde cada data veio.
+    quote: Mapped[str | None] = mapped_column(MediumText)
 
 
 class NoticePosition(IdMixin, PublicIdMixin, TimestampMixin, Base):

@@ -145,6 +145,71 @@ class Competition(IdMixin, PublicIdMixin, TimestampMixin, Base):
         back_populates="competition", cascade="all, delete-orphan", lazy="selectin"
     )
     notices: Mapped[list[Notice]] = relationship(back_populates="competition", lazy="noload")
+    events: Mapped[list[CompetitionEvent]] = relationship(
+        back_populates="competition", cascade="all, delete-orphan", lazy="noload"
+    )
+
+
+class CompetitionEventSource(StrEnum):
+    """De onde a data veio."""
+
+    #: Lida no cronograma do edital, com citação conferida.
+    NOTICE = "NOTICE"
+    #: Digitada ou corrigida por uma pessoa.
+    MANUAL = "MANUAL"
+
+
+class CompetitionEvent(IdMixin, PublicIdMixin, TimestampMixin, Base):
+    """Uma data do cronograma do concurso.
+
+    Por que não basta ler ``notice_events``. Três motivos, e nenhum é de
+    arquitetura:
+
+    *Retificação.* O concurso tem vários editais — abertura e retificações —, e
+    é justamente a data que a retificação muda. Com as datas só no edital, o
+    cronograma do concurso seria "o do edital que você consultou". Aqui cada
+    data registra de qual edital veio, e a próxima pode substituí-la sem apagar
+    de onde a anterior saiu.
+
+    *Correção humana.* Quem cuida do catálogo precisa poder corrigir uma data.
+    O registro do edital é o **retrato do documento** desde a Fase 3: corrigir
+    ali apagaria o que o documento dizia, que é o oposto do que ele serve.
+
+    *A pergunta é do concurso.* "Quando é a prova?" e "quando fecham as
+    inscrições?" são perguntas sobre o concurso, não sobre um PDF. Obrigar a
+    tela do candidato a entrar nas tripas do edital para respondê-las seria
+    acoplar o estudo à análise.
+
+    As três datas que já moram em ``competitions`` — inscrições e prova —
+    continuam lá: são as que o plano de estudo lê, e movê-las quebraria tudo que
+    as consome. Esta tabela é o **resto** do cronograma, que até agora não tinha
+    onde ficar.
+    """
+
+    __tablename__ = "competition_events"
+    __table_args__ = (
+        Index("ix_competition_events_competition_date", "competition_id", "date_start"),
+    )
+
+    competition_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("competitions.id", ondelete="CASCADE"), index=True
+    )
+    #: O edital de onde esta data veio. Nulo quando uma pessoa a digitou.
+    notice_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("notices.id", ondelete="SET NULL")
+    )
+    kind: Mapped[str] = mapped_column(String(30), default="OTHER")
+    title: Mapped[str] = mapped_column(String(255))
+    date_start: Mapped[date] = mapped_column(Date)
+    date_end: Mapped[date | None] = mapped_column(Date)
+    #: Prazo que, perdido, tira o candidato do concurso.
+    is_critical: Mapped[bool] = mapped_column(Boolean, default=False)
+    source: Mapped[str] = mapped_column(String(10), default=CompetitionEventSource.NOTICE)
+    evidence_level: Mapped[str] = mapped_column(String(20), default="INFERRED")
+    page_number: Mapped[int | None] = mapped_column(Integer)
+    quote: Mapped[str | None] = mapped_column(MediumText)
+
+    competition: Mapped[Competition] = relationship(back_populates="events")
 
 
 class Position(IdMixin, PublicIdMixin, TimestampMixin, Base):

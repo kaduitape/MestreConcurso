@@ -65,3 +65,10 @@
 > do cache mudou, então **todo edital re-extrai na próxima análise**. Edital sem
 > lista de cargos (ou resposta de cache da v1) usa o cargo principal como lista
 > de um item — nada que já funcionava deixou de funcionar.
+
+> **Correção de omissão (out/2026).** `notice_events` era a única coisa extraída
+> neste projeto que **não guardava a própria citação**: o nível de evidência
+> dizia que a data tinha prova conferida, e a prova não ficava em lugar nenhum.
+> A coluna `quote` foi acrescentada (anulável, porque as análises já feitas não
+> a têm) e o item 15 passa a valer para data como vale para campo: a citação
+> conferida acompanha o registro.

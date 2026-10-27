@@ -23,6 +23,11 @@ const { intakeApi } = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/api/intake', () => ({ intakeApi }))
 
+const { adminCatalogApi } = vi.hoisted(() => ({
+  adminCatalogApi: { competitionSchedule: vi.fn() },
+}))
+vi.mock('@/lib/api/catalog', () => ({ adminCatalogApi }))
+
 const { IntakeSection } = await import('../intake-section')
 
 function campo(overrides: Partial<IntakeField> = {}): IntakeField {
@@ -114,6 +119,7 @@ describe('IntakeSection', () => {
     intakeApi.upload.mockResolvedValue(intake())
     intakeApi.choose.mockResolvedValue(intake())
     intakeApi.reject.mockResolvedValue(intake({ status: 'REJECTED' }))
+    adminCatalogApi.competitionSchedule.mockResolvedValue([])
   })
 
   it('diz que cadastrado não quer dizer completo', async () => {
@@ -233,6 +239,7 @@ describe('IntakeSection — subir o edital', () => {
     intakeApi.upload.mockResolvedValue(intake())
     intakeApi.choose.mockResolvedValue(intake())
     intakeApi.reject.mockResolvedValue(intake({ status: 'REJECTED' }))
+    adminCatalogApi.competitionSchedule.mockResolvedValue([])
   })
 
   it('sobe o PDF com o cadastro automático ligado por padrão', async () => {
@@ -338,5 +345,72 @@ describe('IntakeSection — subir o edital', () => {
     expect(screen.getByText(/já existe um concurso com este nome e ano/)).toBeInTheDocument()
     // O formulário continua ali: é o caminho de quem revisa.
     expect(screen.getByRole('button', { name: /Cadastrar concurso/ })).toBeInTheDocument()
+  })
+})
+
+describe('IntakeSection — cronograma cadastrado', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    intakeApi.start.mockResolvedValue(intake())
+    intakeApi.upload.mockResolvedValue(intake())
+    intakeApi.list.mockResolvedValue(
+      page([
+        intake({
+          status: 'APPLIED',
+          auto_applied: true,
+          competition_public_id: 'C1',
+          candidates: [],
+          gaps: [],
+        }),
+      ]),
+    )
+    adminCatalogApi.competitionSchedule.mockResolvedValue([
+      {
+        public_id: 'E1',
+        kind: 'EXAM',
+        title: 'Aplicação da prova objetiva',
+        date_start: '2026-03-15',
+        date_end: null,
+        is_critical: true,
+        source: 'NOTICE',
+        evidence_level: 'OFFICIAL',
+        page_number: 2,
+        quote: 'A prova objetiva será aplicada no dia 15 de março de 2026',
+      },
+      {
+        public_id: 'E2',
+        kind: 'EXEMPTION_PERIOD',
+        title: 'Pedido de isenção da taxa',
+        date_start: '2026-01-20',
+        date_end: '2026-01-24',
+        is_critical: false,
+        source: 'NOTICE',
+        evidence_level: 'OFFICIAL',
+        page_number: 2,
+        quote: 'poderá solicitar isenção da taxa entre 20 e 24 de janeiro de 2026',
+      },
+    ])
+  })
+
+  it('mostra cada data com a citação que a sustenta', async () => {
+    renderSection()
+
+    expect(await screen.findByText('Cronograma cadastrado — 2 data(s)')).toBeInTheDocument()
+    expect(screen.getByText('15/03/2026')).toBeInTheDocument()
+    expect(screen.getByText('Aplicação da prova objetiva')).toBeInTheDocument()
+    expect(screen.getByText('prova')).toBeInTheDocument()
+    // Prazo é a informação que o candidato usa para não perder o concurso:
+    // precisa poder conferir de onde veio.
+    expect(screen.getByText(/15 de março de 2026/)).toBeInTheDocument()
+    // As duas datas estão na página 2 do edital, e cada uma diz a sua.
+    expect(screen.getAllByText(/página 2/)).toHaveLength(2)
+  })
+
+  it('marca o prazo crítico e mostra o período quando a data tem fim', async () => {
+    renderSection()
+    await screen.findByText('Cronograma cadastrado — 2 data(s)')
+
+    expect(screen.getByText('prazo crítico')).toBeInTheDocument()
+    expect(screen.getByText('a 24/01/2026')).toBeInTheDocument()
   })
 })

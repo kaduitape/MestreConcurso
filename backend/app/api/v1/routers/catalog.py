@@ -13,6 +13,7 @@ from app.models.notice import NoticeStatus
 from app.repositories.notice import NoticeRepository
 from app.schemas.board_knowledge import BoardKnowledgeRead
 from app.schemas.catalog import (
+    CompetitionEventRead,
     CompetitionRead,
     CompetitionSummary,
     ExamBoardRead,
@@ -68,6 +69,19 @@ async def list_competitions(
 async def get_competition(public_id: str, _: CurrentUser, db: DbSession) -> CompetitionRead:
     competition = await CatalogService(db).get_competition(public_id, published_only=True)
     return CompetitionRead.model_validate(competition)
+
+
+@router.get(
+    "/competitions/{public_id}/schedule",
+    response_model=list[CompetitionEventRead],
+    summary="Cronograma do concurso",
+)
+async def competition_schedule(
+    public_id: str, _: CurrentUser, db: DbSession
+) -> list[CompetitionEventRead]:
+    """As datas do concurso, em ordem, cada uma com a citação que a sustenta."""
+    eventos = await CatalogService(db).competition_schedule(public_id, published_only=True)
+    return [CompetitionEventRead.model_validate(item) for item in eventos]
 
 
 @router.get(

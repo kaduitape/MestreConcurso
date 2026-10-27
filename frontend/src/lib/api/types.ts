@@ -459,6 +459,21 @@ export interface CompetitionSummary {
   exam_board: ExamBoard | null
 }
 
+export interface CompetitionEvent {
+  public_id: string
+  kind: string
+  title: string
+  date_start: string
+  date_end: string | null
+  /** Prazo que, perdido, tira o candidato do concurso. */
+  is_critical: boolean
+  /** `NOTICE` quando veio do edital com citação conferida; `MANUAL` quando digitada. */
+  source: 'NOTICE' | 'MANUAL'
+  evidence_level: EvidenceLevel
+  page_number: number | null
+  quote: string | null
+}
+
 export interface Competition extends CompetitionSummary {
   education_level: string | null
   registration_start: string | null

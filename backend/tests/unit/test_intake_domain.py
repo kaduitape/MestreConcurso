@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 import pytest
 from pydantic import ValidationError
 
@@ -15,8 +17,13 @@ from app.domain.intake import (
     pdf_links,
     score_candidate,
 )
-from app.models.catalog import EducationLevel
-from app.services.intake import ProposedField, _derived_short_name, _year_from
+from app.models.catalog import Competition, CompetitionStatus, EducationLevel
+from app.services.intake import (
+    ProposedField,
+    _derived_short_name,
+    _status_from_dates,
+    _year_from,
+)
 from app.services.notice_analysis import _fallback_position
 
 PAGINA = """
@@ -272,3 +279,80 @@ def test_sem_nome_de_cargo_nenhum_nao_ha_cargo_principal() -> None:
         )
         is None
     )
+
+
+# --------------------------------------------------------------------------- #
+# O estado do concurso derivado das datas
+# --------------------------------------------------------------------------- #
+def _concurso(**datas: date | None) -> Competition:
+    concurso = Competition(name="X", year=2026, organization_id=1)
+    for campo, valor in datas.items():
+        setattr(concurso, campo, valor)
+    return concurso
+
+
+def test_inscricoes_abertas_hoje_sao_inscricoes_abertas() -> None:
+    hoje = date.today()
+    assert (
+        _status_from_dates(
+            _concurso(
+                registration_start=hoje - timedelta(days=2),
+                registration_end=hoje + timedelta(days=2),
+                exam_date=hoje + timedelta(days=60),
+            )
+        )
+        == CompetitionStatus.REGISTRATIONS_OPEN
+    )
+    # O último dia das inscrições ainda é dia de inscrição.
+    assert (
+        _status_from_dates(
+            _concurso(registration_start=hoje - timedelta(days=10), registration_end=hoje)
+        )
+        == CompetitionStatus.REGISTRATIONS_OPEN
+    )
+
+
+def test_inscricoes_encerradas_e_prova_por_vir_e_em_andamento() -> None:
+    hoje = date.today()
+    assert (
+        _status_from_dates(
+            _concurso(
+                registration_start=hoje - timedelta(days=30),
+                registration_end=hoje - timedelta(days=10),
+                exam_date=hoje + timedelta(days=20),
+            )
+        )
+        == CompetitionStatus.IN_PROGRESS
+    )
+
+
+def test_prova_que_ja_aconteceu_e_concluido() -> None:
+    hoje = date.today()
+    assert (
+        _status_from_dates(
+            _concurso(
+                registration_start=hoje - timedelta(days=200),
+                registration_end=hoje - timedelta(days=180),
+                exam_date=hoje - timedelta(days=100),
+            )
+        )
+        == CompetitionStatus.CONCLUDED
+    )
+
+
+def test_inscricoes_que_ainda_nao_abriram_nao_mudam_nada() -> None:
+    """Sem dado que decida, o estado padrão continua — é o que de fato se sabe."""
+    hoje = date.today()
+    assert (
+        _status_from_dates(
+            _concurso(
+                registration_start=hoje + timedelta(days=10),
+                registration_end=hoje + timedelta(days=30),
+            )
+        )
+        is None
+    )
+
+
+def test_concurso_sem_data_nenhuma_nao_tem_estado_derivado() -> None:
+    assert _status_from_dates(_concurso()) is None

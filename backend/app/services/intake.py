@@ -51,6 +51,9 @@ from app.domain.intake import AddressRefusedError, choose_notice, ensure_fetchab
 from app.models.audit import AuditAction
 from app.models.catalog import (
     Competition,
+    CompetitionEvent,
+    CompetitionEventSource,
+    CompetitionStatus,
     ExamBoard,
     Organization,
     Position,
@@ -61,6 +64,7 @@ from app.models.intake import CompetitionIntake, IntakeSourceKind, IntakeStatus
 from app.models.notice import NoticeKind
 from app.models.notice_analysis import (
     EvidenceLevel,
+    NoticeEvent,
     NoticeFact,
     NoticePosition,
     NoticeSubject,
@@ -86,6 +90,26 @@ FIELD_TO_COMPETITION: dict[str, str] = {
     "registration.end_date": "registration_end",
     "exam.date": "exam_date",
 }
+
+#: Quando o campo escalar do edital não tem citação conferida, a data do
+#: **cronograma** pode completar a ficha: é a mesma data, lida em outro lugar do
+#: mesmo documento, com a própria citação conferida. Preencher daqui não é
+#: palpite — é usar a segunda prova que o edital oferece.
+EVENT_TO_COMPETITION: dict[str, str] = {
+    "REGISTRATION_START": "registration_start",
+    "REGISTRATION_END": "registration_end",
+    "EXAM": "exam_date",
+}
+
+#: As datas do cronograma que já moram em ``competitions``. Elas continuam lá —
+#: é o que o plano de estudo lê — e **também** entram no cronograma, para que a
+#: linha do tempo do candidato não tenha buracos onde estão as datas mais
+#: importantes.
+SCHEDULE_ALSO_IN_COMPETITION = frozenset(EVENT_TO_COMPETITION)
+
+#: Teto de datas por concurso. Cronograma de edital tem dez, quinze linhas;
+#: acima disso a extração se perdeu e pegou uma tabela inteira.
+MAX_EVENTS_PER_COMPETITION = 60
 
 #: Campos do cargo, e para onde cada um vai em ``positions``. O cargo é parte
 #: de "todos os dados do concurso": sem ele a grade de disciplinas não tem onde
@@ -131,6 +155,8 @@ class GapCode(StrEnum):
     POSITION_DUPLICATED = "POSITION_DUPLICATED"
     SUBJECT_WITHOUT_CATALOG = "SUBJECT_WITHOUT_CATALOG"
     TOPIC_NOT_A_TOPIC = "TOPIC_NOT_A_TOPIC"
+    DATE_WITHOUT_EVIDENCE = "DATE_WITHOUT_EVIDENCE"
+    SCHEDULE_EMPTY = "SCHEDULE_EMPTY"
     TOPIC_LOOKS_LIKE_ANOTHER = "TOPIC_LOOKS_LIKE_ANOTHER"
     GRADE_EMPTY = "GRADE_EMPTY"
     SHORT_NAME_DERIVED = "SHORT_NAME_DERIVED"
@@ -734,13 +760,16 @@ class CompetitionIntakeService:
                 )
             )
 
+        campos_ficha = _targeted(aplicaveis, FIELD_TO_COMPETITION)
+        await self._fill_dates_from_schedule(intake, campos_ficha)
+
         await self._register(
             intake,
             name=nome,
             year=ano,
             organization=organizacao,
             exam_board_public_id=banca_id,
-            competition_fields=_targeted(aplicaveis, FIELD_TO_COMPETITION),
+            competition_fields=campos_ficha,
             # Vazio de propósito: no automático os cargos vêm da **lista** que a
             # análise extraiu (``notice_positions``), não dos campos escalares
             # ``position.*`` — que descrevem só o cargo principal.
@@ -877,6 +906,15 @@ class CompetitionIntakeService:
             await self._create_positions_from_form(
                 competicao, intake, position_fields, gaps, actor=actor, context=context
             )
+
+        await self._register_schedule(competicao, intake, gaps)
+
+        # O estado do concurso sai das datas que acabaram de ser cadastradas.
+        # Antes disso todo concurso nascia "previsto", inclusive os de inscrições
+        # abertas — informação errada na tela de quem procura concurso.
+        derivado = _status_from_dates(competicao)
+        if derivado is not None:
+            competicao.status = derivado
 
         # O edital passa a pertencer ao concurso: é o vínculo que faz o
         # orquestrador (e o conteúdo programático já analisado) encontrarem um
@@ -1210,6 +1248,119 @@ class CompetitionIntakeService:
                 )
             )
 
+    async def _fill_dates_from_schedule(
+        self, intake: CompetitionIntake, campos: dict[str, Any]
+    ) -> None:
+        """Completa inscrições e prova com as datas do cronograma.
+
+        O edital diz as mesmas datas duas vezes: no texto corrido ("as inscrições
+        poderão ser efetuadas de…") e no cronograma. Quando a citação do texto
+        corrido não é localizada mas a do cronograma é, a data **tem** prova — só
+        está em outro lugar do mesmo documento. Deixar o campo em branco nesse
+        caso seria recusar a prova que existe.
+
+        O que não acontece: data do cronograma sem citação conferida não
+        preenche nada, e data que já veio do campo escalar não é sobrescrita.
+        """
+        for evento in await self._notice_events(intake):
+            coluna = EVENT_TO_COMPETITION.get(evento.kind)
+            if coluna is None or coluna in campos or evento.date_start is None:
+                continue
+            if evento.evidence_level not in APPLICABLE_LEVELS:
+                continue
+            campos[coluna] = evento.date_start
+
+    async def _register_schedule(
+        self, competition: Competition, intake: CompetitionIntake, gaps: list[Gap]
+    ) -> None:
+        """Cadastra o cronograma do concurso a partir das datas do edital.
+
+        Só entra data com **citação conferida**. Prazo errado na tela é pior que
+        prazo ausente: o candidato que confia numa data inventada perde a
+        inscrição, e isso não se desfaz depois.
+
+        As datas que também moram em ``competitions`` (inscrições e prova)
+        entram aqui **de novo**, de propósito: a linha do tempo não pode ter
+        buraco justamente onde estão as datas mais importantes. A ficha continua
+        sendo o que o plano de estudo lê; o cronograma é a linha do tempo.
+        """
+        eventos = await self._notice_events(intake)
+        if not eventos:
+            gaps.append(
+                Gap(
+                    code=GapCode.SCHEDULE_EMPTY,
+                    label="O concurso ficou sem cronograma",
+                    detail="a análise não extraiu nenhuma data deste edital",
+                )
+            )
+            return
+
+        registradas = 0
+        vistas: set[tuple[str, date, str]] = set()
+        for evento in eventos[:MAX_EVENTS_PER_COMPETITION]:
+            if evento.date_start is None:
+                continue
+            if evento.evidence_level not in APPLICABLE_LEVELS:
+                gaps.append(
+                    Gap(
+                        code=GapCode.DATE_WITHOUT_EVIDENCE,
+                        label=f"Data não cadastrada: {evento.title}",
+                        detail=(
+                            "a citação que comprovaria esta data não foi localizada no PDF. "
+                            "Prazo errado na tela é pior que prazo ausente."
+                        ),
+                    )
+                )
+                continue
+
+            chave = (evento.kind, evento.date_start, evento.title.strip().casefold())
+            if chave in vistas:
+                continue
+            vistas.add(chave)
+
+            self.session.add(
+                CompetitionEvent(
+                    competition_id=competition.id,
+                    notice_id=intake.notice_id,
+                    kind=evento.kind,
+                    title=evento.title,
+                    date_start=evento.date_start,
+                    date_end=evento.date_end,
+                    is_critical=evento.is_critical,
+                    source=CompetitionEventSource.NOTICE,
+                    evidence_level=evento.evidence_level,
+                    page_number=evento.page_number,
+                    quote=evento.quote,
+                )
+            )
+            registradas += 1
+
+        await self.session.flush()
+        if registradas == 0:
+            gaps.append(
+                Gap(
+                    code=GapCode.SCHEDULE_EMPTY,
+                    label="O concurso ficou sem cronograma",
+                    detail=(
+                        f"nenhuma das {len(eventos)} datas do edital saiu com citação conferida"
+                    ),
+                )
+            )
+
+    async def _notice_events(self, intake: CompetitionIntake) -> list[NoticeEvent]:
+        """As datas que a análise extraiu deste edital, em ordem."""
+        return list(
+            (
+                await self.session.execute(
+                    select(NoticeEvent)
+                    .where(NoticeEvent.notice_id == intake.notice_id)
+                    .order_by(NoticeEvent.date_start)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
     async def _register_topics(
         self,
         notice_subject: NoticeSubject,
@@ -1390,6 +1541,31 @@ def _derived_short_name(name: str) -> str:
     if 2 <= len(iniciais) <= 40:
         return iniciais
     return name.strip()[:40] or "ORG"
+
+
+def _status_from_dates(competition: Competition) -> str | None:
+    """O estado do concurso derivado das datas dele, ou ``None`` se não dá.
+
+    É derivação, não palpite: as datas vieram do edital com citação conferida, e
+    a conta é de calendário. Devolve ``None`` quando falta a data que decidiria —
+    aí o estado padrão ("previsto") continua, porque é o que de fato se sabe.
+
+    Ninguém recalcula isto depois. Quem cuida do catálogo pode corrigir o estado
+    na tela, e a correção fica: o automático dá o ponto de partida, não a última
+    palavra.
+    """
+    hoje = datetime.now(UTC).date()
+    if competition.exam_date is not None and competition.exam_date < hoje:
+        return CompetitionStatus.CONCLUDED
+    if competition.registration_end is not None and competition.registration_end < hoje:
+        return CompetitionStatus.IN_PROGRESS
+    if (
+        competition.registration_start is not None
+        and competition.registration_start <= hoje
+        and (competition.registration_end is None or competition.registration_end >= hoje)
+    ):
+        return CompetitionStatus.REGISTRATIONS_OPEN
+    return None
 
 
 def _coerced_position(target: str, value: Any) -> Any:
