@@ -73,11 +73,19 @@ async def run_notice_analyst(session: AsyncSession, run: AgentRun) -> AgentOutco
         # Sem edital não há o que analisar, e isso não é falha: é ausência de
         # insumo. O motivo escrito evita que alguém procure um erro que não há.
         return AgentOutcome(
-            detail="O concurso ainda não tem edital principal cadastrado.", skipped=True
+            detail=(
+                "O concurso ainda não tem edital principal cadastrado. "
+                "Cadastre o edital ou importe-o por URL."
+            ),
+            awaiting_input=True,
         )
     if not principal.files:
         return AgentOutcome(
-            detail="O edital está cadastrado, mas sem arquivo PDF enviado.", skipped=True
+            detail=(
+                "O edital está cadastrado, mas sem arquivo PDF enviado. "
+                "Anexe o PDF do edital ou importe-o por URL."
+            ),
+            awaiting_input=True,
         )
 
     outcome = await NoticeAnalysisService(session).analyze(
@@ -108,8 +116,11 @@ async def run_statistics(session: AsyncSession, run: AgentRun) -> AgentOutcome:
     competition = await _competition(session, run)
     if competition is None or competition.exam_board is None:
         return AgentOutcome(
-            detail="O concurso não tem banca definida, então não há provas para analisar.",
-            skipped=True,
+            detail=(
+                "O concurso não tem banca definida, então não há provas para analisar. "
+                "Defina a banca no cadastro do concurso."
+            ),
+            awaiting_input=True,
         )
 
     resultado = await IntelligenceService(session).recompute_board(competition.exam_board.slug)
@@ -117,7 +128,10 @@ async def run_statistics(session: AsyncSession, run: AgentRun) -> AgentOutcome:
     if resultado.incidence_blocked:
         # O serviço já diz por que não deu — repassar isso é melhor que
         # inventar um sucesso vazio.
-        return AgentOutcome(detail=resultado.incidence_blocked, skipped=True)
+        # "Dados insuficientes" é o resultado, dito como tal: não é falha e
+        # não bloqueia mais as aulas nem a ordem de estudo, que não dependem
+        # de amostra para existir.
+        return AgentOutcome(detail=resultado.incidence_blocked, awaiting_input=True)
 
     return AgentOutcome(
         detail=(
@@ -168,7 +182,7 @@ async def run_tutor(session: AsyncSession, run: AgentRun) -> AgentOutcome:
                 "Nenhum candidato tem plano de estudo ativo para este concurso, "
                 "então não há prioridade para recalcular."
             ),
-            skipped=True,
+            awaiting_input=True,
         )
 
     service = PriorityService(session)
@@ -206,7 +220,7 @@ async def run_auditor(session: AsyncSession, run: AgentRun) -> AgentOutcome:
     from app.services.content_audit import ContentAuditService
 
     if run.competition_id is None:
-        return AgentOutcome(detail="A execução não está ligada a um concurso.", skipped=True)
+        return AgentOutcome(detail="A execução não está ligada a um concurso.", awaiting_input=True)
 
     resultado = await ContentAuditService(session).sweep_competition(run.competition_id)
 
@@ -214,20 +228,32 @@ async def run_auditor(session: AsyncSession, run: AgentRun) -> AgentOutcome:
         detalhe = "Não há conteúdo publicado ligado a este concurso para conferir."
         if resultado.notes:
             detalhe = f"{detalhe} {' '.join(resultado.notes)}"
-        return AgentOutcome(detail=detalhe, skipped=True)
+        # Ausência de conteúdo **não** é falha técnica: é o auditor dizendo
+        # que não havia o que conferir. Era aqui que a distinção faltava.
+        return AgentOutcome(detail=detalhe, awaiting_input=True)
 
     detalhe = (
         f"{resultado.audited} conteúdos conferidos: {resultado.blocked} com bloqueio, "
         f"{resultado.warned} com aviso e {resultado.clean} limpos."
     )
+    # As quatro coisas que o auditor precisa separar: reprovado (bloqueio no
+    # laudo), inexistente (aguardando insumo, acima), **inconclusivo** (aqui) e
+    # falha técnica (exceção, que o orquestrador registra com a causa). O que
+    # não deu para conferir vira ressalva da etapa — nunca aprovação silenciosa.
+    ressalvas: list[str] = []
     if resultado.not_checked:
-        # O que não deu para conferir é parte do resultado, não rodapé.
+        ressalvas.append(
+            f"{resultado.not_checked} itens ficaram sem conferência: "
+            "não foi possível verificar, e isso não é aprovação."
+        )
         detalhe += f" {resultado.not_checked} itens ficaram sem conferência."
     if resultado.notes:
+        ressalvas.extend(resultado.notes)
         detalhe += " " + " ".join(resultado.notes)
 
     return AgentOutcome(
         detail=detalhe,
+        notes=tuple(ressalvas),
         result={
             "audited": resultado.audited,
             "blocked": resultado.blocked,
@@ -512,10 +538,19 @@ async def run_improvements(session: AsyncSession, run: AgentRun) -> AgentOutcome
         else " Sem credencial restrita de banco: a garantia de leitura é só do código."
     )
 
+    # Detector que não rodou é ressalva da etapa, não rodapé. Sem isto, o
+    # analista aparecia "concluído" e a falta de amostra passava por ausência
+    # comprovada de problema — que é o oposto do que ela significa.
+    ressalvas = tuple(
+        f"{item.key}: não rodou — {item.detail or 'sem amostra suficiente'}" for item in sem_amostra
+    )
+
     return AgentOutcome(
         detail=detalhe,
+        notes=ressalvas,
         result={
             "isolation": relatorio.isolation,
+            "detectors_not_run": [item.key for item in sem_amostra],
             "opened": relatorio.opened,
             "updated": relatorio.updated,
             "resolved": relatorio.resolved,

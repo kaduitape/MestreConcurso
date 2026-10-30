@@ -1,6 +1,6 @@
 """Modelos SQLAlchemy. Importar aqui garante o registro no metadata do Alembic."""
 
-from app.models.agent_run import AgentRun, AgentStep
+from app.models.agent_run import AgentRun, AgentStep, AgentStepAttempt
 from app.models.ai import (
     AIBudget,
     AICacheEntry,
@@ -163,6 +163,7 @@ __all__ = [
     "Achievement",
     "AgentRun",
     "AgentStep",
+    "AgentStepAttempt",
     "Alternative",
     "AnalysisSource",
     "AuditLog",

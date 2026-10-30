@@ -45,26 +45,107 @@ class AgentKey(StrEnum):
 
 
 class StepStatus(StrEnum):
+    """Onde um passo está. Cada estado responde uma pergunta diferente.
+
+    A distinção que mais importa é entre **falta de insumo** e **falha**:
+    "o edital não tem PDF" e "o código quebrou" exigem ações opostas de quem
+    lê a tela, e tratá-los como a mesma coisa (como era) gastava tentativas
+    num problema que nenhuma tentativa resolve.
+    """
+
+    #: Aguardando execução.
     PENDING = "PENDING"
+    #: Executando agora.
     RUNNING = "RUNNING"
+    #: Cumpriu o contrato e persistiu o resultado.
     DONE = "DONE"
-    #: Não rodou, e o motivo está escrito. Nunca se confunde com DONE.
+    #: Cumpriu o contrato, com ressalvas declaradas. Verde, mas com o que
+    #: ficou de fora dito — não é o mesmo que concluído sem observação.
+    DONE_WITH_NOTES = "DONE_WITH_NOTES"
+    #: Rodou e não havia o que fazer. É resultado legítimo, com motivo escrito.
     SKIPPED = "SKIPPED"
+    #: Falta insumo ou configuração: PDF, provedor de IA, amostra, candidato.
+    #: **Não consome tentativa** — nenhuma repetição resolve, e queimar as
+    #: tentativas aqui foi o que escondia a causa real atrás de "esgotou".
+    AWAITING_INPUT = "AWAITING_INPUT"
+    #: Uma dependência não cumpriu o contrato dela. O motivo vem com o nome
+    #: do passo que faltou **e o que aconteceu com ele**.
+    BLOCKED = "BLOCKED"
+    #: Declarado no catálogo e sem implementação registrada, ou não aplicável.
+    NOT_IMPLEMENTED = "NOT_IMPLEMENTED"
+    #: Quebrou. A causa fica no detalhe e no histórico de tentativas.
     FAILED = "FAILED"
     #: Barrado pelo teto de gasto antes de chamar qualquer coisa.
     BUDGET_BLOCKED = "BUDGET_BLOCKED"
+    #: Interrompido por decisão de alguém.
+    CANCELED = "CANCELED"
 
 
 class RunStatus(StrEnum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     DONE = "DONE"
+    #: Tudo que podia rodar rodou, e sobrou coisa esperando alguém. Não é
+    #: "concluída" (mentiria sobre o que falta) nem "falhou" (nada quebrou).
+    DONE_WITH_NOTES = "DONE_WITH_NOTES"
     FAILED = "FAILED"
     CANCELED = "CANCELED"
 
 
-#: Estados em que um passo não roda de novo numa retomada.
-TERMINAL: frozenset[str] = frozenset({StepStatus.DONE, StepStatus.SKIPPED})
+#: Estados em que o passo **cumpriu o contrato**. É o que satisfaz dependência.
+#: ``SKIPPED`` fica de fora de propósito: "não havia o que fazer" é resultado
+#: honesto do passo, mas não entrega o insumo que o próximo esperava.
+FULFILLED: frozenset[str] = frozenset({StepStatus.DONE, StepStatus.DONE_WITH_NOTES})
+
+#: Estados em que um passo não roda de novo numa retomada. ``AWAITING_INPUT`` e
+#: ``BLOCKED`` ficam fora: é justamente para eles que retomar serve — o PDF foi
+#: anexado, a dependência terminou, e agora o passo tem o que precisava.
+TERMINAL: frozenset[str] = frozenset(
+    {
+        StepStatus.DONE,
+        StepStatus.DONE_WITH_NOTES,
+        StepStatus.SKIPPED,
+        StepStatus.NOT_IMPLEMENTED,
+        StepStatus.CANCELED,
+    }
+)
+
+#: Estados que **não** consomem tentativa: nenhum deles chegou a executar o
+#: agente, ou executou e descobriu que faltava insumo.
+NO_ATTEMPT_CONSUMED: frozenset[str] = frozenset(
+    {
+        StepStatus.AWAITING_INPUT,
+        StepStatus.BLOCKED,
+        StepStatus.BUDGET_BLOCKED,
+        StepStatus.NOT_IMPLEMENTED,
+        StepStatus.CANCELED,
+    }
+)
+
+#: Estados que pedem uma ação de alguém para destravar.
+NEEDS_ACTION: frozenset[str] = frozenset(
+    {StepStatus.AWAITING_INPUT, StepStatus.BUDGET_BLOCKED, StepStatus.FAILED}
+)
+
+#: Estados que são ressalva na execução inteira: alguém pode agir sobre eles.
+RUN_NOTES: frozenset[str] = frozenset(
+    {
+        StepStatus.AWAITING_INPUT,
+        StepStatus.BLOCKED,
+        StepStatus.BUDGET_BLOCKED,
+        StepStatus.NOT_IMPLEMENTED,
+        StepStatus.DONE_WITH_NOTES,
+    }
+)
+
+#: O que cada estado que trava pede como próxima ação, para a tela oferecer o
+#: botão certo em vez de só mostrar o problema.
+ACTION_HINT: dict[str, str] = {
+    StepStatus.AWAITING_INPUT: "RESOLVE_INPUT",
+    StepStatus.BUDGET_BLOCKED: "RAISE_BUDGET",
+    StepStatus.FAILED: "RETRY_STEP",
+    StepStatus.BLOCKED: "RESOLVE_DEPENDENCY",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,7 +191,11 @@ AGENTS: tuple[AgentSpec, ...] = (
             "Executa os planos de geração já confirmados: aulas e mapas mentais "
             "por tópico do edital, sempre como rascunho."
         ),
-        depends_on=(AgentKey.STATISTICS,),
+        # Depende do **edital**, não da estatística. Era o contrário, e isso
+        # travava a criação de aula sobre tópico já confirmado só porque não
+        # havia prova anterior da banca para medir incidência. A incidência
+        # ordena o que vem primeiro; ela não autoriza o tópico a existir.
+        depends_on=(AgentKey.NOTICE_ANALYST,),
         max_attempts=2,
     ),
     AgentSpec(
@@ -142,9 +227,13 @@ AGENTS: tuple[AgentSpec, ...] = (
         label="Tutor adaptativo",
         description=(
             "Recalcula prioridades de estudo a partir do desempenho real dos "
-            "candidatos neste concurso."
+            "candidatos neste concurso. Sem histórico, ordena pelo edital e diz "
+            "que a ordem é inicial."
         ),
-        depends_on=(AgentKey.STATISTICS,),
+        # Também solto da estatística: candidato sem histórico e banca sem
+        # prova anterior são duas ausências diferentes, e nenhuma das duas
+        # impede ordenar o estudo pelo que o edital cobra.
+        depends_on=(AgentKey.NOTICE_ANALYST,),
     ),
     AgentSpec(
         key=AgentKey.AUDITOR,
@@ -230,10 +319,73 @@ class StepView:
     def is_terminal(self) -> bool:
         return self.status in TERMINAL
 
+    @property
+    def fulfilled(self) -> bool:
+        """Cumpriu o contrato. É isto que satisfaz dependência."""
+        return self.status in FULFILLED
+
+    @property
+    def attempts_exhausted(self) -> bool:
+        """Não cabe mais tentativa automática.
+
+        É propriedade derivada, e não um estado: o estado continua sendo
+        ``FAILED`` com a **causa** da última falha no detalhe. Sobrescrever o
+        detalhe com "esgotou as tentativas" apagava o diagnóstico, que era
+        justamente o que alguém precisava ler.
+        """
+        return self.status == StepStatus.FAILED and self.attempts >= max(1, self.max_attempts)
+
+    @property
+    def action(self) -> str | None:
+        """O que a tela deve oferecer para destravar este passo."""
+        return ACTION_HINT.get(self.status)
+
 
 def blocked_by(step: StepView, done: set[str]) -> list[str]:
     """Quais dependências ainda faltam para este passo poder rodar."""
     return sorted(key for key in step.depends_on if key not in done)
+
+
+def blocking_reason(spec: AgentSpec, by_key: dict[str, StepView]) -> str | None:
+    """Por que este passo não pode rodar, com o que houve na dependência.
+
+    "Depende do Analista de editais" obriga quem lê a tela a caçar o outro
+    passo para descobrir o que aconteceu. A frase inteira — *"depende do
+    Analista de editais, que está aguardando insumo: o edital está cadastrado
+    sem PDF"* — resolve o problema na primeira leitura, que é onde o diagnóstico
+    tem valor.
+    """
+    partes: list[str] = []
+    for key in spec.depends_on:
+        dep = by_key.get(key)
+        if dep is not None and dep.fulfilled:
+            continue
+        rotulo = AGENT_BY_KEY[key].label if key in AGENT_BY_KEY else key
+        if dep is None:
+            partes.append(f"{rotulo} (ainda não executado)")
+            continue
+        estado = STATUS_LABEL.get(dep.status, dep.status)
+        motivo = f": {dep.detail}" if dep.detail else ""
+        partes.append(f"{rotulo} ({estado}{motivo})")
+    if not partes:
+        return None
+    return "Depende de " + "; ".join(partes)
+
+
+#: Como cada estado é dito em português. Usado no motivo do bloqueio e na tela.
+STATUS_LABEL: dict[str, str] = {
+    StepStatus.PENDING: "aguardando execução",
+    StepStatus.RUNNING: "executando",
+    StepStatus.DONE: "concluído",
+    StepStatus.DONE_WITH_NOTES: "concluído com ressalvas",
+    StepStatus.SKIPPED: "sem o que fazer",
+    StepStatus.AWAITING_INPUT: "aguardando insumo",
+    StepStatus.BLOCKED: "bloqueado por dependência",
+    StepStatus.NOT_IMPLEMENTED: "não implementado",
+    StepStatus.FAILED: "falhou",
+    StepStatus.BUDGET_BLOCKED: "barrado pelo teto de gasto",
+    StepStatus.CANCELED: "cancelado",
+}
 
 
 def can_retry(spec: AgentSpec, attempts: int) -> bool:
@@ -268,15 +420,21 @@ def initial_steps(agents: tuple[AgentSpec, ...] = AGENTS) -> list[StepView]:
 def summarize(steps: list[StepView]) -> str:
     """O estado da execução inteira, derivado dos passos.
 
-    Execução só é ``DONE`` quando nenhum passo falhou nem foi barrado. Pulado
-    não impede a conclusão: o agente declarou por que não rodou, e isso é um
-    resultado legítimo — diferente de ter quebrado.
+    Só ``FAILED`` quando algo **quebrou**. O teto de gasto saiu daqui: barrar
+    por orçamento é a regra funcionando, e chamar isso de falha da execução
+    mandava alguém procurar um defeito que não existe.
+
+    ``DONE_WITH_NOTES`` é o estado que faltava: tudo que podia rodar rodou, e
+    sobrou coisa esperando uma pessoa. Dizer "concluída" ali mentiria sobre o
+    que falta; dizer "falhou" mentiria sobre o que quebrou.
     """
     estados = {step.status for step in steps}
-    if StepStatus.FAILED in estados or StepStatus.BUDGET_BLOCKED in estados:
+    if StepStatus.FAILED in estados:
         return RunStatus.FAILED
     if StepStatus.RUNNING in estados:
         return RunStatus.RUNNING
     if StepStatus.PENDING in estados:
         return RunStatus.PENDING if not (estados & TERMINAL) else RunStatus.RUNNING
+    if estados & RUN_NOTES:
+        return RunStatus.DONE_WITH_NOTES
     return RunStatus.DONE

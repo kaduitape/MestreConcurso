@@ -73,33 +73,122 @@ function notifyUnauthorized() {
   unauthorizedListeners.forEach((listener) => listener())
 }
 
-let refreshPromise: Promise<string | null> | null = null
+/**
+ * Renovação de token, com três cuidados que faltavam.
+ *
+ * O servidor rotaciona o refresh token e **detecta reuso**: apresentar o mesmo
+ * token duas vezes derruba a família de sessões inteira, porque isso é o que um
+ * token roubado pareceria. É a decisão de segurança certa, e nada aqui a
+ * enfraquece — o que mudou é o cliente deixar de cometer esse reuso.
+ *
+ * 1. **A fila atravessa abas.** `localStorage` é compartilhado, mas a variável
+ *    de fila era por aba: duas abas expirando juntas apresentavam o mesmo
+ *    token, o servidor via reuso e matava a sessão no meio do trabalho. Agora a
+ *    fila é um registro em `localStorage`, com prazo, que as abas respeitam.
+ * 2. **Falha de rede não é sessão inválida.** O `catch` devolvia nulo e quem
+ *    chamava limpava os tokens: uma oscilação de rede derrubava a sessão e o
+ *    formulário em andamento. Agora "não deu para perguntar" e "o servidor
+ *    disse não" são resultados diferentes.
+ * 3. **Token que outra aba já renovou é reaproveitado.** Depois de esperar a
+ *    fila, o cliente relê o armazenamento: se o access token mudou, ele serve,
+ *    e não há segunda renovação para gerar reuso.
+ */
+const LOCK_KEY = 'mestre.refresh_lock'
+/** Depois disso a fila é considerada abandonada (aba fechada no meio). */
+const LOCK_TTL_MS = 10_000
+const LOCK_POLL_MS = 120
 
-async function refreshAccessToken(): Promise<string | null> {
-  const refresh = tokenStorage.refresh
-  if (!refresh) return null
+/** O que a renovação concluiu. Distinguir os três é o ponto. */
+type RefreshOutcome =
+  { kind: 'renewed'; token: string } | { kind: 'rejected' } | { kind: 'unreachable' }
 
-  refreshPromise ??= (async () => {
-    try {
-      const response = await fetch(`${BASE}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refresh }),
-      })
-      if (!response.ok) {
-        notifyUnauthorized()
-        return null
-      }
-      const tokens = (await response.json()) as TokenPair
-      tokenStorage.save(tokens)
-      return tokens.access_token
-    } catch {
-      return null
-    } finally {
-      refreshPromise = null
+let refreshPromise: Promise<RefreshOutcome> | null = null
+
+function readLock(): number {
+  try {
+    return Number(localStorage.getItem(LOCK_KEY) ?? 0)
+  } catch {
+    return 0
+  }
+}
+
+/** Tenta ficar com a fila. Falso quando outra aba está renovando agora. */
+function acquireLock(): boolean {
+  try {
+    const agora = Date.now()
+    const atual = readLock()
+    if (atual && agora - atual < LOCK_TTL_MS) return false
+    localStorage.setItem(LOCK_KEY, String(agora))
+    return true
+  } catch {
+    // Sem armazenamento (aba privada, cookies bloqueados) a fila entre abas
+    // não existe. Seguir em frente é melhor que não renovar nunca.
+    return true
+  }
+}
+
+function releaseLock(): void {
+  try {
+    localStorage.removeItem(LOCK_KEY)
+  } catch {
+    /* nada a liberar */
+  }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function postRefresh(token: string): Promise<RefreshOutcome> {
+  let response: Response
+  try {
+    response = await fetch(`${BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: token }),
+    })
+  } catch {
+    // Não deu para perguntar. Os tokens continuam onde estão.
+    return { kind: 'unreachable' }
+  }
+  if (!response.ok) return { kind: 'rejected' }
+  try {
+    const tokens = (await response.json()) as TokenPair
+    tokenStorage.save(tokens)
+    return { kind: 'renewed', token: tokens.access_token }
+  } catch {
+    return { kind: 'unreachable' }
+  }
+}
+
+async function runRefresh(previousAccess: string | null): Promise<RefreshOutcome> {
+  // Espera a fila de outra aba. Enquanto ela renova, este cliente não toca no
+  // token — é exatamente o reuso que derrubava a família de sessões.
+  const limite = Date.now() + LOCK_TTL_MS
+  while (!acquireLock() && Date.now() < limite) {
+    await sleep(LOCK_POLL_MS)
+    const atual = tokenStorage.access
+    if (atual && atual !== previousAccess) {
+      // A outra aba conseguiu. O token novo serve, e não há segunda chamada.
+      return { kind: 'renewed', token: atual }
     }
-  })()
+  }
 
+  try {
+    const atual = tokenStorage.access
+    if (atual && atual !== previousAccess) return { kind: 'renewed', token: atual }
+    const refresh = tokenStorage.refresh
+    if (!refresh) return { kind: 'rejected' }
+    return await postRefresh(refresh)
+  } finally {
+    releaseLock()
+  }
+}
+
+async function refreshAccessToken(previousAccess: string | null): Promise<RefreshOutcome> {
+  if (!tokenStorage.refresh) return { kind: 'rejected' }
+  // Dentro da aba, uma renovação só: quem chega durante ela entra na fila.
+  refreshPromise ??= runRefresh(previousAccess).finally(() => {
+    refreshPromise = null
+  })
   return refreshPromise
 }
 
@@ -145,9 +234,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     })
   }
 
+  // O token usado nesta tentativa fica guardado: é com ele que se descobre, no
+  // 401, se outra aba já renovou enquanto este pedido estava no ar.
+  const usado = tokenStorage.access
   let response: Response
   try {
-    response = await send(tokenStorage.access)
+    response = await send(usado)
   } catch {
     throw new ApiError(0, {
       code: 'network_unreachable',
@@ -158,12 +250,15 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (response.status === 401 && !skipAuth && tokenStorage.refresh) {
-    const renewed = await refreshAccessToken()
-    if (renewed) {
-      response = await send(renewed)
-    } else {
+    const resultado = await refreshAccessToken(usado)
+    if (resultado.kind === 'renewed') {
+      response = await send(resultado.token)
+    } else if (resultado.kind === 'rejected') {
+      // O servidor disse não: a sessão acabou de verdade.
       notifyUnauthorized()
     }
+    // 'unreachable' não derruba a sessão: o erro de rede sobe como erro de
+    // rede, e quem estava preenchendo um formulário pode tentar de novo.
   }
 
   if (!response.ok) throw await parseError(response)

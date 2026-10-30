@@ -13,6 +13,9 @@ import {
   Check,
   CircleDashed,
   CirclePlay,
+  History,
+  Hourglass,
+  Link2Off,
   Loader2,
   SkipForward,
   TriangleAlert,
@@ -41,17 +44,105 @@ const STATUS: Record<AgentStepStatus, { label: string; icon: LucideIcon; tone: s
   PENDING: { label: 'Na fila', icon: CircleDashed, tone: 'text-slate-400' },
   RUNNING: { label: 'Rodando', icon: Loader2, tone: 'text-game-cyan' },
   DONE: { label: 'Concluído', icon: Check, tone: 'text-success' },
-  SKIPPED: { label: 'Pulado', icon: SkipForward, tone: 'text-game-orange' },
+  DONE_WITH_NOTES: { label: 'Concluído com ressalvas', icon: Check, tone: 'text-warning' },
+  SKIPPED: { label: 'Sem o que fazer', icon: SkipForward, tone: 'text-game-orange' },
+  // Falta de insumo é o estado que mais precisava sair de "pulado": ele tem
+  // ação, e a ação é o que resolve.
+  AWAITING_INPUT: { label: 'Aguardando insumo', icon: Hourglass, tone: 'text-game-gold' },
+  BLOCKED: { label: 'Bloqueado por dependência', icon: Link2Off, tone: 'text-game-orange' },
+  NOT_IMPLEMENTED: { label: 'Não implementado', icon: Ban, tone: 'text-slate-400' },
   FAILED: { label: 'Falhou', icon: TriangleAlert, tone: 'text-danger' },
   BUDGET_BLOCKED: { label: 'Barrado pelo teto', icon: Ban, tone: 'text-game-gold' },
+  CANCELED: { label: 'Cancelado', icon: Ban, tone: 'text-slate-400' },
 }
 
-const RUN_TONE: Record<string, 'neutral' | 'success' | 'danger' | 'info'> = {
+const RUN_TONE: Record<string, 'neutral' | 'success' | 'warning' | 'danger' | 'info'> = {
   PENDING: 'neutral',
   RUNNING: 'info',
   DONE: 'success',
+  DONE_WITH_NOTES: 'warning',
   FAILED: 'danger',
   CANCELED: 'neutral',
+}
+
+const RUN_LABEL: Record<string, string> = {
+  PENDING: 'na fila',
+  RUNNING: 'rodando',
+  DONE: 'concluída',
+  DONE_WITH_NOTES: 'concluída com ressalvas',
+  FAILED: 'falhou',
+  CANCELED: 'cancelada',
+}
+
+/** O que cada ação oferece, em português e com destino. */
+const ACTION: Record<string, { label: string; hint: string }> = {
+  RESOLVE_INPUT: { label: 'Resolver pendência', hint: 'Anexe o PDF ou complete o cadastro' },
+  RAISE_BUDGET: { label: 'Ver teto de gasto', hint: 'Ajuste o limite em IA → Orçamento' },
+  RETRY_STEP: { label: 'Tentar de novo', hint: 'Roda só este agente' },
+  RESOLVE_DEPENDENCY: { label: 'Ver dependência', hint: 'Resolva o passo anterior primeiro' },
+}
+
+function duracao(ms: number | null): string {
+  if (ms === null) return '—'
+  if (ms < 1000) return `${ms} ms`
+  return `${(ms / 1000).toFixed(1)} s`
+}
+
+/**
+ * O histórico de tentativas.
+ *
+ * É o que respondia errado antes: um passo que falhou duas vezes por motivos
+ * diferentes mostrava só o último, e a mensagem de "esgotou as tentativas"
+ * apagava os dois. Aqui cada tentativa guarda a própria causa, o próprio
+ * código de erro e o id de correlação para cruzar com o log do servidor.
+ */
+function AttemptHistory({ step }: { step: AgentStep }) {
+  const [aberto, setAberto] = useState(false)
+  if (step.attempts_history.length === 0) return null
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 text-[0.68rem] text-muted underline-offset-2 hover:underline"
+        onClick={() => setAberto((atual) => !atual)}
+      >
+        <History className="size-3" aria-hidden />
+        {aberto ? 'esconder' : 'ver'} o histórico de {step.attempts_history.length} tentativa(s)
+      </button>
+      {aberto && (
+        <ul className="mt-1.5 space-y-1.5 border-l-2 border-border pl-2.5">
+          {step.attempts_history.map((tentativa) => (
+            <li key={tentativa.number} className="text-[0.68rem]">
+              <span className="flex flex-wrap items-center gap-1.5">
+                <strong className="text-foreground">#{tentativa.number}</strong>
+                <span className={STATUS[tentativa.status]?.tone ?? 'text-muted'}>
+                  {STATUS[tentativa.status]?.label ?? tentativa.status}
+                </span>
+                <span className="text-subtle">{duracao(tentativa.duration_ms)}</span>
+                {tentativa.error_code && (
+                  <Badge variant="outline">{tentativa.error_code}</Badge>
+                )}
+                {tentativa.model_slug && (
+                  <Badge variant="neutral">
+                    {tentativa.provider} · {tentativa.model_slug}
+                  </Badge>
+                )}
+              </span>
+              {tentativa.detail && (
+                <span className="block text-slate-300">{tentativa.detail}</span>
+              )}
+              {tentativa.request_id && (
+                <span className="block text-subtle">
+                  correlação: <code>{tentativa.request_id}</code>
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 function StepRow({ step, runId }: { step: AgentStep; runId: string }) {
@@ -65,7 +156,14 @@ function StepRow({ step, runId }: { step: AgentStep; runId: string }) {
       queryClient.setQueryData(queryKeys.agentRun(runId), run)
       const depois = run.steps.find((item) => item.key === step.key)
       const desfecho = depois ? STATUS[depois.status].label.toLowerCase() : 'sem resposta'
-      toast.success(`${step.label}: ${desfecho}.`)
+      // Um passo que terminou em pendência ou falha não é notícia boa: o aviso
+      // segue o resultado do agente, não o fato de a requisição ter dado 200.
+      const ruim = depois && ['FAILED', 'BUDGET_BLOCKED'].includes(depois.status)
+      const pendente = depois && ['AWAITING_INPUT', 'BLOCKED'].includes(depois.status)
+      const mensagem = `${step.label}: ${desfecho}.`
+      if (ruim) toast.error(mensagem)
+      else if (pendente) toast.warning(mensagem)
+      else toast.success(mensagem)
     },
     onError: (error: unknown) =>
       toast.error(
@@ -93,11 +191,34 @@ function StepRow({ step, runId }: { step: AgentStep; runId: string }) {
         </p>
         <p className="mt-0.5 text-xs text-muted">{step.description}</p>
         {step.detail && <p className="mt-1 text-xs text-slate-300">{step.detail}</p>}
-        {step.depends_on.length > 0 && (
+        {step.notes.length > 0 && (
+          <ul className="mt-1 space-y-0.5">
+            {step.notes.map((nota) => (
+              <li key={nota} className="text-[0.68rem] text-warning">
+                • {nota}
+              </li>
+            ))}
+          </ul>
+        )}
+        {step.attempts_exhausted && (
+          // A mensagem acompanha a causa, em vez de substituí-la: era a
+          // substituição que deixava a tela sem diagnóstico.
+          <p className="mt-1 text-[0.68rem] text-danger">
+            As {step.max_attempts} tentativas automáticas acabaram. A causa acima é a da última;
+            o histórico tem as anteriores.
+          </p>
+        )}
+        {step.action && (
+          <p className="mt-1 text-[0.68rem] text-game-cyan">
+            {ACTION[step.action]?.hint ?? 'Há uma ação para destravar este passo.'}
+          </p>
+        )}
+        {step.depends_on.length > 0 && step.status !== 'BLOCKED' && (
           <p className="mt-1 text-[0.68rem] text-slate-500">
             Depende de: {step.depends_on.join(', ')}
           </p>
         )}
+        <AttemptHistory step={step} />
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {step.attempts > 0 && (
@@ -164,7 +285,9 @@ function RunCard({ run, label }: { run: AgentRun; label: string }) {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={RUN_TONE[run.status] ?? 'neutral'}>{run.status}</Badge>
+            <Badge variant={RUN_TONE[run.status] ?? 'neutral'}>
+              {RUN_LABEL[run.status] ?? run.status}
+            </Badge>
             <Button onClick={() => execute.mutate()} disabled={execute.isPending}>
               <CirclePlay className="size-4" /> Executar tudo
             </Button>
@@ -313,7 +436,9 @@ export function AgentsSection() {
           >
             <span className="flex items-center justify-between gap-2">
               <span className="text-sm font-semibold text-white">{runLabel(run, nomes)}</span>
-              <Badge variant={RUN_TONE[run.status] ?? 'neutral'}>{run.status}</Badge>
+              <Badge variant={RUN_TONE[run.status] ?? 'neutral'}>
+                {RUN_LABEL[run.status] ?? run.status}
+              </Badge>
             </span>
           </button>
         ))}

@@ -19,6 +19,7 @@ from app.domain.agents import (
     StepStatus,
     StepView,
     blocked_by,
+    blocking_reason,
     can_retry,
     execution_order,
     flat_order,
@@ -182,13 +183,51 @@ def test_a_failed_step_fails_the_run() -> None:
     assert summarize(passos) == RunStatus.FAILED
 
 
-def test_being_cut_by_the_budget_fails_the_run_too() -> None:
-    """Parar por falta de orçamento não é conclusão."""
+def test_being_cut_by_the_budget_is_a_caveat_not_a_failure() -> None:
+    """Teto de gasto é a regra funcionando, não defeito.
+
+    Antes a execução virava ``FAILED``, o que mandava alguém procurar um erro
+    de código onde havia um limite de orçamento sendo respeitado. Também não
+    pode ser ``DONE``: alguma coisa deixou de rodar e isso precisa estar dito.
+    """
     passos = [
         _step(AgentKey.NOTICE_ANALYST, StepStatus.DONE),
         _step(AgentKey.STATISTICS, StepStatus.BUDGET_BLOCKED),
     ]
+    assert summarize(passos) == RunStatus.DONE_WITH_NOTES
+
+
+def test_only_something_broken_fails_the_run() -> None:
+    passos = [
+        _step(AgentKey.NOTICE_ANALYST, StepStatus.DONE),
+        _step(AgentKey.STATISTICS, StepStatus.FAILED),
+    ]
     assert summarize(passos) == RunStatus.FAILED
+
+
+def test_waiting_for_input_is_a_caveat_too() -> None:
+    """ "Falta o PDF" não é conclusão limpa nem falha."""
+    passos = [
+        _step(AgentKey.NOTICE_ANALYST, StepStatus.AWAITING_INPUT),
+        _step(AgentKey.AUDITOR, StepStatus.DONE),
+    ]
+    assert summarize(passos) == RunStatus.DONE_WITH_NOTES
+
+
+def test_a_step_blocked_by_a_dependency_is_a_caveat() -> None:
+    passos = [
+        _step(AgentKey.NOTICE_ANALYST, StepStatus.AWAITING_INPUT),
+        _step(AgentKey.TEACHER, StepStatus.BLOCKED),
+    ]
+    assert summarize(passos) == RunStatus.DONE_WITH_NOTES
+
+
+def test_a_declared_agent_without_implementation_is_a_caveat() -> None:
+    passos = [
+        _step(AgentKey.NOTICE_ANALYST, StepStatus.DONE),
+        _step(AgentKey.MEMORY, StepStatus.NOT_IMPLEMENTED),
+    ]
+    assert summarize(passos) == RunStatus.DONE_WITH_NOTES
 
 
 def test_skipped_does_not_prevent_completion() -> None:
@@ -210,3 +249,87 @@ def test_a_run_in_progress_says_so() -> None:
 
 def test_an_untouched_run_is_pending() -> None:
     assert summarize(initial_steps()) == RunStatus.PENDING
+
+
+# --------------------------------------------------------------------------- #
+# O que satisfaz dependência, e o que não
+# --------------------------------------------------------------------------- #
+def test_only_a_fulfilled_step_satisfies_a_dependency() -> None:
+    """Pulado é resultado honesto do passo, mas não entrega insumo nenhum."""
+    assert _step(AgentKey.NOTICE_ANALYST, StepStatus.DONE).fulfilled is True
+    assert _step(AgentKey.NOTICE_ANALYST, StepStatus.DONE_WITH_NOTES).fulfilled is True
+    assert _step(AgentKey.NOTICE_ANALYST, StepStatus.SKIPPED).fulfilled is False
+    assert _step(AgentKey.NOTICE_ANALYST, StepStatus.AWAITING_INPUT).fulfilled is False
+
+
+def test_the_blocking_reason_carries_what_happened_to_the_dependency() -> None:
+    """Sem isto, quem lê a tela tem de caçar o passo anterior."""
+    por_chave = {
+        AgentKey.NOTICE_ANALYST: StepView(
+            key=AgentKey.NOTICE_ANALYST,
+            label="Analista de editais",
+            description="",
+            status=StepStatus.AWAITING_INPUT,
+            detail="O edital está cadastrado, mas sem arquivo PDF enviado.",
+        )
+    }
+    motivo = blocking_reason(AGENT_BY_KEY[AgentKey.TEACHER], por_chave)
+    assert motivo is not None
+    assert "Analista de editais" in motivo
+    assert "aguardando insumo" in motivo
+    assert "sem arquivo PDF" in motivo
+
+
+def test_a_fulfilled_dependency_does_not_block() -> None:
+    por_chave = {
+        AgentKey.NOTICE_ANALYST: StepView(
+            key=AgentKey.NOTICE_ANALYST,
+            label="Analista de editais",
+            description="",
+            status=StepStatus.DONE,
+        )
+    }
+    assert blocking_reason(AGENT_BY_KEY[AgentKey.TEACHER], por_chave) is None
+
+
+def test_lessons_do_not_depend_on_having_a_past_exam_sample() -> None:
+    """A incidência ordena o que vem primeiro; não autoriza o tópico a existir."""
+    professor = AGENT_BY_KEY[AgentKey.TEACHER]
+    tutor = AGENT_BY_KEY[AgentKey.TUTOR]
+    assert AgentKey.STATISTICS not in professor.depends_on
+    assert AgentKey.STATISTICS not in tutor.depends_on
+    assert professor.depends_on == (AgentKey.NOTICE_ANALYST,)
+    assert tutor.depends_on == (AgentKey.NOTICE_ANALYST,)
+
+
+def test_statistics_teacher_and_tutor_can_run_together() -> None:
+    camadas = execution_order()
+    segunda = set(camadas[1])
+    assert {AgentKey.STATISTICS, AgentKey.TEACHER, AgentKey.TUTOR} <= segunda
+
+
+def test_attempts_exhausted_is_derived_and_does_not_replace_the_cause() -> None:
+    passo = StepView(
+        key=AgentKey.AUDITOR,
+        label="Auditor",
+        description="",
+        status=StepStatus.FAILED,
+        attempts=2,
+        max_attempts=2,
+        detail='relation "content_audits" does not exist',
+    )
+    assert passo.attempts_exhausted is True
+    # A causa continua lá: é ela que serve para diagnosticar.
+    assert passo.detail is not None and "content_audits" in passo.detail
+    assert passo.action == "RETRY_STEP"
+
+
+def test_each_blocking_state_offers_an_action() -> None:
+    for estado in (
+        StepStatus.AWAITING_INPUT,
+        StepStatus.BUDGET_BLOCKED,
+        StepStatus.FAILED,
+        StepStatus.BLOCKED,
+    ):
+        passo = StepView(key="x", label="X", description="", status=estado)
+        assert passo.action is not None, estado

@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { AgentCatalog, AgentRun, Page } from './types'
+import type { AgentCatalog, AgentPreflight, AgentRun, Page } from './types'
 
 export const agentsApi = {
   catalog: () => api.get<AgentCatalog>('/admin/agents/catalog'),
@@ -11,4 +11,10 @@ export const agentsApi = {
   execute: (publicId: string) => api.post<AgentRun>(`/admin/agents/${publicId}/run`),
   executeOne: (publicId: string, agentKey: string) =>
     api.post<AgentRun>(`/admin/agents/${publicId}/run/${agentKey}`),
+
+  /** O que falta antes de disparar os oito agentes. Não chama IA. */
+  preflight: (publicId: string) =>
+    api.get<AgentPreflight>(`/admin/agents/${publicId}/preflight`),
+
+  cancel: (publicId: string) => api.post<AgentRun>(`/admin/agents/${publicId}/cancel`),
 }

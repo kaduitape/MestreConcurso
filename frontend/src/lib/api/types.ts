@@ -2607,22 +2607,79 @@ export interface AIBudgetInput {
 /* --- Orquestrador de agentes -------------------------------------------- */
 
 export type AgentStepStatus =
-  'PENDING' | 'RUNNING' | 'DONE' | 'SKIPPED' | 'FAILED' | 'BUDGET_BLOCKED'
+  | 'PENDING'
+  | 'RUNNING'
+  | 'DONE'
+  /** Cumpriu o contrato, com ressalvas declaradas. */
+  | 'DONE_WITH_NOTES'
+  /** Rodou e não havia o que fazer. */
+  | 'SKIPPED'
+  /** Falta insumo ou configuração. Não consome tentativa. */
+  | 'AWAITING_INPUT'
+  /** Uma dependência não cumpriu o contrato dela. */
+  | 'BLOCKED'
+  /** Declarado no catálogo e sem implementação registrada. */
+  | 'NOT_IMPLEMENTED'
+  | 'FAILED'
+  | 'BUDGET_BLOCKED'
+  | 'CANCELED'
 
-export type AgentRunStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED' | 'CANCELED'
+export type AgentRunStatus =
+  'PENDING' | 'RUNNING' | 'DONE' | 'DONE_WITH_NOTES' | 'FAILED' | 'CANCELED'
+
+/** O que a tela deve oferecer para destravar o passo. */
+export type AgentStepAction =
+  'RESOLVE_INPUT' | 'RAISE_BUDGET' | 'RETRY_STEP' | 'RESOLVE_DEPENDENCY'
+
+export interface AgentAttempt {
+  number: number
+  status: AgentStepStatus
+  detail: string | null
+  error_code: string | null
+  request_id: string | null
+  duration_ms: number | null
+  cost_cents: string
+  provider: string | null
+  model_slug: string | null
+  started_at: string | null
+  finished_at: string | null
+}
 
 export interface AgentStep {
   key: string
   label: string
   description: string
   status: AgentStepStatus
+  /** O estado em português, para a tela não traduzir chave por chave. */
+  status_label: string
   depends_on: string[]
   attempts: number
   max_attempts: number
-  /** O que aconteceu, em português. Obrigatório quando o passo foi pulado. */
+  /** O que aconteceu, em português. Obrigatório quando o passo não concluiu. */
   detail: string | null
   /** Falso quando o agente está declarado mas ainda não existe. */
   is_implemented: boolean
+  /** Não cabe mais tentativa automática. A causa continua em `detail`. */
+  attempts_exhausted: boolean
+  action: AgentStepAction | null
+  /** O que ficou de fora apesar de o passo ter cumprido o contrato. */
+  notes: string[]
+  /** Uma linha por tentativa, com a causa de cada uma. */
+  attempts_history: AgentAttempt[]
+}
+
+export interface AgentPrecheck {
+  key: string
+  label: string
+  ok: boolean
+  detail: string | null
+  action: string | null
+  resource_id: string | null
+}
+
+export interface AgentPreflight {
+  ready: boolean
+  checks: AgentPrecheck[]
 }
 
 export interface AgentRun {

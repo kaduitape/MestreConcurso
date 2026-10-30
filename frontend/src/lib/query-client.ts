@@ -43,6 +43,7 @@ export const queryKeys = {
   adminSubjects: (params: unknown) => ['admin', 'catalog', 'subjects', params] as const,
   adminTopics: (subjectId: string) => ['admin', 'catalog', 'topics', subjectId] as const,
   adminNotices: (params: unknown) => ['admin', 'notices', params] as const,
+  agentPreflight: (publicId: string) => ['admin', 'agents', 'preflight', publicId] as const,
   adminIntakes: (params: unknown) => ['admin', 'intakes', params] as const,
   adminCompetitionSchedule: (publicId: string) =>
     ['admin', 'catalog', 'schedule', publicId] as const,
